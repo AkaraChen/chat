@@ -4,7 +4,7 @@ import { BackLink } from "../components/back-link";
 import { ProviderMark } from "../components/provider-mark";
 import { findProvider } from "../components/providers";
 
-export const Route = createFileRoute("/connect/$provider/browser")({
+export const Route = createFileRoute("/_member/connect/$provider/browser")({
   loader: ({ params }) => {
     if (!findProvider(params.provider)) throw redirect({ to: "/connect" });
     return { slug: params.provider };

@@ -7,7 +7,7 @@ const searchSchema = z.object({
   provider: z.string().catch("claude"),
 });
 
-export const Route = createFileRoute("/connected")({
+export const Route = createFileRoute("/_member/connected")({
   validateSearch: searchSchema,
   component: Connected,
 });

@@ -34,7 +34,7 @@ function SignUp() {
       );
       return;
     }
-    navigate({ to: "/" });
+    navigate({ to: "/connect" });
   }
 
   return (

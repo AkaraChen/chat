@@ -26,8 +26,8 @@ function SignIn() {
       setError("That account or password isn't right.");
       return;
     }
-    // A visitor sees the public pages. An admin or a user goes on to set up
-    // the providers.
+    // A member goes on to set up the providers. The gate sends a visitor back
+    // to the public pages.
     navigate({ to: "/connect" });
   }
 

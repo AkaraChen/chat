@@ -1,24 +1,23 @@
-import { getRequest } from "@tanstack/react-start/server";
+import { type Role, toRole } from "@my-better-t-app/db/auth";
 import { redirect } from "@tanstack/react-router";
+import { createServerFn } from "@tanstack/react-start";
+import { getRequest } from "@tanstack/react-start/server";
 
 import { auth } from "./auth";
 
-export type Role = "admin" | "user" | "visitor";
-
-// A loader runs on the server, so this is the one place a route may read the
-// session. The page component itself must not import it.
-export async function session(): Promise<{ role: Role } | null> {
+// `beforeLoad` and loaders also run in the browser, so the session is read
+// through a server function. The handler, and with it Better Auth and Prisma,
+// stays out of the client bundle.
+export const getSession = createServerFn().handler(async (): Promise<{ role: Role } | null> => {
   const result = await auth.api.getSession({ headers: getRequest().headers });
-  if (!result) return null;
-  const role = result.user.role;
-  return { role: role === "admin" || role === "user" ? role : "visitor" };
-}
+  return result ? { role: toRole(result.user.role) } : null;
+});
 
-// `member` is the app itself: an admin or a user. A visitor, and anyone not
-// signed in, goes to the public pages.
-export async function gate(access: "member") {
-  const current = await session();
+// A member is an admin or a user. A visitor, and anyone not signed in, goes to
+// the public pages.
+export async function requireMember() {
+  const current = await getSession();
   if (!current) throw redirect({ to: "/sign-in" });
-  if (access === "member" && current.role === "visitor") throw redirect({ to: "/" });
+  if (current.role === "visitor") throw redirect({ to: "/" });
   return current;
 }

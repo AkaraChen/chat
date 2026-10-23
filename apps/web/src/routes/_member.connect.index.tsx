@@ -2,10 +2,8 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 
 import { OpenRouterIcon } from "../components/provider-icon";
 import { providers } from "../components/providers";
-import { gate } from "../session";
 
-export const Route = createFileRoute("/connect")({
-  loader: () => gate("member"),
+export const Route = createFileRoute("/_member/connect/")({
   component: Connect,
 });
 

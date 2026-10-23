@@ -4,12 +4,9 @@ import { BackLink } from "../components/back-link";
 import { ProviderMark } from "../components/provider-mark";
 import { findProvider } from "../components/providers";
 
-export const Route = createFileRoute("/connect/$provider")({
-  loader: ({ params, location }) => {
-    const onKeyPage = location.pathname.endsWith("/key");
-    if (!findProvider(params.provider) && !(onKeyPage && params.provider === "custom")) {
-      throw redirect({ to: "/connect" });
-    }
+export const Route = createFileRoute("/_member/connect/$provider/")({
+  loader: ({ params }) => {
+    if (!findProvider(params.provider)) throw redirect({ to: "/connect" });
     return { slug: params.provider };
   },
   component: AuthMethod,

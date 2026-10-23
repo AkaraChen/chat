@@ -9,7 +9,7 @@ import { BackLink } from "../components/back-link";
 import { ProviderMark } from "../components/provider-mark";
 import { findProvider, type ProviderInfo } from "../components/providers";
 
-export const Route = createFileRoute("/connect/$provider/key")({
+export const Route = createFileRoute("/_member/connect/$provider/key")({
   loader: ({ params }) => {
     if (params.provider !== "custom" && !findProvider(params.provider)) {
       throw redirect({ to: "/connect" });

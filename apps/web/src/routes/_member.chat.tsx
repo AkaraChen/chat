@@ -5,7 +5,7 @@ import { orpc } from "@/utils/orpc";
 
 import { findProvider } from "../components/providers";
 
-export const Route = createFileRoute("/chat")({
+export const Route = createFileRoute("/_member/chat")({
   component: Chat,
 });
 

@@ -3,7 +3,7 @@ import { ORPCError } from "@orpc/server";
 import { z } from "zod";
 
 import { providerSlugs, type Credential } from "../credentials/store";
-import { publicProcedure } from "../index";
+import { memberProcedure, publicProcedure } from "../index";
 
 const providerSchema = z.enum(providerSlugs);
 
@@ -33,20 +33,20 @@ export const appRouter = {
   }),
 
   connections: {
-    list: publicProcedure.output(z.array(summarySchema)).handler(async ({ context }) => {
+    list: memberProcedure.output(z.array(summarySchema)).handler(async ({ context }) => {
       return context.credentials.list();
     }),
 
     // Browser sign-in is not here. It needs the provider's OAuth flow, which
     // is a separate piece of work. An API key is the whole connection.
-    saveApiKey: publicProcedure
+    saveApiKey: memberProcedure
       .input(z.object({ type: providerSchema, apiKey: z.string().trim().min(1) }))
       .output(summarySchema)
       .handler(async ({ context, input }) => {
         return context.credentials.save(blank(input.type, input.apiKey));
       }),
 
-    delete: publicProcedure
+    delete: memberProcedure
       .input(z.object({ id: z.string().trim().min(1) }))
       .handler(async ({ context, input }) => {
         const known = await context.credentials.list();
