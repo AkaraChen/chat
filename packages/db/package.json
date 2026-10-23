@@ -1,0 +1,29 @@
+{
+  "name": "@my-better-t-app/db",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "check-types": "tsc -b",
+    "db:push": "prisma db push",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:migrate:deploy": "prisma migrate deploy",
+    "db:studio": "prisma studio"
+  },
+  "dependencies": {
+    "@prisma/adapter-libsql": "^7.10.0",
+    "@prisma/client": "catalog:",
+    "better-auth": "1.6.23",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@my-better-t-app/config": "workspace:*",
+    "prisma": "^7.10.0",
+    "typescript": "^6.0.3",
+    "varlock": "catalog:"
+  }
+}

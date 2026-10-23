@@ -1,14 +1,3 @@
 {
-  "compilerOptions": {
-    "target": "ES2023",
-    "module": "preserve",
-    "moduleResolution": "bundler",
-    "strict": true,
-    "noEmit": true,
-    "skipLibCheck": true,
-    "paths": {
-      "perry/*": ["./.perry/types/perry/*/index.d.ts"]
-    }
-  },
-  "include": ["src", ".perry/types/stdlib/index.d.ts"]
+  "extends": "@my-better-t-app/config/tsconfig.base.json"
 }
