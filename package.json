@@ -1,0 +1,21 @@
+{
+  "name": "chat",
+  "version": "0.1.0",
+  "private": true,
+  "main": "src/main.ts",
+  "scripts": {
+    "dev": "perry dev ./src/main.ts",
+    "lint": "biome lint",
+    "lint:fix": "biome lint --write",
+    "format": "biome format --write",
+    "format:check": "biome format",
+    "check": "biome check",
+    "check:fix": "biome check --write"
+  },
+  "perry": {
+    "compilePackages": []
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.6.2"
+  }
+}
