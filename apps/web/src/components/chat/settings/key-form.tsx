@@ -66,6 +66,9 @@ export function KeyForm({
           {help.text}
         </a>
       ) : null}
+      <p className="text-[13px] text-[#6E6E73]">
+        The key is stored on the server. Your browser keeps no copy.
+      </p>
     </form>
   );
 }
