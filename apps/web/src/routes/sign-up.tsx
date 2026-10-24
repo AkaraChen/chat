@@ -34,7 +34,7 @@ function SignUp() {
       );
       return;
     }
-    navigate({ to: "/connect" });
+    navigate({ to: "/chat" });
   }
 
   return (

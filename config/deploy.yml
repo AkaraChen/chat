@@ -1,0 +1,117 @@
+# Kamal deploy for the whole app. See docs/deploy.md.
+#
+# One image runs the web server, the Go model proxy and the thread-title worker
+# (deploy/start.sh). Redis is an accessory. App data, SQLite and the credential
+# files all live in one host directory mounted at /data.
+#
+# The target comes from the environment, so the same file deploys anywhere:
+#   KAMAL_HOST     server to deploy to (IP or hostname reachable over SSH)
+#   KAMAL_DOMAIN   public hostname; when set, kamal-proxy gets a TLS cert for it
+#   KAMAL_SSH_USER defaults to root
+#
+# Optional, for a server that already uses ports 80/443 or should not listen
+# publicly:
+#   KAMAL_HTTP_PORT  port kamal-proxy listens on (default 80)
+#   KAMAL_BIND_IP    address kamal-proxy binds to (default all)
+#   KAMAL_BUILD_CONTEXT=.  build the working tree instead of the last commit
+#   KAMAL_REGISTRY=127.0.0.1:5555  when deploying to the machine you deploy
+#                    from; see docs/deploy.md
+
+<% host = ENV.fetch("KAMAL_HOST") { raise "Set KAMAL_HOST to the server to deploy to" } %>
+<% domain = ENV["KAMAL_DOMAIN"].to_s.strip %>
+<% http_port = ENV["KAMAL_HTTP_PORT"].to_s.strip %>
+<% bind_ip = ENV["KAMAL_BIND_IP"].to_s.strip %>
+<% public_host = bind_ip.empty? ? host : bind_ip %>
+<% public_url = domain.empty? ? "http://#{public_host}#{":#{http_port}" unless http_port.empty? || http_port == "80"}" : "https://#{domain}" %>
+
+service: chat
+image: chat
+
+servers:
+  web:
+    - <%= host %>
+
+proxy:
+  app_port: 3001
+<% if domain.empty? %>
+  ssl: false
+<% unless bind_ip.empty? %>
+  # A named host keeps this app apart from other apps on a shared kamal-proxy.
+  host: <%= bind_ip %>
+<% end %>
+<% else %>
+  host: <%= domain %>
+  ssl: true
+<% end %>
+  healthcheck:
+    path: /
+    interval: 3
+    timeout: 5
+<% unless http_port.empty? && bind_ip.empty? %>
+  run:
+<% unless http_port.empty? %>
+    http_port: <%= http_port %>
+<% end %>
+<% unless bind_ip.empty? %>
+    bind_ips:
+      - <%= bind_ip %>
+<% end %>
+<% end %>
+
+# Kamal runs a registry on this machine and pushes to the server over SSH, so
+# no Docker Hub account is needed. That SSH tunnel cannot work when the server
+# is this same machine (the port is already taken by the registry), so then the
+# server pulls from the registry directly. It has no auth; the login is a no-op.
+<% registry = ENV["KAMAL_REGISTRY"].to_s.strip %>
+registry:
+<% if registry.empty? %>
+  server: localhost:5555
+<% else %>
+  server: <%= registry %>
+  username: unused
+  password: unused
+<% end %>
+
+builder:
+  arch: <%= ENV.fetch("KAMAL_ARCH", "amd64") %>
+<% unless registry.empty? %>
+  # Build in the local Docker daemon, which can reach the registry on 127.0.0.1.
+  driver: docker
+<% end %>
+<% unless ENV["KAMAL_BUILD_CONTEXT"].to_s.empty? %>
+  context: <%= ENV["KAMAL_BUILD_CONTEXT"] %>
+<% end %>
+
+ssh:
+  user: <%= ENV.fetch("KAMAL_SSH_USER", "root") %>
+
+volumes:
+  - /var/lib/chat:/data
+
+env:
+  clear:
+    DATABASE_URL: file:/data/local.db
+    CREDENTIALS_DIR: /data/credentials
+    GITHUB_TOKEN_FILE: /data/github.json
+    MODELS_DEV_CACHE_FILE: /data/models-dev.json
+    PROXY_DATA_DIR: /data/proxy
+    PROXY_URL: http://127.0.0.1:8317
+    REDIS_URL: redis://chat-redis:6379
+    BETTER_AUTH_URL: <%= public_url %>
+  secret:
+    - BETTER_AUTH_SECRET
+    - PROXY_API_KEY
+    - GITHUB_CLIENT_ID
+    - GITHUB_CLIENT_SECRET
+
+accessories:
+  redis:
+    image: redis:8-alpine
+    host: <%= host %>
+    cmd: redis-server --appendonly yes
+    directories:
+      - data:/data
+
+# Two containers overlap during a deploy and both open the SQLite file. That is
+# fine for SQLite, but keep the overlap short.
+drain_timeout: 10

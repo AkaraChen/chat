@@ -65,17 +65,60 @@ the token fields empty. Browser sign-in fills the token fields and leaves
 (provider name, method, account label, connected or not) is derived from
 these files. No second copy in SQLite.
 
+Two types carry extra fields.
+
+- `openrouter` adds `models`.
+- `custom` adds `models`, `base_url` and `provider`, the
+  [models.dev](https://models.dev) provider id.
+
+Each entry in `models` has three fields: `name` is the model id sent upstream,
+`alias` is the name callers use (it defaults to `name`), and `display_name` is
+what the picker shows.
+
+```json
+{
+  "type": "custom",
+  "method": "api_key",
+  "provider": "deepseek",
+  "email": "",
+  "account_id": "",
+  "api_key": "sk-...",
+  "base_url": "https://api.deepseek.com",
+  "models": [
+    { "name": "deepseek-flash", "alias": "deepseek-flash", "display_name": "DeepSeek Flash" }
+  ],
+  "access_token": "",
+  "refresh_token": "",
+  "expires_at": ""
+}
+```
+
+`claude`, `openai` and `gemini` files have the base fields only. A `custom`
+file's `<identity>` is derived from `base_url` as well as the key, so the same
+key against two endpoints is two files.
+
 ## Access
 
-One module owns the directory and exposes `list`, `save`, and `delete`.
-Callers never read or write the files themselves. `save` creates the
+One module owns the directory and exposes `list`, `save`, `delete`, `get` and
+`setModels`. Callers never read or write the files themselves. `list` returns
+summaries with no secrets. `get` returns the whole file and is for server code
+only; `setModels` rewrites the same file with a new `models` list. `save` creates the
 directory at mode `0700`, writes the file, and replaces the whole file on
 update, including after a token refresh.
 
-The web server is the only process that touches the directory. The phone app
+The web server is the only process that writes the directory. The phone app
 sends a credential once, over the oRPC API, and keeps nothing. When the
 server calls a model it reads the file, decrypts nothing, and attaches the
 credential itself. The client only ever learns that a provider is connected.
+
+## The proxy
+
+The Go proxy (`apps/proxy`) only reads this directory. It never writes a
+credential. At start, and whenever `auths/` changes, it renders its own
+configuration from these files into `.data/proxy/config.yaml` and reloads. That
+file is generated output; edit the credential files, not the config. The
+connection id (the file name without `.json`) is the prefix the proxy gives
+each connection's models, so a model is addressed as `<connectionId>/<model>`.
 
 ## Explicitly not doing
 

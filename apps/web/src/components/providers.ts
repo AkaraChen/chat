@@ -9,21 +9,17 @@ type MarkIcon = ComponentType<SVGProps<SVGSVGElement> & { size?: number | string
 export type ProviderInfo = {
   slug: ProviderSlug;
   name: string;
-  plan: string;
-  browser: string;
   consoleUrl: string;
   keyHint: string;
   Icon: MarkIcon;
 };
 
-// The providers the design shows, in that order. `custom` has no brand mark
-// and no browser sign-in, so it is handled on its own where it appears.
+// The providers with a fixed brand mark, in the order the design shows them.
+// `custom` takes its mark from models.dev, so it is handled on its own.
 export const providers: readonly ProviderInfo[] = [
   {
     slug: "claude",
     name: "Anthropic",
-    plan: "Claude Pro / Max",
-    browser: "Use your Claude Pro or Max plan",
     consoleUrl: "https://console.anthropic.com/settings/keys",
     keyHint: "sk-ant-",
     Icon: ClaudeIcon,
@@ -31,8 +27,6 @@ export const providers: readonly ProviderInfo[] = [
   {
     slug: "openai",
     name: "OpenAI",
-    plan: "ChatGPT Plus / Team",
-    browser: "Use your ChatGPT Plus or Team plan",
     consoleUrl: "https://platform.openai.com/api-keys",
     keyHint: "sk-",
     Icon: OpenAIIcon,
@@ -40,8 +34,6 @@ export const providers: readonly ProviderInfo[] = [
   {
     slug: "gemini",
     name: "Google",
-    plan: "Gemini",
-    browser: "Use your Google account",
     consoleUrl: "https://aistudio.google.com/apikey",
     keyHint: "",
     Icon: GeminiIcon,
@@ -49,8 +41,6 @@ export const providers: readonly ProviderInfo[] = [
   {
     slug: "openrouter",
     name: "OpenRouter",
-    plan: "API key",
-    browser: "Use your OpenRouter account",
     consoleUrl: "https://openrouter.ai/keys",
     keyHint: "sk-or-",
     Icon: OpenRouterIcon,

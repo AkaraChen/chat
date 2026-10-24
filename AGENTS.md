@@ -22,17 +22,17 @@ packages/config Shared TypeScript config
 
 Run from the repo root.
 
-| Command               | What it does                                  |
-| --------------------- | --------------------------------------------- |
-| `bun run dev`         | Start every app                               |
-| `bun run dev:web`     | Web only, http://localhost:3001               |
-| `bun run dev:native`  | Expo dev server                               |
-| `bun run check`       | Vite+ lint/format plus TypeScript             |
-| `bun run lint`        | Lint only                                     |
-| `bun run format`      | Format only                                   |
-| `bun run db:generate` | Generate the Prisma client                    |
-| `bun run db:push`     | Apply the schema (creates `.data/local.db`)   |
-| `bun run db:studio`   | Prisma Studio                                 |
+| Command               | What it does                                |
+| --------------------- | ------------------------------------------- |
+| `bun run dev`         | Start every app                             |
+| `bun run dev:web`     | Web only, http://localhost:3001             |
+| `bun run dev:native`  | Expo dev server                             |
+| `bun run check`       | Vite+ lint/format plus TypeScript           |
+| `bun run lint`        | Lint only                                   |
+| `bun run format`      | Format only                                 |
+| `bun run db:generate` | Generate the Prisma client                  |
+| `bun run db:push`     | Apply the schema (creates `.data/local.db`) |
+| `bun run db:studio`   | Prisma Studio                               |
 
 Generate the Prisma client before typechecking or building, and again after
 any schema change. From `apps/native`, the `ios` and `android` scripts build

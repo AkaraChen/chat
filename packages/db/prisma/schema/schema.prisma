@@ -29,6 +29,8 @@ model User {
   banExpires      DateTime?
   sessions        Session[]
   accounts        Account[]
+  modelChoice     ModelChoice?
+  threads         Thread[]
 
   @@unique([email])
   @@unique([username])
@@ -81,4 +83,50 @@ model Verification {
 
   @@index([identifier])
   @@map("verification")
+}
+
+// The model a user last picked. `connectionId` is a credential file name
+// without `.json`; the file is the record of the connection, not this table.
+model ModelChoice {
+  id           String @id @default(cuid())
+  userId       String
+  user         User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  connectionId String
+  modelId      String
+
+  @@unique([userId])
+  @@map("model_choice")
+}
+
+// `titledAt` is null while the title is still the truncated first message.
+model Thread {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  titledAt  DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  messages  Message[]
+
+  @@index([userId, updatedAt])
+  @@map("thread")
+}
+
+// `spec` and `steps` hold JSON strings. `connectionId` and `modelId` record
+// the model that wrote an assistant message.
+model Message {
+  id           String   @id @default(cuid())
+  threadId     String
+  thread       Thread   @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  role         String
+  text         String
+  spec         String?
+  steps        String?
+  connectionId String?
+  modelId      String?
+  createdAt    DateTime @default(now())
+
+  @@index([threadId, createdAt])
+  @@map("message")
 }

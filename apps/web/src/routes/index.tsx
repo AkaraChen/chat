@@ -42,7 +42,7 @@ function Welcome() {
         </ul>
         <button
           type="button"
-          onClick={() => authClient.signIn.social({ provider: "github", callbackURL: "/connect" })}
+          onClick={() => authClient.signIn.social({ provider: "github", callbackURL: "/chat" })}
           className="mt-9 flex h-11 items-center justify-center gap-2.5 rounded-[7px] bg-[#1C1C1E] px-5 text-sm font-medium text-white"
         >
           <GitHubMark size={16} />
