@@ -47,8 +47,11 @@ export function Sidebar({
     >
       <div className={`flex items-center ${collapsed ? "justify-center" : "justify-between px-1"}`}>
         {collapsed ? null : (
-          <span className="text-[17px] font-semibold tracking-[-0.01em] text-[#1C1C1E]">
-            The Chat
+          <span
+            aria-label="The Chat"
+            className="flex items-baseline gap-1 font-['Inter_Variable'] text-[18px] leading-[22px] tracking-[-0.045em] [font-synthesis:none]"
+          >
+            <span className="font-semibold text-[#1C1C1E]">The</span><span className="font-normal text-[#6E6E73]">Chat</span>
           </span>
         )}
         <button
