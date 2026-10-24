@@ -16,12 +16,12 @@ export function toRole(value: string | null | undefined): Role {
 export type AuthConfig = {
   db: Database;
   secret: string;
-  github?: { clientId: string; clientSecret: string };
+  github: { clientId: string; clientSecret: string };
 };
 
 // The account the design calls "account" is a username plus a password, set up
-// on the web and reused by the phone. GitHub is the other way in, once it has
-// credentials. Both live in the same database as everything else.
+// on the web and reused by the phone. GitHub is the other way in. Both live in
+// the same database as everything else.
 export function createAuth({ db, secret, github }: AuthConfig) {
   return betterAuth({
     database: prismaAdapter(db, { provider: "sqlite" }),
@@ -39,7 +39,10 @@ export function createAuth({ db, secret, github }: AuthConfig) {
         },
       },
     },
-    socialProviders: github ? { github } : {},
+    socialProviders: { github },
+    // GitHub only hands over verified emails, so signing in with GitHub under
+    // an email that already has an account opens that account.
+    account: { accountLinking: { enabled: true, trustedProviders: ["github"] } },
     plugins: [
       username(),
       admin({ defaultRole: "visitor", adminRoles: ["admin"] }),
@@ -55,4 +58,5 @@ export type Auth = ReturnType<typeof createAuth>;
 export const auth = createAuth({
   db: createPrismaClient({ DATABASE_URL: process.env.DATABASE_URL ?? "file:./dev.db" }),
   secret: process.env.BETTER_AUTH_SECRET ?? "schema-generation-only",
+  github: { clientId: "schema-generation-only", clientSecret: "schema-generation-only" },
 });

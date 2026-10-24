@@ -10,6 +10,9 @@
     "env:generate": "varlock codegen"
   },
   "dependencies": {
+    "@ai-sdk/react": "^4.0.156",
+    "@json-render/core": "^0.21.3",
+    "@json-render/react": "^0.21.3",
     "@my-better-t-app/api": "workspace:*",
     "@my-better-t-app/db": "workspace:*",
     "@my-better-t-app/ui": "workspace:*",
@@ -26,6 +29,7 @@
     "@tanstack/react-router-ssr-query": "^1.167.3",
     "@tanstack/react-start": "^1.169.1",
     "@varlock/vite-integration": "1.5.1",
+    "ai": "7.0.152",
     "better-auth": "1.6.23",
     "libsql": "0.5.29",
     "lucide-react": "^1.56.0",

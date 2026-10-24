@@ -15,6 +15,8 @@ export function createQueryClient() {
   return new QueryClient({
     queryCache: new QueryCache({
       onError: (error, query) => {
+        // Queries that show their own failure inline opt out of the toast.
+        if (query.meta?.quiet) return;
         toast.error(`Error: ${error.message}`, {
           action: {
             label: "retry",

@@ -16,7 +16,10 @@ export default defineConfig({
     varlockVitePlugin({ ssrInjectMode: "auto-load" }),
     tailwindcss(),
     tanstackStart(),
-    nitro({ preset: "node-server" }),
+    // Base UI reaches React through use-sync-external-store, a CommonJS
+    // package whose require("react") stays a runtime require. Tracing React
+    // keeps it external everywhere, so the server has one React instance.
+    nitro({ preset: "node-server", traceDeps: ["react", "react-dom"] }),
     viteReact(),
   ],
 });

@@ -41,6 +41,8 @@ export default defineConfig({
       "packages/api/dist/**",
       "packages/db/local.db*",
       "packages/db/prisma/generated/**",
+      // ERB, which Kamal renders before reading it as YAML.
+      "config/deploy.yml",
     ],
     singleQuote: false,
     semi: true,

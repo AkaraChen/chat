@@ -28,7 +28,7 @@ function SignIn() {
     }
     // A member goes on to set up the providers. The gate sends a visitor back
     // to the public pages.
-    navigate({ to: "/connect" });
+    navigate({ to: "/chat" });
   }
 
   return (
@@ -45,7 +45,7 @@ function SignIn() {
 
         <button
           type="button"
-          onClick={() => authClient.signIn.social({ provider: "github", callbackURL: "/connect" })}
+          onClick={() => authClient.signIn.social({ provider: "github", callbackURL: "/chat" })}
           className="flex h-11 items-center justify-center gap-2.5 rounded-[7px] bg-[#1C1C1E] text-sm font-medium text-white"
         >
           <GitHubMark />

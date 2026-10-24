@@ -1,0 +1,8 @@
+{
+  "name": "proxy",
+  "private": true,
+  "scripts": {
+    "dev": "go run .",
+    "check-types": "go vet ./... && go test ./..."
+  }
+}

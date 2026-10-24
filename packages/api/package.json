@@ -10,11 +10,16 @@
     "check-types": "tsc -b"
   },
   "dependencies": {
+    "@ai-sdk/openai": "^4.0.101",
+    "@json-render/core": "^0.21.3",
     "@my-better-t-app/db": "workspace:*",
     "@orpc/client": "catalog:",
     "@orpc/openapi": "catalog:",
     "@orpc/server": "catalog:",
     "@orpc/zod": "catalog:",
+    "ai": "^7.0.152",
+    "bullmq": "^6.4.1",
+    "ioredis": "^6.0.0",
     "zod": "catalog:"
   },
   "devDependencies": {
