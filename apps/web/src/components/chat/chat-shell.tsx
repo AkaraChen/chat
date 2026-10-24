@@ -72,7 +72,7 @@ export function ChatShell({
     navigate({ to: "/chat", search: (prev) => ({ ...prev, settings: tab }) });
 
   return (
-    <div className="flex h-svh bg-[#E8E8EC] p-2">
+    <div className="flex h-svh bg-[#F7F7F9] p-2">
       <Sidebar
         threads={shown}
         activeId={thread}
@@ -80,7 +80,7 @@ export function ChatShell({
         role={role}
         onSettings={() => openSettings("general")}
       />
-      <main className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-[20px] bg-white">
+      <main className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-[20px] border border-[#E3E3E7] bg-white">
         <header className="flex h-14 shrink-0 items-center justify-between px-4">
           <ModelPicker onConnect={() => openSettings("providers")} />
           <div className="flex items-center gap-2">

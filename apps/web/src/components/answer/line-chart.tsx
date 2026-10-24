@@ -23,10 +23,10 @@ export function LineChart({ title, unit, series }: Props) {
   const innerH = H - PAD.top - PAD.bottom;
   const x = (i: number, n: number) => PAD.left + (n <= 1 ? 0 : (i / (n - 1)) * innerW);
   const y = (v: number) => PAD.top + (1 - (v - lo) / (hi - lo)) * innerH;
-  const colors = ["#1a73e8", "currentColor"];
+  const colors = ["#1A73E8", "#B4B4BA"];
 
   return (
-    <figure data-answer-card className="flex flex-col gap-3 rounded-2xl border border-[#DCDCE0] px-4 py-4">
+    <figure data-answer-card className="flex flex-col gap-3 rounded-[12px] border border-[#E3E3E7] px-4 py-4">
       <figcaption className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
         <span className="text-sm font-medium">{title}</span>
         <span className="text-muted-foreground text-xs">{unit}</span>
@@ -35,9 +35,7 @@ export function LineChart({ title, unit, series }: Props) {
             <span key={s.name} className="flex items-center gap-1.5">
               <span
                 className={
-                  i === 0
-                    ? "size-2 rounded-full bg-[#1a73e8]"
-                    : "bg-muted-foreground size-2 rounded-full"
+                  i === 0 ? "size-2 rounded-full bg-[#1A73E8]" : "size-2 rounded-full bg-[#B4B4BA]"
                 }
               />
               {s.name}

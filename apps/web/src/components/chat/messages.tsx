@@ -8,18 +8,16 @@ import type { Turn } from "./turns";
 
 function UserBubble({ turn }: { turn: Extract<Turn, { role: "user" }> }) {
   return (
-    <div className="flex flex-col items-end gap-1.5 self-end">
+    <div className="flex max-w-[560px] flex-col items-start gap-2 self-end rounded-[14px] bg-[#F7F7F9] px-3.5 py-2.5">
+      <p className="text-[15px] leading-6 whitespace-pre-wrap text-[#1C1C1E]">{turn.text}</p>
       {turn.attachment ? (
-        <span className="flex items-center gap-1.5 rounded-full bg-[#F7F7F9] px-2.5 py-1 text-xs text-[#6E6E73]">
-          <PaperclipIcon size={12} />
+        <span className="flex items-center gap-2 rounded-lg bg-white px-2.5 py-1 text-[13px] text-[#1C1C1E]">
+          <PaperclipIcon size={14} className="text-[#6E6E73]" />
           {turn.attachment}
         </span>
       ) : null}
-      <p className="max-w-[560px] rounded-[20px] bg-[#F7F7F9] px-4 py-2.5 text-[15px] leading-6 whitespace-pre-wrap text-[#1C1C1E]">
-        {turn.text}
-      </p>
       {turn.source && (
-        <span className="flex items-center gap-1.5 rounded-full bg-[#F7F7F9] py-1 pr-2.5 pl-2 text-xs text-[#6E6E73]">
+        <span className="flex items-center gap-1.5 rounded-lg bg-white py-1 pr-2.5 pl-2 text-[13px] text-[#1C1C1E]">
           <span className="flex size-4 items-center justify-center rounded-full bg-[#1C1C1E]">
             <GitHubMark size={10} />
           </span>

@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 
 function Card({ title, children }: { title?: string; children: ReactNode }) {
   return (
-    <section data-answer-card className="rounded-2xl border border-[#DCDCE0] px-4 py-4">
+    <section data-answer-card className="rounded-[12px] border border-[#E3E3E7] px-4 py-4">
       {title ? <h3 className="mb-3 text-[13px] text-[#6E6E73]">{title}</h3> : null}
       {children}
     </section>
@@ -30,7 +30,7 @@ export function StatStrip({ cells }: ComponentProps["StatStrip"]) {
   return (
     <dl
       data-answer-card
-      className="grid grid-cols-2 gap-x-6 gap-y-5 rounded-2xl border border-[#DCDCE0] px-4 py-4 sm:grid-cols-4"
+      className="grid grid-cols-2 gap-x-6 gap-y-5 rounded-[12px] border border-[#E3E3E7] px-4 py-4 sm:grid-cols-4"
     >
       {cells.map((cell) => (
         <div key={cell.label} className="flex flex-col gap-1">
@@ -45,7 +45,7 @@ export function StatStrip({ cells }: ComponentProps["StatStrip"]) {
 
 export function Table({ columns, rows }: ComponentProps["Table"]) {
   return (
-    <div data-answer-card className="overflow-x-auto rounded-2xl border border-[#DCDCE0] px-4 py-3">
+    <div data-answer-card className="overflow-x-auto rounded-[12px] border border-[#E3E3E7] px-4 py-3">
       <table className="w-full text-left text-sm tabular-nums">
         <thead>
           <tr className="text-muted-foreground">
@@ -83,14 +83,14 @@ export function Changes({ files }: ComponentProps["Changes"]) {
           <li key={f.path} className="flex items-center gap-4">
             <span className="min-w-0 flex-1 truncate font-mono text-sm">{f.path}</span>
             <span className="flex gap-2 font-mono text-xs tabular-nums">
-              <span className="text-emerald-600 dark:text-emerald-400">+{f.additions}</span>
-              <span className="text-red-600 dark:text-red-400">-{f.deletions}</span>
+              <span className="text-[#1B7F4E]">+{f.additions}</span>
+              <span className="text-[#A33B3B]">-{f.deletions}</span>
             </span>
             <span
               aria-hidden="true"
-              className="flex h-1.5 w-16 shrink-0 overflow-hidden rounded-full bg-red-500/70"
+              className="flex h-1.5 w-16 shrink-0 overflow-hidden rounded-full bg-[#A33B3B]/30"
             >
-              <span className="h-full bg-emerald-500" style={{ width: `${added}%` }} />
+              <span className="h-full bg-[#1B7F4E]" style={{ width: `${added}%` }} />
             </span>
           </li>
         );
@@ -121,7 +121,7 @@ export function Diff({ file, startLine, note, patch }: ComponentProps["Diff"]) {
               key={i}
               className={
                 "flex px-3 " +
-                (r.mark === "+" ? "bg-emerald-500/15" : r.mark === "-" ? "bg-red-500/15" : "")
+                (r.mark === "+" ? "text-[#1B7F4E]" : r.mark === "-" ? "text-[#A33B3B]" : "")
               }
             >
               <span className="text-muted-foreground w-8 shrink-0 pr-3 text-right select-none tabular-nums">

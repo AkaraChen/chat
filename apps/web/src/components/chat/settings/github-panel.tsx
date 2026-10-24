@@ -19,7 +19,7 @@ export function GithubPanel({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center gap-3 rounded-2xl border border-[#DCDCE0] px-4 py-3">
+      <div className="flex items-center gap-3 rounded-[12px] border border-[#E3E3E7] px-4 py-3">
         <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[#1C1C1E]">
           <GitHubMark size={16} />
         </span>
@@ -54,7 +54,7 @@ export function GithubPanel({
         <div
           role="dialog"
           aria-labelledby="github-token-title"
-          className="rounded-2xl border border-[#DCDCE0] bg-white p-5 shadow-xl"
+          className="rounded-2xl border border-[#E3E3E7] bg-white p-5 shadow-xl"
         >
           <h3 id="github-token-title" className="text-[17px] font-semibold text-[#1C1C1E]">
             Set a token
@@ -71,14 +71,14 @@ export function GithubPanel({
               placeholder="github_pat_…"
               autoComplete="off"
               spellCheck={false}
-              className="h-11 rounded-xl border border-[#DCDCE0] bg-[#F7F7F9] px-3 text-sm text-[#1C1C1E] outline-none"
+              className="h-11 rounded-[12px] border border-[#E3E3E7] bg-white px-3 text-sm text-[#1C1C1E] outline-none"
             />
           </label>
           <div className="mt-4 flex justify-end gap-2">
             <button
               type="button"
               onClick={() => setEditing(false)}
-              className="h-9 rounded-lg border border-[#DCDCE0] px-3 text-sm text-[#1C1C1E]"
+              className="h-9 rounded-lg border border-[#E3E3E7] px-3 text-sm text-[#1C1C1E]"
             >
               Cancel
             </button>

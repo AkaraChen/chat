@@ -156,7 +156,7 @@ export function ProvidersPanel({
       {fixed.length + custom.length > 0 ? (
         <section className="flex flex-col gap-2">
           <h3 className="text-[13px] text-[#6E6E73]">On this device</h3>
-          <div className="overflow-hidden rounded-2xl border border-[#DCDCE0]">
+          <div className="overflow-hidden rounded-[12px] border border-[#E3E3E7]">
             {fixed.map((connection) => (
               <ConnectedRow
                 key={connection.id}
@@ -183,7 +183,7 @@ export function ProvidersPanel({
       ) : null}
       <section className="flex flex-col gap-2">
         <h3 className="text-[13px] text-[#6E6E73]">Available</h3>
-        <div className="overflow-hidden rounded-2xl border border-[#DCDCE0]">
+        <div className="overflow-hidden rounded-[12px] border border-[#E3E3E7]">
           {available.map((provider) => (
             <AvailableRow
               key={provider.slug}
@@ -214,7 +214,7 @@ export function ProvidersPanel({
       {notice ? (
         <p
           role="status"
-          className="mx-auto flex items-center gap-2 rounded-full border border-[#DCDCE0] bg-white px-3 py-1.5 text-sm text-[#1C1C1E] shadow-sm"
+          className="mx-auto flex items-center gap-2 rounded-full border border-[#E3E3E7] bg-white px-3 py-1.5 text-sm text-[#1C1C1E] shadow-sm"
         >
           <CheckIcon size={14} weight="bold" className="text-[#1A73E8]" />
           {notice}
@@ -241,7 +241,7 @@ function ConnectedRow({
 }) {
   const label = title ?? nameOf(connection);
   return (
-    <div className="flex min-h-14 items-center gap-3 border-b border-[#DCDCE0] px-4 last:border-b-0">
+    <div className="flex min-h-14 items-center gap-3 border-b border-[#E3E3E7] px-4 last:border-b-0">
       <ConnectionMark type={connection.type} label={connection.label} size={22} />
       {onOpen ? (
         <button type="button" onClick={onOpen} className="min-w-0 flex-1 text-left">
@@ -274,7 +274,7 @@ function AvailableRow({
   onConnect: () => void;
 }) {
   return (
-    <div className="flex min-h-14 items-center gap-3 border-b border-[#DCDCE0] px-4 last:border-b-0">
+    <div className="flex min-h-14 items-center gap-3 border-b border-[#E3E3E7] px-4 last:border-b-0">
       <span className="flex size-6 items-center justify-center">{mark}</span>
       <span className="min-w-0 flex-1">
         <span className="block truncate text-[15px] font-medium text-[#1C1C1E]">{title}</span>
@@ -321,12 +321,12 @@ function ConnectChoice({
         <button
           type="button"
           onClick={onBrowser}
-          className="rounded-2xl border border-[#DCDCE0] px-4 py-3 text-left"
+          className="rounded-[12px] border border-[#E3E3E7] px-4 py-3 text-left"
         >
           <span className="block text-[15px] font-medium text-[#1C1C1E]">Sign in with your browser</span>
           <span className="block text-[13px] text-[#6E6E73]">Finish the sign-in in a browser window.</span>
         </button>
-        <button type="button" onClick={onKey} className="rounded-2xl border border-[#DCDCE0] px-4 py-3 text-left">
+        <button type="button" onClick={onKey} className="rounded-[12px] border border-[#E3E3E7] px-4 py-3 text-left">
           <span className="block text-[15px] font-medium text-[#1C1C1E]">Use an API key</span>
           <span className="block text-[13px] text-[#6E6E73]">Connect through {target.title} Console</span>
         </button>
@@ -400,7 +400,7 @@ function KeyStep({
           autoComplete="off"
           spellCheck={false}
           aria-label="API key"
-          className="h-11 rounded-xl border border-[#DCDCE0] bg-[#F7F7F9] px-3 text-sm outline-none"
+          className="h-11 rounded-[12px] border border-[#E3E3E7] bg-white px-3 text-sm outline-none"
         />
       </label>
       {target.consoleUrl ? (
@@ -449,7 +449,7 @@ function CustomPick({
         onChange={(event) => setFilter(event.target.value)}
         placeholder="Search providers on models.dev"
         aria-label="Search providers"
-        className="mt-4 h-11 w-full rounded-xl bg-[#F7F7F9] px-3 text-sm outline-none"
+        className="mt-4 h-11 w-full rounded-[12px] border border-[#E3E3E7] bg-white px-3 text-sm outline-none"
       />
       <ul className="mt-2 max-h-64 overflow-y-auto">
         {shown.map((entry) => (
@@ -523,11 +523,11 @@ function ModelsStep({
         The picker shows the alias. Requests use the name. The base URL stays {base}.
       </p>
       <h4 className="mt-5 text-[13px] text-[#6E6E73]">On this device</h4>
-      <ul className="mt-2 overflow-hidden rounded-2xl border border-[#DCDCE0]">
+      <ul className="mt-2 overflow-hidden rounded-[12px] border border-[#E3E3E7]">
         {shown.map((model) => (
           <li
             key={model.id}
-            className="flex items-center gap-3 border-b border-[#DCDCE0] px-4 py-3 last:border-b-0"
+            className="flex items-center gap-3 border-b border-[#E3E3E7] px-4 py-3 last:border-b-0"
           >
             <span className="min-w-0 flex-1">
               <span className="block truncate text-[15px] font-medium text-[#1C1C1E]">{model.name}</span>
@@ -559,7 +559,7 @@ function ModelsStep({
         <div
           role="dialog"
           aria-labelledby="add-model-title"
-          className="mt-4 rounded-2xl border border-[#DCDCE0] bg-white p-5 shadow-xl"
+          className="mt-4 rounded-2xl border border-[#E3E3E7] bg-white p-5 shadow-xl"
         >
           <h3 id="add-model-title" className="text-[17px] font-semibold text-[#1C1C1E]">
             Add a model
@@ -574,7 +574,7 @@ function ModelsStep({
               onChange={(event) => setName(event.target.value)}
               placeholder="anthropic/claude-sonnet"
               aria-label="Name"
-              className="h-11 rounded-xl border border-[#DCDCE0] bg-[#F7F7F9] px-3 text-sm outline-none"
+              className="h-11 rounded-[12px] border border-[#E3E3E7] bg-white px-3 text-sm outline-none"
             />
           </label>
           <label className="mt-3 flex flex-col gap-1.5">
@@ -584,7 +584,7 @@ function ModelsStep({
               onChange={(event) => setAlias(event.target.value)}
               placeholder="My reviewer"
               aria-label="Alias"
-              className="h-11 rounded-xl border border-[#DCDCE0] bg-[#F7F7F9] px-3 text-sm outline-none"
+              className="h-11 rounded-[12px] border border-[#E3E3E7] bg-white px-3 text-sm outline-none"
             />
           </label>
           {error ? <p className="mt-2 text-[13px] text-[#C2410C]">{error}</p> : null}
@@ -592,7 +592,7 @@ function ModelsStep({
             <button
               type="button"
               onClick={() => setAdding(false)}
-              className="h-9 rounded-lg border border-[#DCDCE0] px-3 text-sm"
+              className="h-9 rounded-lg border border-[#E3E3E7] px-3 text-sm"
             >
               Cancel
             </button>

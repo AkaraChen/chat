@@ -152,7 +152,7 @@ export function SettingsDialog({
       }`}
     >
       <div className="flex h-[640px] max-h-[90svh] w-[820px] max-w-[94vw] overflow-hidden rounded-3xl bg-white shadow-xl">
-        <nav className="flex w-52 shrink-0 flex-col gap-0.5 bg-[#F7F7F8] px-3 pt-5">
+        <nav className="flex w-52 shrink-0 flex-col gap-0.5 border-r border-[#E3E3E7] bg-[#F7F7F9] px-3 pt-5">
           <p className="px-3 pb-2 text-[13px] text-[#6E6E73]">Settings</p>
           {tabs.map(({ id, label, Icon }) => (
             <button
@@ -160,7 +160,7 @@ export function SettingsDialog({
               type="button"
               onClick={() => onTab(id)}
               className={`flex h-10 items-center gap-2.5 rounded-xl px-3 text-left text-sm font-medium text-[#1C1C1E] ${
-                id === tab ? "bg-white" : "hover:bg-[#EDEDF0]"
+                id === tab ? "bg-white" : "hover:bg-[#E8E8EC]"
               }`}
             >
               {Icon ? <Icon size={16} /> : <GitHubMark size={16} fill="#1C1C1E" />}
@@ -169,7 +169,7 @@ export function SettingsDialog({
           ))}
         </nav>
         <div className="flex min-w-0 flex-1 flex-col">
-          <div className="flex h-14 shrink-0 items-center justify-between border-b border-[#EDEDF0] px-6">
+          <div className="flex h-14 shrink-0 items-center justify-between border-b border-[#E3E3E7] px-6">
             <h2 className="text-[17px] font-semibold text-[#1C1C1E]">{title}</h2>
             <button
               type="button"

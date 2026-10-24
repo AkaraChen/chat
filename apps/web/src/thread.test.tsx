@@ -135,7 +135,7 @@ test("a thread shows the attachment, trace, answer cards, and composer tools", (
   expect(screen.getByText("Notes")).toBeTruthy();
   expect(document.querySelectorAll("[data-answer-card]").length).toBeGreaterThan(0);
   for (const card of document.querySelectorAll("[data-answer-card]")) {
-    expect(card.className).toContain("border-[#DCDCE0]");
+    expect(card.className).toContain("border-[#E3E3E7]");
   }
 
   fireEvent.click(screen.getByRole("button", { name: /Reviewed the diff/ }));
@@ -148,8 +148,10 @@ test("a thread shows the attachment, trace, answer cards, and composer tools", (
   expect(screen.getByRole("button", { name: "Microphone" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "Globe" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "Voice" })).toBeTruthy();
-  expect(document.querySelector("form")?.className).toContain("#F7F7F9");
-  expect(screen.getByText("Review AkaraChen/chat#128.").className).toContain("#F7F7F9");
+  expect(document.querySelector("form")?.className).toContain("bg-white");
+  expect(screen.getByText("Review AkaraChen/chat#128.").parentElement?.className).toContain(
+    "#F7F7F9",
+  );
 });
 
 test("trace marks follow a running step and an error step", () => {

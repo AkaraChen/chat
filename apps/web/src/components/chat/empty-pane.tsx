@@ -81,7 +81,7 @@ export function EmptyPane({
               <button
                 type="button"
                 onClick={() => fill(body)}
-                className="flex flex-1 flex-col gap-2 rounded-2xl border border-[#DCDCE0] bg-[#F7F7F9] px-4 py-4 text-left"
+                className="flex flex-1 flex-col gap-2 rounded-2xl border border-[#DCDCE0] bg-white px-4 py-4 text-left"
               >
                 <Icon size={16} className="text-[#6E6E73]" />
                 <span className="text-[15px] font-semibold text-[#1C1C1E]">{title}</span>

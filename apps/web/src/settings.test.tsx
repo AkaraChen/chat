@@ -70,7 +70,7 @@ test("settings dialog covers general, providers, appearance, and github", async 
   expect(screen.getByRole("combobox", { name: "Language" })).toBeTruthy();
   expect(screen.getByRole("switch", { name: "Enter to send" })).toBeTruthy();
   expect(screen.getByRole("switch", { name: "Spell check" })).toBeTruthy();
-  expect(document.querySelector("form")?.className).toContain("#F7F7F9");
+  expect(document.querySelector("form")?.className).toContain("bg-white");
 
   fireEvent.click(screen.getByRole("button", { name: "Providers" }));
   expect(screen.getByText("OpenRouter is on this device. Add another model any time.")).toBeTruthy();

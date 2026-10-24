@@ -21,14 +21,14 @@ export function ModelPicker({ onConnect }: { onConnect: () => void }) {
 
   if (models.isError) {
     return (
-      <span className="flex h-9 items-center rounded-full border border-[#DCDCE0] bg-white px-3 text-sm text-[#6E6E73]">
+      <span className="flex h-9 items-center rounded-full bg-[#F7F7F9] px-3 text-sm text-[#6E6E73]">
         Models are unavailable right now
       </span>
     );
   }
   if (models.isPending) {
     return (
-      <span className="flex h-9 items-center rounded-full border border-[#DCDCE0] bg-white px-3 text-sm text-[#6E6E73]">
+      <span className="flex h-9 items-center rounded-full bg-[#F7F7F9] px-3 text-sm text-[#6E6E73]">
         Choose a model
       </span>
     );
@@ -38,7 +38,7 @@ export function ModelPicker({ onConnect }: { onConnect: () => void }) {
       <button
         type="button"
         onClick={onConnect}
-        className="flex h-9 items-center rounded-full border border-[#DCDCE0] bg-white px-3 text-sm font-medium text-[#1A73E8]"
+        className="flex h-9 items-center rounded-full bg-[#F7F7F9] px-3 text-sm font-medium text-[#1A73E8]"
       >
         Connect a provider
       </button>
@@ -49,7 +49,7 @@ export function ModelPicker({ onConnect }: { onConnect: () => void }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        className={`flex h-9 items-center gap-2 rounded-full border border-[#DCDCE0] bg-white px-3 text-sm font-medium outline-none hover:bg-[#F7F7F9] ${
+        className={`flex h-9 items-center gap-2 rounded-full bg-[#F7F7F9] px-3 text-sm font-medium outline-none hover:bg-[#E8E8EC] ${
           unavailable ? "text-[#C2410C]" : "text-[#1C1C1E]"
         }`}
       >

@@ -47,7 +47,7 @@ export function Composer({
         event.preventDefault();
         if (canSend) onSend();
       }}
-      className="flex flex-col rounded-2xl border border-[#DCDCE0] bg-[#F7F7F9] px-4 pt-3 pb-3"
+      className="flex flex-col rounded-2xl border border-[#DCDCE0] bg-white px-4 pt-3 pb-3"
     >
       <textarea
         ref={(el) => {
@@ -75,9 +75,7 @@ export function Composer({
           type="button"
           aria-pressed={deeper}
           onClick={() => setDeeper((on) => !on)}
-          className={`flex h-8 items-center gap-1.5 rounded-full px-3 text-[13px] font-medium ${
-            deeper ? "bg-[#E8F1FD] text-[#1A73E8]" : "bg-white text-[#1A73E8]"
-          }`}
+          className="flex h-8 items-center gap-1.5 rounded-full border border-[#C9DDF8] bg-[#F3F8FE] px-3 text-[13px] font-medium text-[#1A73E8]"
         >
           <SparkleIcon size={14} weight="fill" />
           Deeper Research
@@ -85,14 +83,14 @@ export function Composer({
         <button
           type="button"
           aria-label="Attach"
-          className="flex size-8 items-center justify-center rounded-full text-[#6E6E73] hover:bg-white"
+          className="flex size-8 items-center justify-center rounded-full text-[#6E6E73] hover:bg-[#F7F7F9]"
         >
           <PaperclipIcon size={16} />
         </button>
         <button
           type="button"
           aria-label="Tools"
-          className="flex size-8 items-center justify-center rounded-full text-[#6E6E73] hover:bg-white"
+          className="flex size-8 items-center justify-center rounded-full text-[#6E6E73] hover:bg-[#F7F7F9]"
         >
           <SlidersHorizontalIcon size={16} />
         </button>
@@ -100,14 +98,14 @@ export function Composer({
           <button
             type="button"
             aria-label="Microphone"
-            className="flex size-8 items-center justify-center rounded-full text-[#6E6E73] hover:bg-white"
+            className="flex size-8 items-center justify-center rounded-full text-[#6E6E73] hover:bg-[#F7F7F9]"
           >
             <WaveformIcon size={16} />
           </button>
           <button
             type="button"
             aria-label="Globe"
-            className="flex size-8 items-center justify-center rounded-full text-[#6E6E73] hover:bg-white"
+            className="flex size-8 items-center justify-center rounded-full text-[#6E6E73] hover:bg-[#F7F7F9]"
           >
             <GlobeIcon size={16} />
           </button>

@@ -55,7 +55,7 @@ export function Sidebar({
           type="button"
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           onClick={() => setCollapsed((value) => !value)}
-          className="flex size-8 items-center justify-center rounded-lg text-[#6E6E73] hover:bg-[#EDEDF0]"
+          className="flex size-8 items-center justify-center rounded-lg text-[#6E6E73] hover:bg-white"
         >
           <SidebarSimpleIcon size={18} />
         </button>
@@ -73,7 +73,7 @@ export function Sidebar({
       </Link>
       <button
         type="button"
-        className={`mt-2 flex items-center text-sm text-[#1C1C1E] hover:bg-[#EDEDF0] ${
+        className={`mt-2 flex items-center text-sm text-[#6E6E73] hover:bg-white ${
           collapsed ? "size-10 justify-center rounded-xl" : "h-10 gap-2.5 rounded-xl px-3"
         }`}
       >
@@ -91,7 +91,7 @@ export function Sidebar({
                   to="/chat"
                   search={{ thread: thread.id }}
                   className={`truncate rounded-xl px-3 py-2 text-sm text-[#1C1C1E] ${
-                    thread.id === activeId ? "bg-[#E8E8EC]" : "hover:bg-[#EDEDF0]"
+                    thread.id === activeId ? "bg-[#E8E8EC]" : "hover:bg-white"
                   }`}
                 >
                   {thread.title}
@@ -104,7 +104,7 @@ export function Sidebar({
       <div className={`mt-auto flex items-center gap-2 ${collapsed ? "flex-col pt-3" : "px-1 pt-3"}`}>
         <span
           aria-label={name}
-          className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[#E4E4E7] text-[13px] font-medium text-[#1C1C1E]"
+          className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[#E8E8EC] text-[13px] font-medium text-[#6E6E73]"
         >
           {initial}
         </span>
@@ -118,7 +118,7 @@ export function Sidebar({
           type="button"
           aria-label="Settings"
           onClick={onSettings}
-          className="flex size-8 items-center justify-center rounded-lg text-[#6E6E73] hover:bg-[#EDEDF0]"
+          className="flex size-8 items-center justify-center rounded-lg text-[#6E6E73] hover:bg-white"
         >
           <GearSixIcon size={18} />
         </button>
