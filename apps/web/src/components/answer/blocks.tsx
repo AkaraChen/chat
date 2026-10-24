@@ -1,6 +1,8 @@
 import type { ComponentProps } from "@my-better-t-app/api/templates/catalog";
 import type { ReactNode } from "react";
 
+import { RichText } from "./rich-text";
+
 function Card({ title, children }: { title?: string; children: ReactNode }) {
   return (
     <section data-answer-card className="rounded-[12px] border border-[#E3E3E7] px-4 py-4">
@@ -18,8 +20,11 @@ export function Answer({
   return (
     <section className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
-        <p className="text-xl leading-snug font-medium text-balance text-[#1C1C1E]">{lead}</p>
-        {source ? <p className="text-sm text-[#6E6E73]">{source}</p> : null}
+        <RichText
+          text={lead}
+          className="text-[#1C1C1E] [&>p:first-child]:text-xl [&>p:first-child]:leading-snug [&>p:first-child]:font-medium [&>p:first-child]:text-balance"
+        />
+        {source ? <RichText text={source} className="text-sm text-[#6E6E73]" /> : null}
       </div>
       {children ? <div className="flex flex-col gap-3">{children}</div> : null}
     </section>
@@ -75,27 +80,27 @@ export function Table({ columns, rows }: ComponentProps["Table"]) {
 export function Changes({ files }: ComponentProps["Changes"]) {
   return (
     <Card title="Changes">
-    <ul className="flex flex-col gap-3">
-      {files.map((f) => {
-        const total = f.additions + f.deletions;
-        const added = total === 0 ? 0 : (f.additions / total) * 100;
-        return (
-          <li key={f.path} className="flex items-center gap-4">
-            <span className="min-w-0 flex-1 truncate font-mono text-sm">{f.path}</span>
-            <span className="flex gap-2 font-mono text-xs tabular-nums">
-              <span className="text-[#1B7F4E]">+{f.additions}</span>
-              <span className="text-[#A33B3B]">-{f.deletions}</span>
-            </span>
-            <span
-              aria-hidden="true"
-              className="flex h-1.5 w-16 shrink-0 overflow-hidden rounded-full bg-[#A33B3B]/30"
-            >
-              <span className="h-full bg-[#1B7F4E]" style={{ width: `${added}%` }} />
-            </span>
-          </li>
-        );
-      })}
-    </ul>
+      <ul className="flex flex-col gap-3">
+        {files.map((f) => {
+          const total = f.additions + f.deletions;
+          const added = total === 0 ? 0 : (f.additions / total) * 100;
+          return (
+            <li key={f.path} className="flex items-center gap-4">
+              <span className="min-w-0 flex-1 truncate font-mono text-sm">{f.path}</span>
+              <span className="flex gap-2 font-mono text-xs tabular-nums">
+                <span className="text-[#1B7F4E]">+{f.additions}</span>
+                <span className="text-[#A33B3B]">-{f.deletions}</span>
+              </span>
+              <span
+                aria-hidden="true"
+                className="flex h-1.5 w-16 shrink-0 overflow-hidden rounded-full bg-[#A33B3B]/30"
+              >
+                <span className="h-full bg-[#1B7F4E]" style={{ width: `${added}%` }} />
+              </span>
+            </li>
+          );
+        })}
+      </ul>
     </Card>
   );
 }
@@ -109,31 +114,31 @@ export function Diff({ file, startLine, note, patch }: ComponentProps["Diff"]) {
   });
   return (
     <Card title="Diff">
-    <figure className="flex flex-col gap-3">
-      <figcaption className="flex flex-col gap-1">
-        <span className="font-mono text-sm">{file}</span>
-        <span className="text-muted-foreground text-sm">{note}</span>
-      </figcaption>
-      <pre className="bg-muted/60 overflow-x-auto rounded-xl py-2 font-mono text-xs/relaxed">
-        <code className="block min-w-max">
-          {rows.map((r, i) => (
-            <span
-              key={i}
-              className={
-                "flex px-3 " +
-                (r.mark === "+" ? "text-[#1B7F4E]" : r.mark === "-" ? "text-[#A33B3B]" : "")
-              }
-            >
-              <span className="text-muted-foreground w-8 shrink-0 pr-3 text-right select-none tabular-nums">
-                {r.number ?? ""}
+      <figure className="flex flex-col gap-3">
+        <figcaption className="flex flex-col gap-1">
+          <span className="font-mono text-sm">{file}</span>
+          <RichText text={note} className="text-muted-foreground text-sm" />
+        </figcaption>
+        <pre className="bg-muted/60 overflow-x-auto rounded-xl py-2 font-mono text-xs/relaxed">
+          <code className="block min-w-max">
+            {rows.map((r, i) => (
+              <span
+                key={i}
+                className={
+                  "flex px-3 " +
+                  (r.mark === "+" ? "text-[#1B7F4E]" : r.mark === "-" ? "text-[#A33B3B]" : "")
+                }
+              >
+                <span className="text-muted-foreground w-8 shrink-0 pr-3 text-right select-none tabular-nums">
+                  {r.number ?? ""}
+                </span>
+                <span className="w-4 shrink-0 select-none">{r.mark === " " ? "" : r.mark}</span>
+                <span className="whitespace-pre">{r.body}</span>
               </span>
-              <span className="w-4 shrink-0 select-none">{r.mark === " " ? "" : r.mark}</span>
-              <span className="whitespace-pre">{r.body}</span>
-            </span>
-          ))}
-        </code>
-      </pre>
-    </figure>
+            ))}
+          </code>
+        </pre>
+      </figure>
     </Card>
   );
 }
@@ -143,11 +148,11 @@ export function Decisions({ items }: ComponentProps["Decisions"]) {
     <Card title="Decisions">
       <ul className="flex flex-col gap-2.5">
         {items.map((item) => (
-          <li key={item} className="flex items-start gap-2.5 text-[15px] text-[#1C1C1E]">
+          <li key={item} className="flex items-start gap-2.5 text-[#1C1C1E]">
             <span aria-hidden="true" className="mt-1 text-[#1A73E8]">
               ✓
             </span>
-            {item}
+            <RichText text={item} className="min-w-0 flex-1" />
           </li>
         ))}
       </ul>
@@ -164,9 +169,12 @@ export function OpenItems({ groups }: ComponentProps["OpenItems"]) {
             <h4 className="text-sm font-medium text-[#1C1C1E]">{group.title}</h4>
             <div className="flex flex-col gap-2">
               {group.cards.map((card) => (
-                <div key={card.title} className="flex flex-col gap-0.5 rounded-xl bg-[#F7F7F9] px-4 py-3">
-                  <span className="text-sm font-medium text-[#1C1C1E]">{card.title}</span>
-                  <span className="text-sm text-[#6E6E73]">{card.detail}</span>
+                <div
+                  key={card.title}
+                  className="flex flex-col gap-0.5 rounded-xl bg-[#F7F7F9] px-4 py-3"
+                >
+                  <RichText text={card.title} className="text-sm font-medium text-[#1C1C1E]" />
+                  <RichText text={card.detail} className="text-sm text-[#6E6E73]" />
                 </div>
               ))}
             </div>
@@ -182,7 +190,7 @@ export function Todo({ person, task, time }: ComponentProps["Todo"]) {
     <Card title="To do">
       <div data-block="todo" className="flex items-baseline gap-3 text-sm">
         <span className="w-20 shrink-0 truncate font-medium text-[#1C1C1E]">{person}</span>
-        <span className="min-w-0 flex-1 text-[#1C1C1E]">{task}</span>
+        <RichText text={task} className="min-w-0 flex-1 text-sm text-[#1C1C1E]" />
         <span className="shrink-0 text-[#6E6E73]">{time}</span>
       </div>
     </Card>
@@ -198,7 +206,7 @@ export function Notes({ title, items }: ComponentProps["Notes"]) {
             <span aria-hidden="true" className="text-[#1A73E8]">
               •
             </span>
-            {item}
+            <RichText text={item} className="min-w-0 flex-1 text-sm text-[#6E6E73]" />
           </li>
         ))}
       </ul>

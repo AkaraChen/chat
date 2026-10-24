@@ -261,6 +261,7 @@ export const catalogPrompt: string = catalog.prompt({
     'The root element must be an "Answer". Every other element is listed in the children of that Answer.',
     "Numbers may only come from tool results or from the user's own text. Never invent numbers to fill a chart or table; if data is missing, say so in the Answer and add nothing else.",
     "Write in the language the user wrote in.",
+    "Text fields render inline markdown: **bold**, `code`, and [links](url). Keep each field a sentence. Do not put headings, lists, or tables in a text field.",
   ],
 });
 
