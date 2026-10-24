@@ -26,6 +26,11 @@ RUN export NODE_ENV=production DATABASE_URL=file:/tmp/build.db CREDENTIALS_DIR=/
     cd apps/web && bun run build
 
 FROM node:24-slim
+# The slim image has no system CA bundle. Node carries its own, but the Go
+# proxy needs the system one to reach model providers over TLS. Prisma wants
+# openssl.
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates openssl \
+    && rm -rf /var/lib/apt/lists/*
 COPY --from=oven/bun:1 /usr/local/bin/bun /usr/local/bin/bun
 COPY --from=app /app /app
 COPY --from=proxy /out/proxy /usr/local/bin/proxy
