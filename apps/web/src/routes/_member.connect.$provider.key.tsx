@@ -106,7 +106,7 @@ function ApiKey() {
           <p className="text-[13px] text-[#C2410C]">Couldn't save the key. Try again.</p>
         )}
         <p className="text-xs text-[#6E6E73]">
-          The key is encrypted and stored locally on this device.
+          The key is stored on the server. Your browser keeps no copy.
         </p>
       </form>
     </main>

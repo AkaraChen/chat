@@ -51,7 +51,7 @@ function AuthMethod() {
           </Link>
         </div>
         <p className="text-xs text-[#6E6E73]">
-          Your credentials are stored securely on this device.
+          Credentials are stored on the server. Your browser keeps no copy.
         </p>
       </div>
     </main>

@@ -56,7 +56,7 @@ function Connect() {
           </li>
         </ul>
         <div className="flex items-center justify-between">
-          <p className="text-xs text-[#6E6E73]">Credentials stay on this device.</p>
+          <p className="text-xs text-[#6E6E73]">Credentials are stored on the server.</p>
           <Link to="/chat" className="text-[13px] text-[#0969DA]">
             Set up later
           </Link>
