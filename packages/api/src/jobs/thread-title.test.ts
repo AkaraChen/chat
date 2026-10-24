@@ -1,19 +1,19 @@
 import { describe, expect, test } from "bun:test";
 
 import {
-  answerTextOf,
   cleanTitle,
   enqueueThreadTitle,
   generateThreadTitle,
+  textOfParts,
   type ThreadTitleDeps,
 } from "./thread-title";
 
-const spec = JSON.stringify({
-  root: "a",
-  elements: {
-    a: { type: "Answer", props: { lead: "PR looks good", source: "x" }, children: [] },
-  },
-});
+const parts = JSON.stringify([
+  { type: "step-start" },
+  { type: "text", text: "PR looks good" },
+  { type: "data-spec", data: { type: "patch", patch: { op: "add", path: "/root", value: "a" } } },
+  { type: "text", text: " Ship it. " },
+]);
 
 function deps(overrides: Partial<ThreadTitleDeps> = {}) {
   const saved: { id: string; title: string; at: Date }[] = [];
@@ -21,7 +21,7 @@ function deps(overrides: Partial<ThreadTitleDeps> = {}) {
   const d: ThreadTitleDeps = {
     loadSource: async () => ({
       userText: "帮我审查 PR",
-      assistant: { spec, text: "", connectionId: "claude-1", modelId: "m" },
+      assistant: { text: textOfParts(parts), connectionId: "claude-1", modelId: "m" },
     }),
     generate: async (model, prompt) => {
       prompts.push({ model, prompt });
@@ -47,11 +47,11 @@ describe("thread title", () => {
     ]);
   });
 
-  test("reads the Answer text and tolerates bad specs", () => {
-    expect(answerTextOf(spec)).toBe("PR looks good");
-    expect(answerTextOf("nope")).toBe("");
-    expect(answerTextOf(null)).toBe("");
-    expect(answerTextOf('{"elements":{"a":null}}')).toBe("");
+  test("reads the prose from stored parts and tolerates bad JSON", () => {
+    expect(textOfParts(parts)).toBe("PR looks good\n\nShip it.");
+    expect(textOfParts("nope")).toBe("");
+    expect(textOfParts("{}")).toBe("");
+    expect(textOfParts("[null]")).toBe("");
   });
 
   test("cleans model output", () => {

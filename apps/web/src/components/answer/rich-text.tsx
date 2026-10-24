@@ -1,10 +1,42 @@
 import { cn } from "@my-better-t-app/ui/lib/utils";
-import type { Components } from "react-markdown";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import { createElement, type ComponentProps } from "react";
+import { Streamdown, type Components } from "streamdown";
+
+// Streamdown's own components carry Tailwind classes that would win over
+// typeset. Plain elements leave the look to typeset.
+const PLAIN = [
+  "p",
+  "h1",
+  "h2",
+  "h3",
+  "h4",
+  "h5",
+  "h6",
+  "ul",
+  "ol",
+  "li",
+  "strong",
+  "em",
+  "blockquote",
+  "hr",
+  "pre",
+  "code",
+  "table",
+  "thead",
+  "tbody",
+  "tr",
+  "th",
+  "td",
+  "img",
+] as const;
+
+type Plain = Record<string, unknown> & { node?: unknown };
 
 const components: Components = {
-  a: ({ href, children }) =>
+  ...Object.fromEntries(
+    PLAIN.map((tag) => [tag, ({ node: _node, ...props }: Plain) => createElement(tag, props)]),
+  ),
+  a: ({ node: _node, href, children }: ComponentProps<"a"> & { node?: unknown }) =>
     href ? (
       <a href={href} target="_blank" rel="noreferrer">
         {children}
@@ -22,19 +54,29 @@ function urlTransform(url: string) {
 }
 
 /**
- * Assistant prose. Markdown becomes HTML, and shadcn/typeset styles it.
+ * Assistant prose. Streamdown parses it, so markdown cut off mid-stream (an
+ * open `**`, link or fence) still renders cleanly; shadcn/typeset styles it.
  * The chat preset owns size, leading, and the space between blocks.
  */
-export function RichText({ text, className }: { text: string; className?: string }) {
+export function RichText({
+  text,
+  className,
+  streaming = false,
+}: {
+  text: string;
+  className?: string;
+  streaming?: boolean;
+}) {
   return (
-    <div className={cn("typeset typeset-chat", className)}>
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        urlTransform={urlTransform}
-        components={components}
-      >
-        {text}
-      </ReactMarkdown>
-    </div>
+    <Streamdown
+      className={cn("typeset typeset-chat", className)}
+      components={components}
+      urlTransform={urlTransform}
+      linkSafety={{ enabled: false }}
+      controls={false}
+      isAnimating={streaming}
+    >
+      {text}
+    </Streamdown>
   );
 }

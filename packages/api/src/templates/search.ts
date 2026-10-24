@@ -1,5 +1,6 @@
 import { tool, type Tool } from "ai";
 import { z } from "zod";
+import { specPrompt } from "./catalog";
 import { economy } from "./economy";
 import { meeting } from "./meeting";
 import { review } from "./review";
@@ -20,6 +21,8 @@ export interface TemplateResult {
 export interface SearchOutput {
   found: boolean;
   template: Template | null;
+  /** The components and how to write the spec. Not in the system prompt. */
+  guide: string;
   /** Step bar detail: the template name. */
   detail: { template: string };
 }
@@ -55,8 +58,13 @@ export function rankTemplates(query: string, options: SearchOptions = {}): Templ
 
 export function searchTemplates(query: string, options: SearchOptions = {}): SearchOutput {
   const best = rankTemplates(query, options)[0];
-  if (!best) return { found: false, template: null, detail: { template: "" } };
-  return { found: true, template: best.template, detail: { template: best.template.id } };
+  if (!best) return { found: false, template: null, guide: specPrompt, detail: { template: "" } };
+  return {
+    found: true,
+    template: best.template,
+    guide: specPrompt,
+    detail: { template: best.template.id },
+  };
 }
 
 /** AI SDK tool. Pass `{ github: false }` when no GitHub token is set. */
@@ -65,7 +73,7 @@ export function createSearchTemplatesTool(
 ): Tool<{ query: string }, SearchOutput> {
   return tool({
     description:
-      "Find the json-render template that fits the request. Returns when to use it, the allowed components, how to use each, and an example spec. Call this before writing the answer.",
+      "Find the view template for an answer that needs one: meeting notes (decisions, owners, open items), a pull request review, or figures to chart. Returns what the prose says, the allowed components, how to use each, an example spec and the spec rules. Do not call it for a simple question; answer that in prose.",
     inputSchema: z.object({
       query: z.string().describe("The user's request, in their own words."),
     }),

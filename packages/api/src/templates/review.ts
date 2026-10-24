@@ -7,9 +7,11 @@ export const when = `Use when the user gives a repository and a pull request num
 
 export const components = ["Answer", "Changes", "Diff", "Notes"] as const;
 
+export const prose =
+  "The verdict in one sentence, then the repo, number and what was read (files, diff, CI, comments).";
+
 export const usage = {
-  Answer:
-    "Root. Lead: the verdict in one sentence. Source: repo, number, and what was read (files, diff, CI, comments).",
+  Answer: "Root container with empty props. List the other elements in reading order.",
   Changes:
     "Files from get_pull_request_files with their real additions and deletions. List the largest few if there are many.",
   Diff: "The one hunk that matters most, copied from get_pull_request_diff. startLine is the new-file line of the first patch line. Note: one sentence on why it matters.",
@@ -21,10 +23,7 @@ export const example: Template["example"] = {
   elements: {
     answer: {
       type: "Answer",
-      props: {
-        lead: "Mostly safe to merge, but the retry loop needs a cap.",
-        source: "acme/web #128, 3 files, diff, CI and comments",
-      },
+      props: {},
       children: ["changes", "diff", "notes"],
     },
     changes: {
@@ -92,4 +91,4 @@ export const terms = [
   "补丁",
 ] as const;
 
-export const review: Template = { id, when, components, usage, example, terms };
+export const review: Template = { id, when, prose, components, usage, example, terms };

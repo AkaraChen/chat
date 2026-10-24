@@ -27,9 +27,14 @@ describe("search_templates", () => {
     expect(out.template?.id).not.toBe("review");
   });
 
-  test("detail carries the template name", () => {
+  test("detail carries the template name, and every result carries the spec guide", () => {
     expect(searchTemplates("meeting notes").detail).toEqual({ template: "meeting" });
     expect(searchTemplates("zzz").found).toBe(false);
+    for (const query of ["meeting notes", "zzz"]) {
+      const { guide } = searchTemplates(query);
+      expect(guide).toContain("AVAILABLE COMPONENTS");
+      expect(guide).toContain("```spec");
+    }
   });
 
   test("every example validates and only uses allowed components", () => {
@@ -44,8 +49,20 @@ describe("search_templates", () => {
 
   test("validateSpec reports bad props and wrong root", () => {
     expect(
-      validateSpec({ root: "a", elements: { a: { type: "Answer", props: {}, children: [] } } })
+      validateSpec({ root: "a", elements: { a: { type: "Answer", props: {}, children: [] } } }),
+    ).toEqual([]);
+    expect(
+      validateSpec({ root: "a", elements: { a: { type: "Answer", props: {}, children: ["b"] } } })
         .length,
+    ).toBeGreaterThan(0);
+    expect(
+      validateSpec({
+        root: "a",
+        elements: {
+          a: { type: "Answer", props: {}, children: ["b"] },
+          b: { type: "Notes", props: { title: "t", items: [] }, children: [] },
+        },
+      }).length,
     ).toBeGreaterThan(0);
     expect(
       validateSpec({

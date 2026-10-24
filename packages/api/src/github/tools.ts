@@ -131,6 +131,8 @@ export const githubToolIds = [
 
 export type GithubToolId = (typeof githubToolIds)[number];
 
+// Deferred: the model sees only tool_search at first and loads these by
+// searching, so a turn without a pull request does not carry them.
 export function githubTools({
   token,
   fetch: fetchImpl = fetch,
@@ -142,6 +144,7 @@ export function githubTools({
 
   return {
     get_pull_request: tool({
+      deferLoading: true,
       description: "Fetch a GitHub pull request: title, description, author, branches and totals.",
       inputSchema: input,
       async execute(args) {
@@ -164,6 +167,7 @@ export function githubTools({
     }),
 
     get_pull_request_files: tool({
+      deferLoading: true,
       description:
         "List the files changed in a pull request with per-file additions and deletions.",
       inputSchema: input,
@@ -182,6 +186,7 @@ export function githubTools({
     }),
 
     get_pull_request_diff: tool({
+      deferLoading: true,
       description: "Read the unified diff of a pull request. Large diffs are truncated.",
       inputSchema: input,
       async execute(args) {
@@ -202,6 +207,7 @@ export function githubTools({
     }),
 
     get_pull_request_checks: tool({
+      deferLoading: true,
       description: "Get the CI check runs for the head commit of a pull request.",
       inputSchema: input,
       async execute(args) {
@@ -226,6 +232,7 @@ export function githubTools({
     }),
 
     list_pull_request_comments: tool({
+      deferLoading: true,
       description: "List review threads on a pull request and how many are still unresolved.",
       inputSchema: input,
       async execute(args) {

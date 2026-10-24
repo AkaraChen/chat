@@ -1,28 +1,32 @@
 import { afterEach, expect, test } from "bun:test";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render } from "@testing-library/react";
 
-import { Answer, Notes } from "./blocks";
+import { Notes } from "./blocks";
+import { RichText } from "./rich-text";
 
 afterEach(() => cleanup());
 
-test("answer prose renders markdown inside typeset", () => {
+test("prose renders markdown inside typeset", () => {
   render(
-    <Answer
-      lead={"Ship **today**. See `run.ts` and [the diff](https://example.com/diff)."}
-      source="AkaraChen/chat#128"
-    />,
+    <RichText text={"Ship **today**. See `run.ts` and [the diff](https://example.com/diff)."} />,
   );
 
-  const lead = document.querySelector(".typeset-chat");
-  expect(lead?.className).toContain("typeset");
-  expect(lead?.querySelector("strong")?.textContent).toBe("today");
-  expect(lead?.querySelector("code")?.textContent).toBe("run.ts");
-  const link = lead?.querySelector("a");
+  const prose = document.querySelector(".typeset-chat");
+  expect(prose?.className).toContain("typeset");
+  expect(prose?.querySelector("strong")?.textContent).toBe("today");
+  expect(prose?.querySelector("code")?.textContent).toBe("run.ts");
+  const link = prose?.querySelector("a");
   expect(link?.getAttribute("href")).toBe("https://example.com/diff");
   expect(link?.getAttribute("rel")).toContain("noreferrer");
   expect(link?.getAttribute("target")).toBe("_blank");
-  expect(screen.getByText("AkaraChen/chat#128")).toBeTruthy();
-  expect(lead?.className).toContain("[&>p:first-child]:text-xl");
+  // Typeset styles the elements, not streamdown's own classes.
+  expect(prose?.querySelector("p")?.getAttribute("class")).toBeNull();
+});
+
+test("markdown cut off mid-stream does not show raw markers", () => {
+  render(<RichText text={"Ship **today"} streaming />);
+  expect(document.querySelector(".typeset-chat strong")?.textContent).toBe("today");
+  expect(document.querySelector(".typeset-chat")?.textContent).not.toContain("**");
 });
 
 test("prose drops unsafe links", () => {

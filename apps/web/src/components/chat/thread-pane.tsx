@@ -6,7 +6,7 @@ import { orpc } from "@/utils/orpc";
 
 import { chatTransport, type ChatMessage } from "./transport";
 import { ThreadView } from "./thread-view";
-import { fromHistory, toTurns } from "./turns";
+import { toTurns } from "./turns";
 import { useModelChoice } from "./use-model-choice";
 
 export type Pending = { threadId: string; text: string };
@@ -94,10 +94,8 @@ export function ThreadPane({
     if (missing) onMissingRef.current();
   }, [missing]);
 
-  const initial = useMemo(
-    () => (history.data ? fromHistory(history.data.messages) : null),
-    [history.data],
-  );
+  // Stored messages are already UIMessages, the same shape the stream builds.
+  const initial = history.data?.messages ?? null;
   if (!initial) return <div className="flex-1" />;
   return <Conversation key={threadId} threadId={threadId} initial={initial} pending={pending} />;
 }

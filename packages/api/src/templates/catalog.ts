@@ -33,6 +33,27 @@ const schema = defineSchema(
   }),
   {
     promptTemplate: ({ catalog: data, formatZodType, options }) => {
+      const rules = [
+        "RULES:",
+        ...(options.customRules ?? []).map((rule, i) => `${i + 1}. ${rule}`),
+      ];
+      // Inline: how prose and a view share one reply. The components are not
+      // listed here; search_templates returns them with the standalone prompt.
+      if (options.mode === "inline") {
+        return [
+          options.system ?? "You answer in markdown.",
+          "",
+          "OUTPUT FORMAT (markdown, then optionally JSONL in a ```spec fence):",
+          "Always answer in prose first. Only when the answer needs a structured view, follow the prose with RFC 6902 JSON Patch lines, one per line, inside a ```spec fence:",
+          "```spec",
+          '{"op":"add","path":"/root","value":"answer"}',
+          '{"op":"add","path":"/elements/answer","value":{"type":"Answer","props":{},"children":["notes"]}}',
+          "```",
+          "A greeting, a simple question or a clarifying question gets prose only, with no fence.",
+          "",
+          ...rules,
+        ].join("\n");
+      }
       const components = (
         data as { components: Record<string, { props: z.ZodType; description: string }> }
       ).components;
@@ -42,17 +63,16 @@ const schema = defineSchema(
       return [
         options.system ?? "You answer by emitting a json-render spec.",
         "",
-        "OUTPUT FORMAT (SpecStream, JSONL, RFC 6902 JSON Patch):",
+        "SPEC FORMAT (JSONL, RFC 6902 JSON Patch, inside the ```spec fence after your prose):",
         "One JSON object per line. First set the root, then add each element.",
         '{"op":"add","path":"/root","value":"answer"}',
-        '{"op":"add","path":"/elements/answer","value":{"type":"Answer","props":{"lead":"..."},"children":["todo-1"]}}',
+        '{"op":"add","path":"/elements/answer","value":{"type":"Answer","props":{},"children":["todo-1"]}}',
         '{"op":"add","path":"/elements/todo-1","value":{"type":"Todo","props":{"person":"...","task":"...","time":"..."},"children":[]}}',
         "",
         "AVAILABLE COMPONENTS:",
         ...lines,
         "",
-        "RULES:",
-        ...(options.customRules ?? []).map((rule, i) => `${i + 1}. ${rule}`),
+        ...rules,
       ].join("\n");
     },
     defaultRules: [],
@@ -74,10 +94,8 @@ export const componentNames = [
 
 export type ComponentName = (typeof componentNames)[number];
 
-export const answerProps = z.object({
-  lead: z.string().min(1).describe("The opening sentence: the answer itself."),
-  source: z.string().optional().describe("One short line saying where the facts came from."),
-});
+// The prose before the fence is the answer; Answer only holds the view.
+export const answerProps = z.object({});
 
 export const lineChartProps = z.object({
   title: z.string(),
@@ -170,7 +188,7 @@ export const catalog = defineCatalog(schema, {
       props: answerProps,
       slots: ["default"],
       description:
-        "Always the root element. A lead sentence that answers the question plus one source line. Put every other component in its children, in reading order. When data is missing, say so here and add no other component.",
+        "Always the root element, with empty props. Put every other component in its children, in reading order.",
     },
     LineChart: {
       props: lineChartProps,
@@ -253,21 +271,31 @@ export type ComponentProps = {
   Notes: z.infer<typeof notesProps>;
 };
 
-/** System prompt for the answering model. */
-export const catalogPrompt: string = catalog.prompt({
+/** Every turn: how prose and an optional ```spec fence share one reply. */
+export const inlinePrompt: string = catalog.prompt({
+  mode: "inline",
+  system: "You are a chat assistant. You answer in markdown.",
+  customRules: [
+    "Write in the language the user wrote in.",
+    "Only write a ```spec fence after search_templates has given you the components. Never invent components.",
+  ],
+});
+
+/** The components and spec rules. search_templates returns this. */
+export const specPrompt: string = catalog.prompt({
+  system: "How to write the view.",
   customRules: [
     'Every element has "type", "props" and a "children" array (leaf elements use []). Every key in a children array must exist as its own element. Do not use state, repeat, visible or on.',
-    "Gather facts and a template with the tools first. Your final message is only SpecStream: one JSON Patch per line, no prose, no code fences.",
     'The root element must be an "Answer". Every other element is listed in the children of that Answer.',
-    "Numbers may only come from tool results or from the user's own text. Never invent numbers to fill a chart or table; if data is missing, say so in the Answer and add nothing else.",
-    "Write in the language the user wrote in.",
+    "Numbers may only come from tool results or from the user's own text. Never invent numbers to fill a chart or table; if data is missing, say so in the prose and write no fence.",
     "Text fields render inline markdown: **bold**, `code`, and [links](url). Keep each field a sentence. Do not put headings, lists, or tables in a text field.",
+    "Write in the language the user wrote in.",
   ],
 });
 
 /**
- * Validate a finished spec. Returns human-readable errors to feed back to the
- * model on retry; an empty array means the spec is valid.
+ * Validate a finished spec. Returns human-readable errors; an empty array
+ * means the spec is valid.
  */
 export function validateSpec(spec: unknown): string[] {
   const errors: string[] = [];

@@ -3,13 +3,15 @@ import { PLACEHOLDER_NOTE } from "./types";
 
 export const id = "economy" as const;
 
-export const when = `Use when the user's message already contains a set of numbers (rates, prices, indicators over time) and wants them laid out as a chart and a table. If the message has no numbers, draw nothing and say in the Answer that the data is missing. ${PLACEHOLDER_NOTE}`;
+export const when = `Use when the user's message already contains a set of numbers (rates, prices, indicators over time) and wants them laid out as a chart and a table. If the message has no numbers, draw nothing and say in the prose that the data is missing. ${PLACEHOLDER_NOTE}`;
 
 export const components = ["Answer", "LineChart", "StatStrip", "Table"] as const;
 
+export const prose =
+  "What the numbers show in one sentence, and that they come from the user's message.";
+
 export const usage = {
-  Answer:
-    "Root. Lead: what the numbers show in one sentence. Source: say they come from the user's message.",
+  Answer: "Root container with empty props. List the other elements in reading order.",
   LineChart:
     "One or two series over the same x labels, taken from the numbers in the message. Unit is the unit the user used.",
   StatStrip:
@@ -22,10 +24,7 @@ export const example: Template["example"] = {
   elements: {
     answer: {
       type: "Answer",
-      props: {
-        lead: "Inflation cooled over the year while the policy rate stayed above it.",
-        source: "From the figures in your message",
-      },
+      props: {},
       children: ["chart", "stats", "table"],
     },
     chart: {
@@ -113,4 +112,4 @@ export const terms = [
   "汇率",
 ] as const;
 
-export const economy: Template = { id, when, components, usage, example, terms };
+export const economy: Template = { id, when, prose, components, usage, example, terms };

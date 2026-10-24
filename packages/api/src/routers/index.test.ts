@@ -5,7 +5,16 @@ import path from "node:path";
 
 import { call } from "@orpc/server";
 
-import { createTestDb, notesSpec, patches, say, scriptedModel } from "../chat/testing";
+import { handleChatRequest } from "../chat/http";
+import {
+  chunksOf,
+  createTestDb,
+  inline,
+  notesSpec,
+  say,
+  scriptedModel,
+  userMessage,
+} from "../chat/testing";
 import type { Context } from "../context";
 import { createCredentialStore, type Credential } from "../credentials/store";
 import { createGithubStore } from "../github/store";
@@ -46,6 +55,12 @@ async function fakeProxyFetch(credentials: ReturnType<typeof createCredentialSto
   }) as unknown as typeof fetch;
 }
 
+const chat = (context: Context, body: unknown) =>
+  handleChatRequest(
+    context,
+    new Request("http://app.test/api/chat", { method: "POST", body: JSON.stringify(body) }),
+  );
+
 const as = (userId: string, role: "user" | "visitor" = "user"): Context => ({
   ...base,
   session: { userId, role },
@@ -73,7 +88,7 @@ beforeAll(async () => {
     titleQueue: () => ({
       add: (async (_n: string, d: { threadId: string }) => void queued.push(d.threadId)) as never,
     }),
-    createModel: () => scriptedModel([say(patches(notesSpec("Hi")))]),
+    createModel: () => scriptedModel([say(inline("Hi.", notesSpec()))]),
     fetch: await fakeProxyFetch(credentials),
   };
 });
@@ -173,15 +188,21 @@ describe("models", () => {
     expect((await call(appRouter.models.list, undefined, { context: ctx })).choice?.available).toBe(
       false,
     );
-    await expect(
-      call(appRouter.chat.send, { threadId: "x", text: "hi" }, { context: ctx }),
-    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    const removed = await chat(ctx, { id: "x", message: userMessage("hi") });
+    expect(removed.status).toBe(400);
+    expect(await removed.text()).toContain("connection was removed");
   });
 
   test("visitors are refused", async () => {
     await expect(
       call(appRouter.models.list, undefined, { context: as("u1", "visitor") }),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect((await chat(as("u1", "visitor"), { id: "x", message: userMessage("hi") })).status).toBe(
+      403,
+    );
+    expect(
+      (await chat({ ...base, session: null }, { id: "x", message: userMessage("hi") })).status,
+    ).toBe(401);
   });
 });
 
@@ -195,12 +216,11 @@ describe("threads and chat", () => {
     await expect(
       call(appRouter.threads.get, { id: a.id }, { context: as("u2") }),
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
-    await expect(
-      call(appRouter.chat.send, { threadId: a.id, text: "hi" }, { context: as("u2") }),
-    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    const refused = await chat(as("u2"), { id: a.id, message: userMessage("hi") });
+    expect(refused.status).toBe(400);
   });
 
-  test("send streams the answer, and threads.get returns it parsed", async () => {
+  test("POST /api/chat streams the answer, and threads.get returns the stored UIMessages", async () => {
     const ctx = as("u1");
     const claude = (await base.credentials.list()).find((c) => c.type === "claude")!;
     await call(
@@ -215,13 +235,11 @@ describe("threads and chat", () => {
     );
     expect(thread.title).toBe("a long message");
 
-    const stream = await call(
-      appRouter.chat.send,
-      { threadId: thread.id, text: "hi" },
-      { context: ctx },
-    );
-    const types: string[] = [];
-    for await (const chunk of stream) types.push(chunk.type);
+    expect((await chat(ctx, { message: userMessage("hi") })).status).toBe(400);
+
+    const response = await chat(ctx, { id: thread.id, message: userMessage("hi", "first") });
+    expect(response.headers.get("content-type")).toContain("text/event-stream");
+    const types = (await chunksOf(response)).map((c) => c.type);
     expect(types[0]).toBe("start");
     expect(types).toContain("data-spec");
     expect(types.at(-1)).toBe("finish");
@@ -232,19 +250,19 @@ describe("threads and chat", () => {
       { connectionId: claude.id, modelId: "claude-x" },
       { context: as("u2") },
     );
-    await expect(
-      call(appRouter.chat.send, { threadId: thread.id, text: "hi" }, { context: as("u2") }),
-    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+    expect((await chat(as("u2"), { id: thread.id, message: userMessage("hi") })).status).toBe(404);
 
     const got = await call(appRouter.threads.get, { id: thread.id }, { context: ctx });
     expect(got.messages.map((m) => m.role)).toEqual(["user", "assistant"]);
-    expect(got.messages[1]).toMatchObject({
-      text: "Hi",
-      spec: notesSpec("Hi"),
-      steps: [],
-      connectionId: claude.id,
-      modelId: "claude-x",
+    expect(got.messages[0]).toEqual({
+      id: "first",
+      role: "user",
+      parts: [{ type: "text", text: "hi" }],
     });
+    const answer = got.messages[1]!;
+    expect(answer.metadata).toEqual({ connectionId: claude.id, modelId: "claude-x" });
+    expect(answer.parts.find((p) => p.type === "text")).toMatchObject({ text: "Hi.\n\n" });
+    expect(answer.parts.filter((p) => p.type === "data-spec")).toHaveLength(3);
     expect(queued).toEqual([thread.id]);
 
     const list = await call(appRouter.threads.list, undefined, { context: ctx });

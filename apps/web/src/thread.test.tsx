@@ -4,7 +4,8 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 
 import { Trace } from "./components/answer/trace";
 import { ThreadView } from "./components/chat/thread-view";
-import type { Turn } from "./components/chat/turns";
+import type { ChatMessage } from "./components/chat/transport";
+import { toTurns, type Turn } from "./components/chat/turns";
 
 afterEach(() => cleanup());
 
@@ -13,15 +14,33 @@ const spec = {
   elements: {
     answer: {
       type: "Answer",
-      props: { lead: "The review can ship.", source: "AkaraChen/chat#128" },
-      children: ["chart", "stats", "table", "changes", "diff", "decisions", "open", "todo", "notes"],
+      props: {},
+      children: [
+        "chart",
+        "stats",
+        "table",
+        "changes",
+        "diff",
+        "decisions",
+        "open",
+        "todo",
+        "notes",
+      ],
     },
     chart: {
       type: "LineChart",
       props: {
         title: "Real GDP",
         unit: "%",
-        series: [{ name: "GDP", points: [{ x: "2023", y: 1.8 }, { x: "2024", y: 1.6 }] }],
+        series: [
+          {
+            name: "GDP",
+            points: [
+              { x: "2023", y: 1.8 },
+              { x: "2024", y: 1.6 },
+            ],
+          },
+        ],
       },
       children: [],
     },
@@ -46,7 +65,7 @@ const spec = {
         file: "apps/web/src/shell.tsx",
         startLine: 10,
         note: "The shell follows the artboard.",
-        patch: " const ready = true;\n+const name = \"Eric\";\n-const name = \"\";",
+        patch: ' const ready = true;\n+const name = "Eric";\n-const name = "";',
       },
       children: [],
     },
@@ -90,6 +109,20 @@ const spec = {
   },
 } as Spec;
 
+// The parts pipeJsonRender makes of a spec: one per JSON Patch line.
+function specParts(value: Spec): ChatMessage["parts"] {
+  return [
+    {
+      type: "data-spec",
+      data: { type: "patch", patch: { op: "add", path: "/root", value: value.root } },
+    },
+    ...Object.entries(value.elements).map(([key, element]): ChatMessage["parts"][number] => ({
+      type: "data-spec",
+      data: { type: "patch", patch: { op: "add", path: `/elements/${key}`, value: element } },
+    })),
+  ];
+}
+
 const turns: Turn[] = [
   {
     id: "user",
@@ -101,7 +134,7 @@ const turns: Turn[] = [
   {
     id: "assistant",
     role: "assistant",
-    spec,
+    parts: [{ type: "text", text: "The review can **ship**." }, ...specParts(spec)],
     steps: [
       { tool: "search_templates", status: "done", detail: { template: "review" } },
       {
@@ -123,7 +156,7 @@ test("a thread shows the attachment, trace, answer cards, and composer tools", (
   expect(screen.getByText("+214 -86")).toBeTruthy();
   expect(screen.getByText("Read the diff")).toBeTruthy();
 
-  expect(screen.getByText("The review can ship.")).toBeTruthy();
+  expect(screen.getByText("ship").tagName).toBe("STRONG");
   expect(screen.getByText("Decisions")).toBeTruthy();
   expect(screen.getByText("Still open")).toBeTruthy();
   expect(screen.getByText("To do")).toBeTruthy();
@@ -159,7 +192,11 @@ test("trace marks follow a running step and an error step", () => {
     <Trace
       steps={[
         { tool: "search_templates", status: "running", detail: { template: "review" } },
-        { tool: "get_pull_request_diff", status: "running", detail: { additions: 4, deletions: 1 } },
+        {
+          tool: "get_pull_request_diff",
+          status: "running",
+          detail: { additions: 4, deletions: 1 },
+        },
       ]}
     />,
   );
@@ -181,4 +218,53 @@ test("trace marks follow a running step and an error step", () => {
   expect(screen.queryByRole("img", { name: "Done" })).toBeNull();
   expect(screen.queryByRole("img", { name: "Running" })).toBeNull();
   expect(screen.getAllByRole("img", { name: "Failed" }).length).toBeGreaterThanOrEqual(2);
+});
+
+test("tool_search stays out of the trace, and a view that fails the catalog is not drawn", () => {
+  const broken = {
+    root: "answer",
+    elements: {
+      answer: { type: "Answer", props: {}, children: ["notes"] },
+      notes: { type: "Notes", props: { title: "Broken notes", items: [] }, children: [] },
+    },
+  } as Spec;
+  const messages: ChatMessage[] = [
+    { id: "u", role: "user", parts: [{ type: "text", text: "Review o/r#7" }] },
+    {
+      id: "a",
+      role: "assistant",
+      parts: [
+        {
+          type: "tool-tool_search",
+          toolCallId: "s",
+          state: "output-available",
+          input: { query: "pull request" },
+          output: {},
+        },
+        {
+          type: "tool-get_pull_request_files",
+          toolCallId: "f",
+          state: "output-available",
+          input: {},
+          output: { detail: { repo: "o/r", number: 7, files: 2 } },
+        },
+        { type: "text", text: "Two files changed." },
+        ...specParts(broken),
+      ],
+    },
+  ];
+  const turns = toTurns(messages);
+  const assistant = turns[1] as Extract<Turn, { role: "assistant" }>;
+  expect(assistant.steps.map((step) => step.tool)).toEqual(["get_pull_request_files"]);
+  expect(turns[0]).toMatchObject({ source: { repo: "o/r", number: 7 } });
+
+  render(<ThreadView turns={turns} draft="" onDraft={() => {}} onSend={() => {}} />);
+  expect(screen.getByText("Two files changed.")).toBeTruthy();
+  expect(screen.getByText("Opened o/r #7")).toBeTruthy();
+  expect(screen.queryByText("Broken notes")).toBeNull();
+
+  // The same view is drawn while the turn is still streaming.
+  cleanup();
+  render(<ThreadView turns={turns} streaming draft="" onDraft={() => {}} onSend={() => {}} />);
+  expect(screen.getByText("Broken notes")).toBeTruthy();
 });

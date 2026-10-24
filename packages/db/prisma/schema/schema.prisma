@@ -113,19 +113,17 @@ model Thread {
   @@map("thread")
 }
 
-// `spec` and `steps` hold JSON strings. `connectionId` and `modelId` record
-// the model that wrote an assistant message.
+// One AI SDK `UIMessage`. `id` is the message id the client and stream use;
+// `parts` and `metadata` hold JSON strings. An assistant message's metadata
+// records the model that wrote it.
 model Message {
-  id           String   @id @default(cuid())
-  threadId     String
-  thread       Thread   @relation(fields: [threadId], references: [id], onDelete: Cascade)
-  role         String
-  text         String
-  spec         String?
-  steps        String?
-  connectionId String?
-  modelId      String?
-  createdAt    DateTime @default(now())
+  id        String   @id
+  threadId  String
+  thread    Thread   @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  role      String
+  parts     String
+  metadata  String?
+  createdAt DateTime @default(now())
 
   @@index([threadId, createdAt])
   @@map("message")

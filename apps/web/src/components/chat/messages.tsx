@@ -1,7 +1,10 @@
+import { useJsonRenderMessage } from "@json-render/react";
+import { validateSpec } from "@my-better-t-app/api/templates/catalog";
 import { PaperclipIcon } from "@phosphor-icons/react";
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 
 import { AnswerView, Trace } from "../answer";
+import { RichText } from "../answer/rich-text";
 import { GitHubMark } from "../github-mark";
 import { Spinner } from "../spinner";
 import type { Turn } from "./turns";
@@ -35,11 +38,19 @@ function AssistantTurn({
   turn: Extract<Turn, { role: "assistant" }>;
   live: boolean;
 }) {
-  const waiting = live && turn.steps.length === 0 && !turn.spec;
+  const { spec, text, hasSpec } = useJsonRenderMessage(turn.parts);
+  // While streaming the view builds up as json-render draws it. Once the turn
+  // is over, a view that fails the catalog is left out, as the server does.
+  const view = useMemo(
+    () => (hasSpec && (live || validateSpec(spec).length === 0) ? spec : null),
+    [hasSpec, live, spec],
+  );
+  const waiting = live && turn.steps.length === 0 && !text && !view;
   return (
     <div className="flex flex-col gap-4">
       <Trace steps={turn.steps} />
-      <AnswerView spec={turn.spec} loading={live} />
+      {text ? <RichText text={text} streaming={live} className="text-[#1C1C1E]" /> : null}
+      <AnswerView spec={view} loading={live} />
       {waiting && <Spinner size={16} />}
     </div>
   );

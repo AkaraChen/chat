@@ -25,7 +25,8 @@ export function enqueueThreadTitle(queue: ThreadTitleQueue, threadId: string) {
 
 export type TitleSource = {
   userText: string;
-  assistant: { spec: string | null; text: string; connectionId: string; modelId: string };
+  /** `text` is the answer's prose: its text parts, joined. */
+  assistant: { text: string; connectionId: string; modelId: string };
 };
 
 export type ThreadTitleDeps = {
@@ -34,25 +35,22 @@ export type ThreadTitleDeps = {
   saveTitle(threadId: string, title: string, titledAt: Date): Promise<void>;
 };
 
-// Finds the Answer element in a json-render spec and returns its text.
-// Tolerant: any parse or shape problem yields "".
-export function answerTextOf(specJson: string | null): string {
-  if (!specJson) return "";
-  let spec: unknown;
+/** The prose of a stored message's parts. Tolerant: bad JSON yields "". */
+export function textOfParts(partsJson: string): string {
+  let parts: unknown;
   try {
-    spec = JSON.parse(specJson);
+    parts = JSON.parse(partsJson);
   } catch {
     return "";
   }
-  const elements = (spec as { elements?: unknown })?.elements;
-  if (!elements || typeof elements !== "object") return "";
-  for (const element of Object.values(elements as Record<string, unknown>)) {
-    const el = element as { type?: unknown; props?: Record<string, unknown> } | null;
-    if (el?.type !== "Answer" || !el.props) continue;
-    const lead = el.props.lead;
-    if (typeof lead === "string" && lead.trim()) return lead.trim();
-  }
-  return "";
+  if (!Array.isArray(parts)) return "";
+  return parts
+    .map((part) => {
+      const p = part as { type?: unknown; text?: unknown } | null;
+      return p?.type === "text" && typeof p.text === "string" ? p.text.trim() : "";
+    })
+    .filter(Boolean)
+    .join("\n\n");
 }
 
 export function cleanTitle(raw: string): string {
@@ -84,7 +82,7 @@ export async function generateThreadTitle(deps: ThreadTitleDeps, threadId: strin
   const source = await deps.loadSource(threadId);
   if (!source) return null;
   const { assistant } = source;
-  const answer = answerTextOf(assistant.spec) || assistant.text.trim();
+  const answer = assistant.text.trim();
   const raw = await deps.generate(
     { connectionId: assistant.connectionId, modelId: assistant.modelId },
     titlePrompt(source.userText, answer),

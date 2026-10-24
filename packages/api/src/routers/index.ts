@@ -1,9 +1,9 @@
 import type { RouterClient } from "@orpc/server";
 import { ORPCError } from "@orpc/server";
-import type { UIMessageChunk } from "ai";
 import { z } from "zod";
 
-import { sendChat, ThreadNotFoundError } from "../chat/run";
+import type { ChatMessage } from "../chat/message";
+import { loadMessages } from "../chat/run";
 import {
   fileNameFor,
   providerSlugs,
@@ -42,28 +42,6 @@ export function truncateTitle(text: string): string {
   const line = text.replace(/\s+/g, " ").trim();
   const chars = Array.from(line);
   return chars.length > TITLE_LENGTH ? `${chars.slice(0, TITLE_LENGTH).join("").trimEnd()}…` : line;
-}
-
-function parseJson(value: string | null): unknown {
-  if (!value) return null;
-  try {
-    return JSON.parse(value);
-  } catch {
-    return null;
-  }
-}
-
-async function* iterate<T>(stream: ReadableStream<T>): AsyncGenerator<T, void, unknown> {
-  const reader = stream.getReader();
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) return;
-      yield value;
-    }
-  } finally {
-    reader.releaseLock();
-  }
 }
 
 const modelRef = z.object({
@@ -211,36 +189,21 @@ export const appRouter = {
       });
     }),
 
+    // The thread with its messages as stored: AI SDK `UIMessage`s.
     get: memberProcedure
       .input(z.object({ id: z.string().min(1) }))
       .handler(async ({ context, input }) => {
         const thread = await context.db.thread.findFirst({
           where: { id: input.id, userId: context.session.userId },
-          include: { messages: { orderBy: { createdAt: "asc" } } },
+          select: { id: true, title: true, titledAt: true, createdAt: true, updatedAt: true },
         });
         if (!thread) throw new ORPCError("NOT_FOUND");
-        const { messages, ...rest } = thread;
-        return {
-          ...rest,
-          messages: messages.map((m) => ({
-            id: m.id,
-            role: m.role as "user" | "assistant",
-            text: m.text,
-            spec: parseJson(m.spec),
-            steps: (parseJson(m.steps) ?? []) as {
-              tool: string;
-              status: "running" | "done" | "error";
-              detail: Record<string, unknown>;
-            }[],
-            connectionId: m.connectionId,
-            modelId: m.modelId,
-            createdAt: m.createdAt,
-          })),
-        };
+        const messages = (await loadMessages(context.db, thread.id)) as ChatMessage[];
+        return { ...thread, messages };
       }),
 
     // Starts a thread titled with the first message. The message itself is
-    // sent with chat.send.
+    // sent to POST /api/chat.
     create: memberProcedure
       .input(z.object({ text: z.string().trim().min(1) }))
       .handler(async ({ context, input }) => {
@@ -249,48 +212,6 @@ export const appRouter = {
           select: { id: true, title: true, titledAt: true, createdAt: true, updatedAt: true },
         });
       }),
-  },
-
-  chat: {
-    // Yields AI SDK UI message chunks. See packages/api/src/chat/run.ts.
-    send: memberProcedure
-      .input(z.object({ threadId: z.string().min(1), text: z.string().trim().min(1).max(20_000) }))
-      .handler(
-        async ({ context, input }): Promise<AsyncGenerator<UIMessageChunk, void, unknown>> => {
-          const choice = await context.db.modelChoice.findUnique({
-            where: { userId: context.session.userId },
-          });
-          if (!choice) throw new ORPCError("BAD_REQUEST", { message: "Choose a model first." });
-          const connections = await context.credentials.list();
-          if (!connections.some((c) => c.id === choice.connectionId)) {
-            throw new ORPCError("BAD_REQUEST", {
-              message: "The chosen model's connection was removed. Choose another model.",
-            });
-          }
-          try {
-            const stream = await sendChat(
-              {
-                db: context.db,
-                github: context.github,
-                createModel: context.createModel,
-                titleQueue: context.titleQueue,
-                fetch: context.fetch,
-              },
-              {
-                userId: context.session.userId,
-                threadId: input.threadId,
-                text: input.text,
-                connectionId: choice.connectionId,
-                modelId: choice.modelId,
-              },
-            );
-            return iterate(stream);
-          } catch (error) {
-            if (error instanceof ThreadNotFoundError) throw new ORPCError("NOT_FOUND");
-            throw error;
-          }
-        },
-      ),
   },
 
   github: {

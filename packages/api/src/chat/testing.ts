@@ -105,10 +105,32 @@ export function patches(spec: { root: string; elements: Record<string, unknown> 
   return lines.join("\n");
 }
 
-export const notesSpec = (lead: string) => ({
+/** A reply in json-render inline mode: prose, then the spec in a fence. */
+export const inline = (prose: string, spec: { root: string; elements: Record<string, unknown> }) =>
+  `${prose}\n\n\`\`\`spec\n${patches(spec)}\n\`\`\`\n`;
+
+export const notesSpec = (item = "one") => ({
   root: "answer",
   elements: {
-    answer: { type: "Answer", props: { lead, source: "Fake" }, children: ["notes"] },
-    notes: { type: "Notes", props: { title: "Notes", items: ["one", "two"] }, children: [] },
+    answer: { type: "Answer", props: {}, children: ["notes"] },
+    notes: { type: "Notes", props: { title: "Notes", items: [item, "two"] }, children: [] },
   },
 });
+
+let ids = 0;
+
+/** A user message as `useChat` sends it. */
+export const userMessage = (text: string, id = `u-${++ids}`) => ({
+  id,
+  role: "user" as const,
+  parts: [{ type: "text" as const, text }],
+});
+
+/** Reads an AI SDK UI message stream response back into its chunks. */
+export async function chunksOf(response: Response): Promise<Record<string, unknown>[]> {
+  const text = await response.text();
+  return text
+    .split("\n")
+    .filter((line) => line.startsWith("data: ") && line !== "data: [DONE]")
+    .map((line) => JSON.parse(line.slice("data: ".length)) as Record<string, unknown>);
+}

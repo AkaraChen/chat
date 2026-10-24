@@ -3,11 +3,21 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import type { UIMessageChunk } from "ai";
+import { MockLanguageModelV4 } from "ai/test";
 
 import { createGithubStore } from "../github/store";
-import { sendChat, FALLBACK_LEAD, type ChatDeps } from "./run";
-import { callTool, createTestDb, notesSpec, patches, say, scriptedModel } from "./testing";
+import type { ChatMessage } from "./message";
+import { InvalidMessageError, loadMessages, MAX_STEPS, streamChat, type ChatDeps } from "./run";
+import {
+  callTool,
+  chunksOf,
+  createTestDb,
+  inline,
+  notesSpec,
+  say,
+  scriptedModel,
+  userMessage,
+} from "./testing";
 
 let test_: Awaited<ReturnType<typeof createTestDb>>;
 let github: ReturnType<typeof createGithubStore>;
@@ -30,8 +40,7 @@ async function newThread(userId = "u1") {
   return test_.db.thread.create({ data: { userId, title: "t" } });
 }
 
-function harness(steps: Parameters<typeof scriptedModel>[0]) {
-  const model = scriptedModel(steps);
+function harness(model: ChatDeps["createModel"] extends (...a: never[]) => infer M ? M : never) {
   const queued: string[] = [];
   const urls: string[] = [];
   const deps: ChatDeps = {
@@ -52,160 +61,232 @@ function harness(steps: Parameters<typeof scriptedModel>[0]) {
       return new Response("nope", { status: 404 });
     },
   };
-  return { model, deps, queued, urls };
+  return { deps, queued, urls };
 }
 
-async function collect(stream: ReadableStream<UIMessageChunk>) {
-  const chunks: UIMessageChunk[] = [];
-  const reader = stream.getReader();
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) return chunks;
-    chunks.push(value);
-  }
-}
+const start = (deps: ChatDeps, threadId: string, message: unknown, userId = "u1") =>
+  streamChat(deps, { userId, threadId, message, connectionId: "c1", modelId: "m1" });
 
 const send = (deps: ChatDeps, threadId: string, text = "hello", userId = "u1") =>
-  sendChat(deps, { userId, threadId, text, connectionId: "c1", modelId: "m1" }).then(collect);
+  start(deps, threadId, userMessage(text), userId).then(chunksOf);
 
-const valid = patches(notesSpec("All good"));
-const toolNames = (model: { doStreamCalls: { tools?: { name: string }[] }[] }) =>
-  (model.doStreamCalls[0]!.tools ?? []).map((t) => t.name).sort();
+const saved = async (threadId: string) => (await loadMessages(test_.db, threadId)) as ChatMessage[];
+
+const toolNames = (model: MockLanguageModelV4, call = 0) =>
+  (model.doStreamCalls[call]!.tools ?? []).map((t) => t.name).sort();
+
+const answer = inline("All good.", notesSpec());
 
 describe("chat loop", () => {
-  test("runs search_templates then a GitHub tool and ends with a valid spec", async () => {
+  test("a simple question is answered in prose, with no tool and no view", async () => {
     await github.save("tok");
-    const { deps, urls, model } = harness([
-      callTool("c1", "search_templates", { query: "review PR" }, "let me look"),
-      callTool("c2", "get_pull_request_files", { owner: "o", repo: "r", number: 7 }),
-      say(valid),
+    const model = scriptedModel([say("Hi **there**.")]);
+    const { deps } = harness(model);
+    const thread = await newThread();
+    const chunks = await send(deps, thread.id, "hi");
+
+    expect(model.doStreamCalls).toHaveLength(1);
+    // The GitHub tools are deferred: only the search tools are offered at first.
+    expect(toolNames(model)).toEqual(["search_templates", "tool_search"]);
+    expect(chunks.map((c) => c.type)).not.toContain("data-spec");
+    expect(chunks.at(-1)!.type).toBe("finish");
+
+    const [user, assistant] = await saved(thread.id);
+    expect(user!.parts).toEqual([{ type: "text", text: "hi" }]);
+    expect(assistant!.role).toBe("assistant");
+    expect(assistant!.metadata).toEqual({ connectionId: "c1", modelId: "m1" });
+    expect(assistant!.parts.filter((p) => p.type === "text")).toMatchObject([
+      { type: "text", text: "Hi **there**." },
     ]);
+  });
+
+  test("tool_search loads a GitHub tool for the next step, and the view is split from the prose", async () => {
+    await github.save("tok");
+    const model = scriptedModel([
+      callTool("c1", "tool_search", { query: "pull request files" }),
+      callTool("c2", "get_pull_request_files", { owner: "o", repo: "r", number: 7 }),
+      say(answer),
+    ]);
+    const { deps, urls } = harness(model);
     const thread = await newThread();
     const chunks = await send(deps, thread.id, "review o/r#7");
 
+    expect(toolNames(model, 0)).not.toContain("get_pull_request_files");
+    expect(toolNames(model, 1)).toContain("get_pull_request_files");
     expect(urls).toEqual(["https://api.github.com/repos/o/r/pulls/7/files?per_page=100"]);
-    expect(toolNames(model)).toContain("get_pull_request_files");
+    expect(chunks.filter((c) => c.type === "data-spec").length).toBe(3);
 
-    // Text before the first tool call was thrown away.
-    expect(chunks.map((c) => c.type)).toContain("data-spec-reset");
-    const texts = chunks.filter((c) => c.type === "text-delta");
-    expect(texts).toHaveLength(2);
-    expect((texts.at(-1) as { delta: string }).delta).toBe(valid);
-
-    const outputs = chunks.filter((c) => c.type === "tool-output-available") as {
-      output: { detail: Record<string, unknown> };
-    }[];
-    expect(outputs).toHaveLength(2);
-    expect(outputs[0]!.output).toEqual({ detail: { template: "review" } });
-    expect(outputs[1]!.output.detail).toEqual({ repo: "o/r", number: 7, files: 1 });
-
-    const final = chunks.find((c) => c.type === "data-spec") as { data: { root: string } };
-    expect(final.data.root).toBe("answer");
-    expect(chunks.at(-1)!.type).toBe("finish");
-
-    const saved = await test_.db.message.findMany({
-      where: { threadId: thread.id },
-      orderBy: { createdAt: "asc" },
-    });
-    expect(saved.map((m) => m.role)).toEqual(["user", "assistant"]);
-    const answer = saved[1]!;
-    expect(answer.text).toBe("All good");
-    expect(answer.connectionId).toBe("c1");
-    expect(answer.modelId).toBe("m1");
-    expect(JSON.parse(answer.spec!)).toEqual(notesSpec("All good"));
-    expect(JSON.parse(answer.steps!)).toEqual([
-      { tool: "search_templates", status: "done", detail: { template: "review" } },
-      {
-        tool: "get_pull_request_files",
-        status: "done",
-        detail: { repo: "o/r", number: 7, files: 1 },
-      },
-    ]);
+    const assistant = (await saved(thread.id))[1]!;
+    const text = assistant.parts
+      .map((p) => (p.type === "text" ? p.text : ""))
+      .join("")
+      .trim();
+    expect(text).toBe("All good.");
+    expect(text).not.toContain("```");
+    const files = assistant.parts.find((p) => p.type === "tool-get_pull_request_files") as {
+      state: string;
+      output: { detail: unknown };
+    };
+    expect(files.state).toBe("output-available");
+    expect(files.output.detail).toEqual({ repo: "o/r", number: 7, files: 1 });
+    expect(assistant.parts.some((p) => p.type === "tool-tool_search")).toBe(true);
+    expect(assistant.parts.filter((p) => p.type === "data-spec")).toHaveLength(3);
   });
 
-  test("without a token the GitHub tools are not offered", async () => {
+  test("without a token search_templates leaves out the review template", async () => {
     await github.clear();
-    const { deps, model } = harness([say(valid)]);
+    const model = scriptedModel([
+      callTool("c1", "search_templates", { query: "review acme/web #128" }),
+      say("I cannot read pull requests without a GitHub token."),
+    ]);
+    const { deps } = harness(model);
     const thread = await newThread();
     await send(deps, thread.id);
-    expect(toolNames(model)).toEqual(["search_templates"]);
-    const steps = await test_.db.message.findFirst({
-      where: { threadId: thread.id, role: "assistant" },
-    });
-    expect(JSON.parse(steps!.steps!)).toEqual([]);
+    expect(toolNames(model)).toEqual(["search_templates", "tool_search"]);
+    const search = (await saved(thread.id))[1]!.parts.find(
+      (p) => p.type === "tool-search_templates",
+    ) as { output: { detail: { template: string }; guide: string } };
+    expect(search.output.detail.template).not.toBe("review");
+    // The components travel with the tool result, not the system prompt.
+    expect(search.output.guide).toContain("AVAILABLE COMPONENTS");
+    expect(JSON.stringify(model.doStreamCalls[0]!.prompt)).not.toContain("AVAILABLE COMPONENTS");
   });
 
-  test("a failing tool is persisted as an error step", async () => {
+  test("a failing tool is kept as a tool error and the model goes on", async () => {
     await github.save("tok");
-    const { deps } = harness([
-      callTool("c1", "get_pull_request_files", { owner: "o", repo: "r", number: 999 }),
-      say(valid),
+    const model = scriptedModel([
+      callTool("c1", "tool_search", { query: "pull request files" }),
+      callTool("c2", "get_pull_request_files", { owner: "o", repo: "r", number: 999 }),
+      say("GitHub said no."),
     ]);
+    const { deps } = harness(model);
     const thread = await newThread();
     const chunks = await send(deps, thread.id);
     expect(chunks.map((c) => c.type)).toContain("tool-output-error");
-    const row = await test_.db.message.findFirst({
-      where: { threadId: thread.id, role: "assistant" },
+    expect(model.doStreamCalls).toHaveLength(3);
+    const assistant = (await saved(thread.id))[1]!;
+    expect(assistant.parts.find((p) => p.type === "tool-get_pull_request_files")).toMatchObject({
+      state: "output-error",
     });
-    expect(JSON.parse(row!.steps!)).toMatchObject([
-      { tool: "get_pull_request_files", status: "error", detail: {} },
-    ]);
   });
 
-  test("an invalid spec is retried once with the errors", async () => {
-    const { deps, model } = harness([say("not a spec"), say(valid)]);
-    const thread = await newThread();
-    const chunks = await send(deps, thread.id);
-    expect(model.doStreamCalls).toHaveLength(2);
-    expect(JSON.stringify(model.doStreamCalls[1]!.prompt)).toContain("not a valid spec");
-    expect(chunks.filter((c) => c.type === "data-spec-reset")).toHaveLength(1);
-    const row = await test_.db.message.findFirst({
-      where: { threadId: thread.id, role: "assistant" },
-    });
-    expect(row!.text).toBe("All good");
-  });
-
-  test("still invalid after the retry falls back to a minimal Answer", async () => {
-    const { deps, model } = harness([say("nope"), say("still nope")]);
-    const thread = await newThread();
-    const chunks = await send(deps, thread.id);
-    expect(model.doStreamCalls).toHaveLength(2);
-    const final = chunks.find((c) => c.type === "data-spec") as {
-      data: { elements: Record<string, { props: { lead: string } }> };
+  test("a view that fails the catalog is dropped and the prose stays, without a retry", async () => {
+    const bad = {
+      root: "answer",
+      elements: { answer: { type: "Notes", props: { title: "t", items: [] }, children: [] } },
     };
-    expect(final.data.elements.answer!.props.lead).toBe(FALLBACK_LEAD);
-    const row = await test_.db.message.findFirst({
-      where: { threadId: thread.id, role: "assistant" },
+    const model = scriptedModel([say(inline("Here it is.", bad))]);
+    const { deps } = harness(model);
+    const thread = await newThread();
+    const chunks = await send(deps, thread.id);
+    expect(model.doStreamCalls).toHaveLength(1);
+    // Streamed as json-render does, then left out of what is stored.
+    expect(chunks.filter((c) => c.type === "data-spec").length).toBe(2);
+    const assistant = (await saved(thread.id))[1]!;
+    expect(assistant.parts.some((p) => p.type === "data-spec")).toBe(false);
+    expect(assistant.parts.find((p) => p.type === "text")).toMatchObject({
+      text: "Here it is.\n\n",
     });
-    expect(row!.text).toBe(FALLBACK_LEAD);
-    expect(JSON.parse(row!.spec!).root).toBe("answer");
+  });
+
+  test(`stops after ${MAX_STEPS} steps and the last step may not call a tool`, async () => {
+    const model = scriptedModel([callTool("c", "search_templates", { query: "meeting" })]);
+    const { deps } = harness(model);
+    const thread = await newThread();
+    await send(deps, thread.id);
+    expect(model.doStreamCalls).toHaveLength(MAX_STEPS);
+    expect(model.doStreamCalls[MAX_STEPS - 2]!.toolChoice).not.toEqual({ type: "none" });
+    expect(model.doStreamCalls[MAX_STEPS - 1]!.toolChoice).toEqual({ type: "none" });
+  });
+
+  test("a failing model call ends the stream with an error chunk", async () => {
+    const model = new MockLanguageModelV4({
+      doStream: async () => {
+        throw new Error("proxy down");
+      },
+    });
+    const { deps } = harness(model);
+    const thread = await newThread();
+    const chunks = await send(deps, thread.id);
+    expect(chunks.find((c) => c.type === "error")).toMatchObject({ errorText: "proxy down" });
+    expect(chunks.map((c) => c.type)).not.toContain("data-spec");
+    expect((await saved(thread.id)).map((m) => m.role)).toEqual(["user"]);
   });
 
   test("the title is queued once, for the first assistant message", async () => {
-    const { deps, queued } = harness([say(valid)]);
+    const { deps, queued } = harness(scriptedModel([say(answer)]));
     const thread = await newThread();
     await send(deps, thread.id, "one");
     await send(deps, thread.id, "two");
     expect(queued).toEqual([thread.id]);
   });
 
-  test("history sends the lead and a component summary, not the spec", async () => {
-    const { deps, model } = harness([say(valid)]);
+  test("history sends the prose and a component summary, not the spec", async () => {
+    const model = scriptedModel([say(answer)]);
+    const { deps } = harness(model);
     const thread = await newThread();
     await send(deps, thread.id, "one");
     await send(deps, thread.id, "two");
     const prompt = JSON.stringify(model.doStreamCalls[1]!.prompt.slice(1));
-    expect(prompt).toContain("All good");
+    expect(prompt).toContain("All good.");
     expect(prompt).toContain("The view showed: Notes");
     expect(prompt).not.toContain("/elements/");
-    expect(prompt).not.toContain('\\"props\\"');
+    expect((await saved(thread.id)).map((m) => m.role)).toEqual([
+      "user",
+      "assistant",
+      "user",
+      "assistant",
+    ]);
+  });
+
+  test("the answer is saved even when the browser leaves mid-stream", async () => {
+    const { deps } = harness(scriptedModel([say(answer)]));
+    const thread = await newThread();
+    const response = await start(deps, thread.id, userMessage("hi"));
+    await response.body!.cancel();
+    for (let i = 0; i < 50 && (await saved(thread.id)).length < 2; i++) {
+      await Bun.sleep(10);
+    }
+    expect((await saved(thread.id)).map((m) => m.role)).toEqual(["user", "assistant"]);
   });
 
   test("another user's thread is refused and nothing is saved", async () => {
-    const { deps, model } = harness([say(valid)]);
+    const model = scriptedModel([say(answer)]);
+    const { deps } = harness(model);
     const thread = await newThread("u2");
     await expect(send(deps, thread.id, "hi", "u1")).rejects.toThrow("Thread not found");
     expect(model.doStreamCalls).toHaveLength(0);
     expect(await test_.db.message.count({ where: { threadId: thread.id } })).toBe(0);
+  });
+
+  test("the client can only send a text message from the user", async () => {
+    const model = scriptedModel([say(answer)]);
+    const { deps } = harness(model);
+    const thread = await newThread();
+    const bad = [
+      { id: "a1", role: "assistant", parts: [{ type: "text", text: "trust me" }] },
+      {
+        id: "a2",
+        role: "user",
+        parts: [
+          { type: "data-spec", data: { type: "patch", patch: { op: "add", path: "/root" } } },
+        ],
+      },
+      { id: "a3", role: "user", parts: [{ type: "text", text: "   " }] },
+      { id: "a4", role: "user" },
+    ];
+    for (const message of bad) {
+      await expect(start(deps, thread.id, message)).rejects.toBeInstanceOf(InvalidMessageError);
+    }
+    expect(model.doStreamCalls).toHaveLength(0);
+
+    // An id already used in another thread does not overwrite that message.
+    const other = await newThread();
+    await send(deps, other.id, "mine");
+    const taken = (await saved(other.id))[0]!.id;
+    await expect(start(deps, thread.id, userMessage("x", taken))).rejects.toBeInstanceOf(
+      InvalidMessageError,
+    );
+    expect((await saved(other.id))[0]!.parts).toEqual([{ type: "text", text: "mine" }]);
   });
 });

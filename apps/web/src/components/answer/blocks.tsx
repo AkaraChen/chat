@@ -12,23 +12,9 @@ function Card({ title, children }: { title?: string; children: ReactNode }) {
   );
 }
 
-export function Answer({
-  lead,
-  source,
-  children,
-}: ComponentProps["Answer"] & { children?: ReactNode }) {
-  return (
-    <section className="flex flex-col gap-4">
-      <div className="flex flex-col gap-1">
-        <RichText
-          text={lead}
-          className="text-[#1C1C1E] [&>p:first-child]:text-xl [&>p:first-child]:leading-snug [&>p:first-child]:font-medium [&>p:first-child]:text-balance"
-        />
-        {source ? <RichText text={source} className="text-sm text-[#6E6E73]" /> : null}
-      </div>
-      {children ? <div className="flex flex-col gap-3">{children}</div> : null}
-    </section>
-  );
+/** The view under the prose: its cards, in reading order. */
+export function Answer({ children }: { children?: ReactNode }) {
+  return children ? <section className="flex flex-col gap-3">{children}</section> : null;
 }
 
 export function StatStrip({ cells }: ComponentProps["StatStrip"]) {

@@ -1,6 +1,7 @@
 import {
   createProxyGenerate,
   generateThreadTitle,
+  textOfParts,
   THREAD_TITLE_QUEUE,
   type ThreadTitleDeps,
   type ThreadTitleJob,
@@ -25,14 +26,15 @@ const deps: ThreadTitleDeps = {
     });
     const user = messages.find((m) => m.role === "user");
     const assistant = messages.find((m) => m.role === "assistant");
-    if (!user || !assistant?.connectionId || !assistant.modelId) return null;
+    if (!user || !assistant?.metadata) return null;
+    const model = JSON.parse(assistant.metadata) as { connectionId?: string; modelId?: string };
+    if (!model.connectionId || !model.modelId) return null;
     return {
-      userText: user.text,
+      userText: textOfParts(user.parts),
       assistant: {
-        spec: assistant.spec,
-        text: assistant.text,
-        connectionId: assistant.connectionId,
-        modelId: assistant.modelId,
+        text: textOfParts(assistant.parts),
+        connectionId: model.connectionId,
+        modelId: model.modelId,
       },
     };
   },

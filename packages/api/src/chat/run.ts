@@ -1,25 +1,35 @@
-import { createSpecStreamCompiler } from "@json-render/core";
+import { pipeJsonRender } from "@json-render/core";
 import type { Database } from "@my-better-t-app/db";
-import { isStepCount, streamText, type ModelMessage, type ToolSet, type UIMessageChunk } from "ai";
+import {
+  convertToModelMessages,
+  createUIMessageStream,
+  createUIMessageStreamResponse,
+  isStepCount,
+  safeValidateUIMessages,
+  streamText,
+  toolSearch,
+  toUIMessageStream,
+  type InferUIMessageChunk,
+  type ToolSet,
+} from "ai";
 
 import type { GithubStore } from "../github/store";
-import { githubToolsFor } from "../github/tools";
+import { githubTools, githubToolsFor } from "../github/tools";
 import { enqueueThreadTitle, type ThreadTitleQueue } from "../jobs/thread-title";
-import { validateSpec } from "../templates/catalog";
 import { createSearchTemplatesTool } from "../templates/search";
-import { toModelMessages } from "./history";
+import { forModel } from "./history";
+import {
+  dataSchemas,
+  metadataSchema,
+  withoutInvalidSpec,
+  type ChatMessage,
+  type ChatMetadata,
+} from "./message";
 import type { ModelFactory } from "./model";
-import { retryPrompt, systemPrompt } from "./prompt";
+import { systemPrompt } from "./prompt";
 
-export const MAX_STEPS = 8;
-
-export type Step = {
-  tool: string;
-  status: "running" | "done" | "error";
-  detail: Record<string, unknown>;
-};
-
-export type Spec = { root: string; elements: Record<string, unknown> };
+export const MAX_STEPS = 20;
+export const MAX_MESSAGE_CHARS = 20_000;
 
 export type ChatDeps = {
   db: Database;
@@ -29,10 +39,11 @@ export type ChatDeps = {
   fetch?: (input: string, init?: RequestInit) => Promise<Response>;
 };
 
-export type SendInput = {
+export type ChatInput = {
   userId: string;
   threadId: string;
-  text: string;
+  /** The new user message, as `useChat` sent it. Validated here. */
+  message: unknown;
   connectionId: string;
   modelId: string;
 };
@@ -43,240 +54,180 @@ export class ThreadNotFoundError extends Error {
   }
 }
 
-// What the model is told when it cannot produce a valid view twice.
-export const FALLBACK_LEAD = "No view could be generated for this answer.";
-
-export function fallbackSpec(): Spec {
-  return {
-    root: "answer",
-    elements: {
-      answer: { type: "Answer", props: { lead: FALLBACK_LEAD, source: "" }, children: [] },
-    },
-  };
-}
-
-export function leadOf(spec: Spec): string {
-  const root = spec.elements[spec.root] as { props?: { lead?: unknown } } | undefined;
-  return typeof root?.props?.lead === "string" ? root.props.lead : FALLBACK_LEAD;
-}
-
-// Joins the SpecStream text into a spec and checks it against the catalog.
-export function compileAndValidate(text: string): { spec: Spec; errors: string[] } {
-  const compiler = createSpecStreamCompiler<Record<string, unknown>>();
-  compiler.push(text);
-  compiler.push("\n");
-  const spec = compiler.getResult() as Spec;
-  return { spec, errors: validateSpec(spec) };
-}
-
-function detailOf(output: unknown): Record<string, unknown> {
-  const detail = (output as { detail?: unknown } | null)?.detail;
-  return detail && typeof detail === "object" ? (detail as Record<string, unknown>) : {};
-}
+export class InvalidMessageError extends Error {}
 
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
 /**
- * Starts one assistant turn. Checks the thread belongs to the user and saves the
- * user's message, then returns a UI message stream. Throws before streaming
- * when the thread is not the user's.
- *
- * Chunks, in order:
- * - `start`, then per attempt a text part holding SpecStream lines (only the
- *   final model step's text), tool parts (`tool-<id>`, output `{ detail }`),
- *   `data-spec-reset` whenever the client must drop the text it has so far,
- * - `data-spec` with the final validated (or fallback) spec, then `finish`.
- * - `error` instead of `data-spec` when the model call itself failed.
+ * The tools a turn starts with. The GitHub tools are deferred: the model
+ * sees `tool_search` and `search_templates`, and a search loads the GitHub
+ * tools for the next step and the rest of the turn.
  */
-export async function sendChat(
-  deps: ChatDeps,
-  input: SendInput,
-): Promise<ReadableStream<UIMessageChunk>> {
+function toolsFor(token: string | null, fetchImpl: ChatDeps["fetch"]): ToolSet {
+  return {
+    tool_search: toolSearch(),
+    search_templates: createSearchTemplatesTool({ github: token !== null }),
+    ...githubToolsFor(token, fetchImpl),
+  } as ToolSet;
+}
+
+// History can hold GitHub tool calls from when a token was set, so every
+// tool's schema is checked whether or not the token is there now.
+const historyTools = {
+  tool_search: toolSearch(),
+  search_templates: createSearchTemplatesTool(),
+  ...githubTools({ token: "" }),
+} as ToolSet;
+
+type Row = { id: string; role: string; parts: string; metadata: string | null };
+
+function fromRow(row: Row): unknown {
+  return {
+    id: row.id,
+    role: row.role,
+    parts: JSON.parse(row.parts),
+    ...(row.metadata ? { metadata: JSON.parse(row.metadata) } : {}),
+  };
+}
+
+/** The thread's stored messages, oldest first, unvalidated. */
+export async function loadMessages(db: Database, threadId: string): Promise<unknown[]> {
+  const rows = await db.message.findMany({ where: { threadId }, orderBy: { createdAt: "asc" } });
+  return rows.map(fromRow);
+}
+
+async function saveMessage(db: Database, threadId: string, message: ChatMessage) {
+  const parts = JSON.stringify(message.parts);
+  const metadata = message.metadata ? JSON.stringify(message.metadata) : null;
+  await db.message.upsert({
+    where: { id: message.id },
+    create: { id: message.id, threadId, role: message.role, parts, metadata },
+    update: { parts, metadata },
+  });
+}
+
+// A user message is text the person typed. Anything else from the client
+// (tool results, data parts, another role) is not taken on trust.
+function checkUserMessage(message: ChatMessage | undefined): ChatMessage {
+  if (!message || message.role !== "user") {
+    throw new InvalidMessageError("The last message must be the user's.");
+  }
+  if (!message.parts.every((part) => part.type === "text")) {
+    throw new InvalidMessageError("A message can only hold text.");
+  }
+  const text = message.parts.map((part) => (part.type === "text" ? part.text : "")).join("");
+  if (!text.trim()) throw new InvalidMessageError("The message is empty.");
+  if (text.length > MAX_MESSAGE_CHARS) throw new InvalidMessageError("The message is too long.");
+  return { id: message.id, role: "user", parts: message.parts };
+}
+
+/**
+ * Runs one assistant turn and returns the HTTP response: an AI SDK UI message
+ * stream. Checks the thread is the user's, saves the user's message, then lets
+ * the model call tools and write until it ends with text or reaches
+ * MAX_STEPS. Throws before streaming when the thread is not the user's or
+ * the message is invalid.
+ *
+ * Text that parses as JSON Patch inside a ```spec fence becomes `data-spec`
+ * parts (json-render inline mode). When the stream ends, the assistant
+ * message is saved as sent, minus a view that does not pass the catalog.
+ * A model failure ends the stream with an `error` chunk.
+ */
+export async function streamChat(deps: ChatDeps, input: ChatInput): Promise<Response> {
   const { db } = deps;
   const thread = await db.thread.findFirst({
     where: { id: input.threadId, userId: input.userId },
     select: { id: true },
   });
   if (!thread) throw new ThreadNotFoundError();
+  const threadId = thread.id;
 
-  const prior = await db.message.findMany({
-    where: { threadId: thread.id },
-    orderBy: { createdAt: "asc" },
+  const stored = await loadMessages(db, threadId);
+  const validated = await safeValidateUIMessages<ChatMessage>({
+    messages: [...stored, input.message],
+    tools: historyTools as never,
+    dataSchemas,
+    metadataSchema,
   });
-  await db.message.create({ data: { threadId: thread.id, role: "user", text: input.text } });
+  if (!validated.success) throw new InvalidMessageError(validated.error.message);
+  const messages = validated.data;
+  const message = checkUserMessage(messages.at(-1));
+  messages[messages.length - 1] = message;
+
+  // Message ids come from the client. One that names a message in another
+  // thread must not overwrite it.
+  const clash = await db.message.findUnique({
+    where: { id: message.id },
+    select: { threadId: true },
+  });
+  if (clash && clash.threadId !== threadId) throw new InvalidMessageError("Message id in use.");
+  await saveMessage(db, threadId, message);
 
   const token = await deps.github.read();
-  const tools = {
-    search_templates: createSearchTemplatesTool({ github: token !== null }),
-    ...githubToolsFor(token, deps.fetch),
-  } as unknown as ToolSet;
-  const system = systemPrompt({ github: token !== null });
+  const tools = toolsFor(token, deps.fetch);
   const model = deps.createModel(input.connectionId, input.modelId);
-  const base: ModelMessage[] = [...toModelMessages(prior), { role: "user", content: input.text }];
+  const metadata: ChatMetadata = { connectionId: input.connectionId, modelId: input.modelId };
+  const modelMessages = await convertToModelMessages(forModel(messages), {
+    tools,
+    ignoreIncompleteToolCalls: true,
+  });
 
-  return new ReadableStream<UIMessageChunk>({
-    start(controller) {
-      let open = true;
-      const write = (chunk: UIMessageChunk) => {
-        if (!open) return;
-        try {
-          controller.enqueue(chunk);
-        } catch {
-          open = false;
-        }
-      };
-      // Keep going when the browser leaves: the answer is still saved.
-      void run(write)
-        .catch((error) => write({ type: "error", errorText: messageOf(error) }))
-        .finally(() => {
-          write({ type: "finish" });
-          if (open) controller.close();
-          open = false;
-        });
+  const stream = createUIMessageStream<ChatMessage>({
+    originalMessages: messages,
+    onError: messageOf,
+    execute({ writer }) {
+      const result = streamText({
+        model,
+        instructions: systemPrompt({ github: token !== null }),
+        messages: modelMessages,
+        tools,
+        stopWhen: isStepCount(MAX_STEPS),
+        // The last step can only write, so the turn never stops on a tool
+        // call whose result the model would not see.
+        prepareStep: ({ stepNumber }) =>
+          stepNumber === MAX_STEPS - 1 ? { toolChoice: "none" } : undefined,
+        onError: () => {},
+      });
+      const chunks = toUIMessageStream({
+        stream: result.stream,
+        messageMetadata: ({ part }) => (part.type === "start" ? metadata : undefined),
+        onError: messageOf,
+      }) as ReadableStream<InferUIMessageChunk<ChatMessage>>;
+      writer.merge(pipeJsonRender(chunks));
+    },
+    async onEnd({ responseMessage }) {
+      try {
+        await finish(responseMessage);
+      } catch (error) {
+        console.error("answer was not saved:", messageOf(error));
+      }
     },
   });
 
-  async function run(write: (chunk: UIMessageChunk) => void) {
-    write({ type: "start" });
-    const steps: Step[] = [];
-    const stepByCall = new Map<string, Step>();
-    let textSeq = 0;
+  // The SSE copy is read to the end here, so the turn finishes and is saved
+  // even when the browser leaves.
+  return createUIMessageStreamResponse({
+    stream,
+    consumeSseStream: async ({ stream: copy }) => {
+      const reader = copy.getReader();
+      while (!(await reader.read()).done) {}
+    },
+  });
 
-    // One model call. Returns the text of the final step only; text from steps
-    // that ended in tool calls is dropped.
-    async function attempt(messages: ModelMessage[], retry: boolean) {
-      const result = streamText({
-        model,
-        instructions: system,
-        messages,
-        tools,
-        toolChoice: retry ? "none" : undefined,
-        stopWhen: isStepCount(retry ? 1 : MAX_STEPS),
-        onError: () => {},
-      });
-      let openText: string | null = null;
-      let stepText = "";
-      let stepHadTool = false;
-      let finalText = "";
-
-      const closeText = () => {
-        if (openText) write({ type: "text-end", id: openText });
-        openText = null;
-      };
-
-      for await (const part of result.stream) {
-        switch (part.type) {
-          case "start-step":
-            stepText = "";
-            stepHadTool = false;
-            break;
-          case "text-delta":
-            if (stepHadTool || !part.text) break;
-            if (!openText) {
-              openText = `text-${++textSeq}`;
-              write({ type: "text-start", id: openText });
-            }
-            stepText += part.text;
-            write({ type: "text-delta", id: openText, delta: part.text });
-            break;
-          case "tool-input-start":
-            write({ type: "tool-input-start", toolCallId: part.id, toolName: part.toolName });
-            break;
-          case "tool-call": {
-            closeText();
-            // The text before this call was not the answer after all.
-            if (stepText) write({ type: "data-spec-reset", data: {} });
-            stepText = "";
-            stepHadTool = true;
-            const step: Step = { tool: part.toolName, status: "running", detail: {} };
-            steps.push(step);
-            stepByCall.set(part.toolCallId, step);
-            write({
-              type: "tool-input-available",
-              toolCallId: part.toolCallId,
-              toolName: part.toolName,
-              input: part.input,
-            });
-            break;
-          }
-          case "tool-result": {
-            const step = stepByCall.get(part.toolCallId);
-            const detail = detailOf(part.output);
-            if (step) {
-              step.status = "done";
-              step.detail = detail;
-            }
-            write({
-              type: "tool-output-available",
-              toolCallId: part.toolCallId,
-              output: { detail },
-            });
-            break;
-          }
-          case "tool-error": {
-            const step = stepByCall.get(part.toolCallId);
-            if (step) step.status = "error";
-            write({
-              type: "tool-output-error",
-              toolCallId: part.toolCallId,
-              errorText: messageOf(part.error),
-            });
-            break;
-          }
-          case "finish-step":
-            closeText();
-            finalText = stepHadTool ? "" : stepText;
-            break;
-          case "error":
-            throw part.error instanceof Error ? part.error : new Error(messageOf(part.error));
-          default:
-            break;
-        }
-      }
-      closeText();
-      return { text: finalText, responseMessages: await result.responseMessages };
-    }
-
-    let outcome = await attempt(base, false);
-    let compiled = compileAndValidate(outcome.text);
-
-    if (compiled.errors.length > 0) {
-      write({ type: "data-spec-reset", data: {} });
-      outcome = await attempt(
-        [
-          ...base,
-          ...outcome.responseMessages,
-          { role: "user", content: retryPrompt(compiled.errors) },
-        ],
-        true,
-      );
-      compiled = compileAndValidate(outcome.text);
-    }
-
-    const spec = compiled.errors.length === 0 ? compiled.spec : fallbackSpec();
-    write({ type: "data-spec", data: spec });
-
-    await db.message.create({
-      data: {
-        threadId: input.threadId,
-        role: "assistant",
-        text: leadOf(spec),
-        spec: JSON.stringify(spec),
-        steps: JSON.stringify(steps),
-        connectionId: input.connectionId,
-        modelId: input.modelId,
-      },
-    });
-    await db.thread.update({ where: { id: input.threadId }, data: { updatedAt: new Date() } });
+  async function finish(response: ChatMessage) {
+    const answer = withoutInvalidSpec({ ...response, metadata });
+    if (!answer.parts.some((part) => part.type !== "step-start")) return;
+    await saveMessage(db, threadId, answer);
+    await db.thread.update({ where: { id: threadId }, data: { updatedAt: new Date() } });
 
     const answers = await db.message.count({
-      where: { threadId: input.threadId, role: "assistant" },
+      where: { threadId: threadId, role: "assistant" },
     });
     if (answers === 1) {
       try {
-        await enqueueThreadTitle(deps.titleQueue(), input.threadId);
+        await enqueueThreadTitle(deps.titleQueue(), threadId);
       } catch (error) {
         // A title is nice to have; Redis being down must not fail the answer.
         console.error("thread title was not queued:", messageOf(error));

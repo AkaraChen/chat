@@ -7,9 +7,11 @@ export const when = `Use when the user pastes meeting notes or asks to organise 
 
 export const components = ["Answer", "Decisions", "OpenItems", "Todo"] as const;
 
+export const prose =
+  "How many things were decided and how many are still open, in one or two sentences.";
+
 export const usage = {
-  Answer:
-    "Root. Lead: how many things were decided and how many are open. Source: where the notes came from.",
+  Answer: "Root container with empty props. List the other elements in reading order.",
   Decisions: "Only things the notes say were settled. One short sentence each.",
   OpenItems:
     "Two groups of unresolved questions (for example by theme), each with exactly two cards. If the notes have fewer open items, leave this component out.",
@@ -21,10 +23,7 @@ export const example: Template["example"] = {
   elements: {
     answer: {
       type: "Answer",
-      props: {
-        lead: "Three decisions, two open questions, two follow-ups.",
-        source: "From the notes you pasted",
-      },
+      props: {},
       children: ["decisions", "open", "todo-1", "todo-2"],
     },
     decisions: {
@@ -101,4 +100,4 @@ export const terms = [
   "复盘",
 ] as const;
 
-export const meeting: Template = { id, when, components, usage, example, terms };
+export const meeting: Template = { id, when, prose, components, usage, example, terms };
