@@ -1,5 +1,6 @@
-import { GearSixIcon, NotePencilIcon } from "@phosphor-icons/react";
+import { BooksIcon, GearSixIcon, PlusIcon, SidebarSimpleIcon } from "@phosphor-icons/react";
 import { Link } from "@tanstack/react-router";
+import { useState } from "react";
 
 type Thread = { id: string; title: string; updatedAt: Date | string };
 
@@ -19,58 +20,107 @@ function group(threads: Thread[], now = new Date()) {
   return groups.filter((g) => g.threads.length > 0);
 }
 
+export function roleName(role: string) {
+  if (role === "admin") return "Admin";
+  if (role === "user") return "User";
+  return "Visitor";
+}
+
 export function Sidebar({
   threads,
   activeId,
   name,
+  role,
   onSettings,
 }: {
   threads: Thread[];
   activeId: string | undefined;
   name: string;
+  role: string;
   onSettings: () => void;
 }) {
+  const [collapsed, setCollapsed] = useState(false);
+  const initial = name.trim().slice(0, 1).toUpperCase() || "A";
   return (
-    <aside className="flex h-svh w-[272px] shrink-0 flex-col bg-[#F7F7F8] px-3 pt-5 pb-3">
-      <span className="px-3 text-[17px] font-semibold tracking-[-0.01em] text-[#1C1C1E]">
-        The Chat
-      </span>
+    <aside
+      className={`flex h-full shrink-0 flex-col py-3 ${collapsed ? "w-[72px] items-center px-2" : "w-60 px-3"}`}
+    >
+      <div className={`flex items-center ${collapsed ? "justify-center" : "justify-between px-1"}`}>
+        {collapsed ? null : (
+          <span className="text-[17px] font-semibold tracking-[-0.01em] text-[#1C1C1E]">
+            The Chat
+          </span>
+        )}
+        <button
+          type="button"
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          onClick={() => setCollapsed((value) => !value)}
+          className="flex size-8 items-center justify-center rounded-lg text-[#6E6E73] hover:bg-[#EDEDF0]"
+        >
+          <SidebarSimpleIcon size={18} />
+        </button>
+      </div>
       <Link
         to="/chat"
         search={{}}
-        className="mt-5 flex h-10 items-center gap-2.5 rounded-xl px-3 text-sm font-medium text-[#1C1C1E] hover:bg-[#EDEDF0]"
+        aria-label="New chat"
+        className={`mt-4 flex items-center justify-center bg-[#1A73E8] font-medium text-white ${
+          collapsed ? "size-10 rounded-xl" : "h-10 gap-2 rounded-xl px-3 text-sm"
+        }`}
       >
-        <NotePencilIcon size={18} />
-        New chat
+        <PlusIcon size={16} weight="bold" />
+        {collapsed ? null : "New chat"}
       </Link>
-      <nav className="mt-5 flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto">
-        {group(threads).map(({ label, threads }) => (
-          <section key={label} className="flex flex-col gap-0.5">
-            <h2 className="px-3 pb-1 text-xs font-medium text-[#9E9EA4]">{label}</h2>
-            {threads.map((thread) => (
-              <Link
-                key={thread.id}
-                to="/chat"
-                search={{ thread: thread.id }}
-                className={`truncate rounded-xl px-3 py-2 text-sm text-[#1C1C1E] ${
-                  thread.id === activeId ? "bg-[#E8E8EC]" : "hover:bg-[#EDEDF0]"
-                }`}
-              >
-                {thread.title}
-              </Link>
-            ))}
-          </section>
-        ))}
-      </nav>
-      <div className="mt-3 flex flex-col gap-0.5">
-        <span className="truncate px-3 py-1 text-[13px] text-[#6E6E73]">{name}</span>
+      <button
+        type="button"
+        className={`mt-2 flex items-center text-sm text-[#1C1C1E] hover:bg-[#EDEDF0] ${
+          collapsed ? "size-10 justify-center rounded-xl" : "h-10 gap-2.5 rounded-xl px-3"
+        }`}
+      >
+        <BooksIcon size={18} className="shrink-0 text-[#6E6E73]" />
+        {collapsed ? <span className="sr-only">Library</span> : "Library"}
+      </button>
+      {collapsed ? null : (
+        <nav className="mt-4 flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto">
+          {group(threads).map(({ label, threads }) => (
+            <section key={label} className="flex flex-col gap-0.5">
+              <h2 className="px-3 pb-1 text-xs font-medium text-[#9E9EA4]">{label}</h2>
+              {threads.map((thread) => (
+                <Link
+                  key={thread.id}
+                  to="/chat"
+                  search={{ thread: thread.id }}
+                  className={`truncate rounded-xl px-3 py-2 text-sm text-[#1C1C1E] ${
+                    thread.id === activeId ? "bg-[#E8E8EC]" : "hover:bg-[#EDEDF0]"
+                  }`}
+                >
+                  {thread.title}
+                </Link>
+              ))}
+            </section>
+          ))}
+        </nav>
+      )}
+      <div className={`mt-auto flex items-center gap-2 ${collapsed ? "flex-col pt-3" : "px-1 pt-3"}`}>
+        <span
+          aria-label={name}
+          className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[#E4E4E7] text-[13px] font-medium text-[#1C1C1E]"
+        >
+          {initial}
+        </span>
+        {collapsed ? null : (
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-[13px] font-medium text-[#1C1C1E]">{name}</span>
+            <span className="block text-xs text-[#6E6E73]">{roleName(role)}</span>
+          </span>
+        )}
         <button
           type="button"
+          aria-label="Settings"
           onClick={onSettings}
-          className="flex h-10 items-center gap-2.5 rounded-xl px-3 text-sm text-[#1C1C1E] hover:bg-[#EDEDF0]"
+          className="flex size-8 items-center justify-center rounded-lg text-[#6E6E73] hover:bg-[#EDEDF0]"
         >
           <GearSixIcon size={18} />
-          Settings
         </button>
       </div>
     </aside>

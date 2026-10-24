@@ -71,6 +71,11 @@ const modelRef = z.object({
   modelId: z.string().trim().min(1),
 });
 
+// Alias is what the picker shows. The model id is still what the request sends.
+const modelCreate = modelRef.extend({
+  displayName: z.string().trim().min(1).optional(),
+});
+
 export const appRouter = {
   healthCheck: publicProcedure.handler(() => {
     return "OK";
@@ -166,7 +171,7 @@ export const appRouter = {
     catalog: memberProcedure.handler(async ({ context }) => modelsDevCatalog(context)),
 
     // Adds a models.dev model to an OpenRouter or Custom connection.
-    create: memberProcedure.input(modelRef).handler(async ({ context, input }) => {
+    create: memberProcedure.input(modelCreate).handler(async ({ context, input }) => {
       const credential = await modelConnection(context, input.connectionId);
       const catalog = await modelsDevCatalog(context);
       const entry =
@@ -179,7 +184,11 @@ export const appRouter = {
       }
       const models = credential.models ?? [];
       if (!models.some((m) => m.name === model.id)) {
-        models.push({ name: model.id, alias: model.id, display_name: model.name });
+        models.push({
+          name: model.id,
+          alias: model.id,
+          display_name: input.displayName || model.name,
+        });
       }
       await context.credentials.setModels(input.connectionId, models);
       return models satisfies CredentialModel[];

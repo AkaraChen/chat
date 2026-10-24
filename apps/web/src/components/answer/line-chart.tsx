@@ -26,7 +26,7 @@ export function LineChart({ title, unit, series }: Props) {
   const colors = ["#1a73e8", "currentColor"];
 
   return (
-    <figure className="flex flex-col gap-3">
+    <figure data-answer-card className="flex flex-col gap-3 rounded-2xl border border-[#DCDCE0] px-4 py-4">
       <figcaption className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
         <span className="text-sm font-medium">{title}</span>
         <span className="text-muted-foreground text-xs">{unit}</span>

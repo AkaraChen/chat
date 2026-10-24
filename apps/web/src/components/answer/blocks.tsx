@@ -1,29 +1,37 @@
 import type { ComponentProps } from "@my-better-t-app/api/templates/catalog";
 import type { ReactNode } from "react";
 
+function Card({ title, children }: { title?: string; children: ReactNode }) {
+  return (
+    <section data-answer-card className="rounded-2xl border border-[#DCDCE0] px-4 py-4">
+      {title ? <h3 className="mb-3 text-[13px] text-[#6E6E73]">{title}</h3> : null}
+      {children}
+    </section>
+  );
+}
+
 export function Answer({
   lead,
   source,
   children,
 }: ComponentProps["Answer"] & { children?: ReactNode }) {
   return (
-    <section className="flex flex-col gap-8">
-      <div className="flex flex-col gap-2">
-        <p className="text-xl leading-snug font-medium text-balance">{lead}</p>
-        {source ? <p className="text-muted-foreground text-sm">{source}</p> : null}
+    <section className="flex flex-col gap-4">
+      <div className="flex flex-col gap-1">
+        <p className="text-xl leading-snug font-medium text-balance text-[#1C1C1E]">{lead}</p>
+        {source ? <p className="text-sm text-[#6E6E73]">{source}</p> : null}
       </div>
-      {children ? (
-        <div className="flex flex-col gap-8 [&>[data-block=todo]+[data-block=todo]]:-mt-5">
-          {children}
-        </div>
-      ) : null}
+      {children ? <div className="flex flex-col gap-3">{children}</div> : null}
     </section>
   );
 }
 
 export function StatStrip({ cells }: ComponentProps["StatStrip"]) {
   return (
-    <dl className="grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-[repeat(auto-fit,minmax(9rem,1fr))]">
+    <dl
+      data-answer-card
+      className="grid grid-cols-2 gap-x-6 gap-y-5 rounded-2xl border border-[#DCDCE0] px-4 py-4 sm:grid-cols-4"
+    >
       {cells.map((cell) => (
         <div key={cell.label} className="flex flex-col gap-1">
           <dt className="text-muted-foreground text-sm">{cell.label}</dt>
@@ -37,7 +45,7 @@ export function StatStrip({ cells }: ComponentProps["StatStrip"]) {
 
 export function Table({ columns, rows }: ComponentProps["Table"]) {
   return (
-    <div className="overflow-x-auto">
+    <div data-answer-card className="overflow-x-auto rounded-2xl border border-[#DCDCE0] px-4 py-3">
       <table className="w-full text-left text-sm tabular-nums">
         <thead>
           <tr className="text-muted-foreground">
@@ -66,6 +74,7 @@ export function Table({ columns, rows }: ComponentProps["Table"]) {
 
 export function Changes({ files }: ComponentProps["Changes"]) {
   return (
+    <Card title="Changes">
     <ul className="flex flex-col gap-3">
       {files.map((f) => {
         const total = f.additions + f.deletions;
@@ -87,6 +96,7 @@ export function Changes({ files }: ComponentProps["Changes"]) {
         );
       })}
     </ul>
+    </Card>
   );
 }
 
@@ -98,6 +108,7 @@ export function Diff({ file, startLine, note, patch }: ComponentProps["Diff"]) {
     return { mark, number, body: text.slice(1) };
   });
   return (
+    <Card title="Diff">
     <figure className="flex flex-col gap-3">
       <figcaption className="flex flex-col gap-1">
         <span className="font-mono text-sm">{file}</span>
@@ -123,64 +134,74 @@ export function Diff({ file, startLine, note, patch }: ComponentProps["Diff"]) {
         </code>
       </pre>
     </figure>
+    </Card>
   );
 }
 
 export function Decisions({ items }: ComponentProps["Decisions"]) {
   return (
-    <ul className="flex flex-col gap-2.5">
-      {items.map((item) => (
-        <li key={item} className="flex gap-3 text-base">
-          <span aria-hidden="true" className="mt-2 size-1.5 shrink-0 rounded-full bg-[#1a73e8]" />
-          {item}
-        </li>
-      ))}
-    </ul>
+    <Card title="Decisions">
+      <ul className="flex flex-col gap-2.5">
+        {items.map((item) => (
+          <li key={item} className="flex items-start gap-2.5 text-[15px] text-[#1C1C1E]">
+            <span aria-hidden="true" className="mt-1 text-[#1A73E8]">
+              ✓
+            </span>
+            {item}
+          </li>
+        ))}
+      </ul>
+    </Card>
   );
 }
 
 export function OpenItems({ groups }: ComponentProps["OpenItems"]) {
   return (
-    <div className="grid gap-6 sm:grid-cols-2">
-      {groups.map((group) => (
-        <div key={group.title} className="flex flex-col gap-3">
-          <h3 className="text-sm font-medium">{group.title}</h3>
-          <div className="flex flex-col gap-2">
-            {group.cards.map((card) => (
-              <div
-                key={card.title}
-                className="bg-muted/60 flex flex-col gap-0.5 rounded-xl px-4 py-3"
-              >
-                <span className="text-sm font-medium">{card.title}</span>
-                <span className="text-muted-foreground text-sm">{card.detail}</span>
-              </div>
-            ))}
+    <Card title="Still open">
+      <div className="grid gap-6 sm:grid-cols-2">
+        {groups.map((group) => (
+          <div key={group.title} className="flex flex-col gap-3">
+            <h4 className="text-sm font-medium text-[#1C1C1E]">{group.title}</h4>
+            <div className="flex flex-col gap-2">
+              {group.cards.map((card) => (
+                <div key={card.title} className="flex flex-col gap-0.5 rounded-xl bg-[#F7F7F9] px-4 py-3">
+                  <span className="text-sm font-medium text-[#1C1C1E]">{card.title}</span>
+                  <span className="text-sm text-[#6E6E73]">{card.detail}</span>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-      ))}
-    </div>
+        ))}
+      </div>
+    </Card>
   );
 }
 
 export function Todo({ person, task, time }: ComponentProps["Todo"]) {
   return (
-    <div data-block="todo" className="flex items-baseline gap-3 text-sm">
-      <span className="w-20 shrink-0 truncate font-medium">{person}</span>
-      <span className="min-w-0 flex-1">{task}</span>
-      <span className="text-muted-foreground shrink-0">{time}</span>
-    </div>
+    <Card title="To do">
+      <div data-block="todo" className="flex items-baseline gap-3 text-sm">
+        <span className="w-20 shrink-0 truncate font-medium text-[#1C1C1E]">{person}</span>
+        <span className="min-w-0 flex-1 text-[#1C1C1E]">{task}</span>
+        <span className="shrink-0 text-[#6E6E73]">{time}</span>
+      </div>
+    </Card>
   );
 }
 
 export function Notes({ title, items }: ComponentProps["Notes"]) {
   return (
-    <div className="flex flex-col gap-2">
-      <h3 className="text-sm font-medium">{title}</h3>
-      <ul className="text-muted-foreground flex flex-col gap-1.5 text-sm">
+    <Card title={title}>
+      <ul className="flex flex-col gap-1.5 text-sm text-[#6E6E73]">
         {items.map((item) => (
-          <li key={item}>{item}</li>
+          <li key={item} className="flex gap-2">
+            <span aria-hidden="true" className="text-[#1A73E8]">
+              •
+            </span>
+            {item}
+          </li>
         ))}
       </ul>
-    </div>
+    </Card>
   );
 }

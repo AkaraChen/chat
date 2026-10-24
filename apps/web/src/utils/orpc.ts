@@ -6,10 +6,7 @@ import type { RouterClient } from "@orpc/server";
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
 import { QueryCache, QueryClient } from "@tanstack/react-query";
 import { createIsomorphicFn } from "@tanstack/react-start";
-import { getRequest } from "@tanstack/react-start/server";
 import { toast } from "sonner";
-
-import { createContext } from "../context";
 
 export function createQueryClient() {
   return new QueryClient({
@@ -31,22 +28,31 @@ export function createQueryClient() {
   });
 }
 
+function browserClient(): RouterClient<typeof appRouter> {
+  const link = new RPCLink({
+    url: `${window.location.origin}/api/rpc`,
+  });
+  return createORPCClient(link);
+}
+
 const getORPCClient = createIsomorphicFn()
   .server(() =>
     createRouterClient(appRouter, {
       context: async () => {
+        // Loaded on a request, so importing this module does not boot the database.
+        const [{ createContext }, { getRequest }] = await Promise.all([
+          import("../context"),
+          import("@tanstack/react-start/server"),
+        ]);
         return createContext({ req: getRequest() });
       },
     }),
   )
-  .client((): RouterClient<typeof appRouter> => {
-    const link = new RPCLink({
-      url: `${window.location.origin}/api/rpc`,
-    });
+  .client(browserClient);
 
-    return createORPCClient(link);
-  });
-
-export const client: RouterClient<typeof appRouter> = getORPCClient();
+// The Start compiler keeps one branch. Uncompiled runs with a window (the render
+// tests) use the browser client and do not boot the database.
+export const client: RouterClient<typeof appRouter> =
+  typeof window === "undefined" ? getORPCClient() : browserClient();
 
 export const orpc = createTanstackQueryUtils(client);

@@ -9,19 +9,24 @@ import { auth } from "./auth";
 // through a server function. The handler, and with it Better Auth and Prisma,
 // stays out of the client bundle.
 export const getSession = createServerFn().handler(
-  async (): Promise<{ userId: string; role: Role; name: string } | null> => {
+  async (): Promise<{ userId: string; role: Role; name: string; email: string } | null> => {
     const result = await auth.api.getSession({ headers: getRequest().headers });
     return result
-      ? { userId: result.user.id, role: toRole(result.user.role), name: result.user.name }
+      ? {
+          userId: result.user.id,
+          role: toRole(result.user.role),
+          name: result.user.name,
+          email: result.user.email,
+        }
       : null;
   },
 );
 
 // A member is an admin or a user. A visitor, and anyone not signed in, goes to
-// the public pages.
+// the public welcome.
 export async function requireMember() {
   const current = await getSession();
-  if (!current) throw redirect({ to: "/sign-in" });
+  if (!current) throw redirect({ to: "/" });
   if (current.role === "visitor") throw redirect({ to: "/" });
   return current;
 }

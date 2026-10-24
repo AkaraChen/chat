@@ -20,15 +20,25 @@ export function ModelPicker({ onConnect }: { onConnect: () => void }) {
   const { models, connections, choice, connection, model, select } = useModelChoice();
 
   if (models.isError) {
-    return <span className="px-3 text-sm text-[#6E6E73]">Models are unavailable right now</span>;
+    return (
+      <span className="flex h-9 items-center rounded-full border border-[#DCDCE0] bg-white px-3 text-sm text-[#6E6E73]">
+        Models are unavailable right now
+      </span>
+    );
   }
-  if (models.isPending) return <span className="h-9" />;
+  if (models.isPending) {
+    return (
+      <span className="flex h-9 items-center rounded-full border border-[#DCDCE0] bg-white px-3 text-sm text-[#6E6E73]">
+        Choose a model
+      </span>
+    );
+  }
   if (connections.length === 0) {
     return (
       <button
         type="button"
         onClick={onConnect}
-        className="h-9 rounded-lg px-3 text-sm font-medium text-[#1A73E8] hover:bg-[#F3F3F5]"
+        className="flex h-9 items-center rounded-full border border-[#DCDCE0] bg-white px-3 text-sm font-medium text-[#1A73E8]"
       >
         Connect a provider
       </button>
@@ -39,7 +49,7 @@ export function ModelPicker({ onConnect }: { onConnect: () => void }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        className={`flex h-9 items-center gap-2 rounded-lg px-3 text-sm font-medium outline-none hover:bg-[#F3F3F5] aria-expanded:bg-[#F3F3F5] ${
+        className={`flex h-9 items-center gap-2 rounded-full border border-[#DCDCE0] bg-white px-3 text-sm font-medium outline-none hover:bg-[#F7F7F9] ${
           unavailable ? "text-[#C2410C]" : "text-[#1C1C1E]"
         }`}
       >
@@ -67,7 +77,7 @@ export function ModelPicker({ onConnect }: { onConnect: () => void }) {
                   <DropdownMenuItem
                     key={m.id}
                     onClick={() => select(c.connectionId, m.id)}
-                    className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-[#1C1C1E]"
+                    className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-[#1C1C1E] hover:bg-[#F7F7F9]"
                   >
                     <span className="flex-1 truncate">{m.name}</span>
                     {active && <CheckIcon size={14} weight="bold" className="text-[#1A73E8]" />}

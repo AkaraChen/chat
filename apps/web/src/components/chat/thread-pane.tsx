@@ -4,9 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { orpc } from "@/utils/orpc";
 
-import { Composer } from "./composer";
-import { Messages } from "./messages";
 import { chatTransport, type ChatMessage } from "./transport";
+import { ThreadView } from "./thread-view";
 import { fromHistory, toTurns } from "./turns";
 import { useModelChoice } from "./use-model-choice";
 
@@ -54,23 +53,16 @@ function Conversation({
   }
 
   return (
-    <>
-      <Messages
-        turns={turns}
-        streaming={busy}
-        error={chat.status === "error" ? (chat.error?.message ?? "Something went wrong.") : null}
-      />
-      <div className="mx-auto w-full max-w-[720px] px-6 pb-6">
-        <Composer
-          value={draft}
-          onChange={setDraft}
-          onSend={send}
-          busy={busy}
-          disabled={!ready}
-          placeholder={ready ? "Message" : "Choose a model to continue"}
-        />
-      </div>
-    </>
+    <ThreadView
+      turns={turns}
+      streaming={busy}
+      error={chat.status === "error" ? (chat.error?.message ?? "Something went wrong.") : null}
+      draft={draft}
+      onDraft={setDraft}
+      onSend={send}
+      busy={busy}
+      disabled={!ready}
+    />
   );
 }
 

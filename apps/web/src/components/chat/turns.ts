@@ -6,7 +6,7 @@ import type { ChatMessage } from "./transport";
 export type Source = { repo: string; number: number };
 
 export type Turn =
-  | { id: string; role: "user"; text: string; source: Source | null }
+  | { id: string; role: "user"; text: string; source: Source | null; attachment?: string | null }
   | { id: string; role: "assistant"; steps: TraceStep[]; spec: Spec | null };
 
 type Detail = NonNullable<TraceStep["detail"]>;

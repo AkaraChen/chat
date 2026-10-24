@@ -1,3 +1,4 @@
+import { PaperclipIcon } from "@phosphor-icons/react";
 import { useEffect, useRef } from "react";
 
 import { AnswerView, Trace } from "../answer";
@@ -8,11 +9,17 @@ import type { Turn } from "./turns";
 function UserBubble({ turn }: { turn: Extract<Turn, { role: "user" }> }) {
   return (
     <div className="flex flex-col items-end gap-1.5 self-end">
-      <p className="max-w-[560px] rounded-[20px] bg-[#F3F3F5] px-4 py-2.5 text-[15px] leading-6 whitespace-pre-wrap text-[#1C1C1E]">
+      {turn.attachment ? (
+        <span className="flex items-center gap-1.5 rounded-full bg-[#F7F7F9] px-2.5 py-1 text-xs text-[#6E6E73]">
+          <PaperclipIcon size={12} />
+          {turn.attachment}
+        </span>
+      ) : null}
+      <p className="max-w-[560px] rounded-[20px] bg-[#F7F7F9] px-4 py-2.5 text-[15px] leading-6 whitespace-pre-wrap text-[#1C1C1E]">
         {turn.text}
       </p>
       {turn.source && (
-        <span className="flex items-center gap-1.5 rounded-full bg-[#F3F3F5] py-1 pr-2.5 pl-2 text-xs text-[#6E6E73]">
+        <span className="flex items-center gap-1.5 rounded-full bg-[#F7F7F9] py-1 pr-2.5 pl-2 text-xs text-[#6E6E73]">
           <span className="flex size-4 items-center justify-center rounded-full bg-[#1C1C1E]">
             <GitHubMark size={10} />
           </span>
