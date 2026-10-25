@@ -73,7 +73,7 @@ export function createSearchTemplatesTool(
 ): Tool<{ query: string }, SearchOutput> {
   return tool({
     description:
-      "Find the view template for an answer that needs one: meeting notes (decisions, owners, open items), a pull request review, or figures to chart. Returns what the prose says, the allowed components, how to use each, an example spec and the spec rules. Do not call it for a simple question; answer that in prose.",
+      "Find the view template for an answer that needs one: meeting notes (decisions, owners, open items), a pull request review, or figures to chart. Returns what the prose says, the allowed components, how to use each, an example spec and the spec rules.",
     inputSchema: z.object({
       query: z.string().describe("The user's request, in their own words."),
     }),

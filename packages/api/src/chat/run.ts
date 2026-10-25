@@ -28,7 +28,6 @@ import {
   type ChatMetadata,
 } from "./message";
 import type { ModelFactory } from "./model";
-import { systemPrompt } from "./prompt";
 
 export const MAX_STEPS = 20;
 export const MAX_MESSAGE_CHARS = 20_000;
@@ -182,7 +181,6 @@ export async function streamChat(deps: ChatDeps, input: ChatInput): Promise<Resp
     execute({ writer }) {
       const result = streamText({
         model,
-        instructions: systemPrompt({ github: token !== null }),
         messages: modelMessages,
         tools,
         stopWhen: isStepCount(MAX_STEPS),

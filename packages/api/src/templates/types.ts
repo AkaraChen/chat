@@ -4,7 +4,7 @@ export interface Template {
   id: "meeting" | "review" | "economy";
   /** When to pick this template. Always says the example numbers are placeholders. */
   when: string;
-  /** What the prose before the ```spec fence says. */
+  /** Suggested accompanying prose. */
   prose: string;
   /** Components this template may use. */
   components: readonly ComponentName[];
