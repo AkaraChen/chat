@@ -7,6 +7,7 @@ import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import type { orpc } from "@/utils/orpc";
 
 import appCss from "../index.css?url";
+import { themeScript, useThemeSync } from "../theme";
 export interface RouterAppContext {
   orpc: typeof orpc;
   queryClient: QueryClient;
@@ -38,9 +39,11 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
 });
 
 function RootDocument() {
+  useThemeSync();
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
         <HeadContent />
       </head>
       <body>

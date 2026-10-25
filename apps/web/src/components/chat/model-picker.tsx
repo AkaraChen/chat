@@ -32,14 +32,14 @@ export function ModelPicker({ onConnect }: { onConnect: () => void }) {
 
   if (models.isError) {
     return (
-      <span className="flex h-9 items-center rounded-full bg-[#F7F7F9] px-3 text-sm text-[#6E6E73]">
+      <span className="flex h-9 items-center rounded-full bg-recessed px-3 text-sm text-ink-secondary">
         Models are unavailable right now
       </span>
     );
   }
   if (models.isPending) {
     return (
-      <span className="flex h-9 items-center rounded-full bg-[#F7F7F9] px-3 text-sm text-[#6E6E73]">
+      <span className="flex h-9 items-center rounded-full bg-recessed px-3 text-sm text-ink-secondary">
         Choose a model
       </span>
     );
@@ -49,7 +49,7 @@ export function ModelPicker({ onConnect }: { onConnect: () => void }) {
       <button
         type="button"
         onClick={onConnect}
-        className="flex h-9 items-center rounded-full bg-[#F7F7F9] px-3 text-sm font-medium text-[#1A73E8]"
+        className="flex h-9 items-center rounded-full bg-recessed px-3 text-sm font-medium text-accent"
       >
         Connect a provider
       </button>
@@ -68,22 +68,22 @@ export function ModelPicker({ onConnect }: { onConnect: () => void }) {
   return (
     <DropdownMenu onOpenChange={(open) => !open && setQuery("")}>
       <DropdownMenuTrigger
-        className={`flex h-9 items-center gap-2 rounded-full bg-[#F7F7F9] px-3 text-sm font-medium outline-none hover:bg-[#E8E8EC] ${
-          unavailable ? "text-[#C2410C]" : "text-[#1C1C1E]"
+        className={`flex h-9 items-center gap-2 rounded-full bg-recessed px-3 text-sm font-medium outline-none hover:bg-raised ${
+          unavailable ? "text-warn" : "text-ink"
         }`}
       >
         {connection && !unavailable && (
           <ConnectionMark type={connection.type} label={connection.label} size={16} />
         )}
         <span>{unavailable ? "Model unavailable" : (model?.name ?? "Choose a model")}</span>
-        <CaretDownIcon size={12} weight="bold" className="text-[#9E9EA4]" />
+        <CaretDownIcon size={12} weight="bold" className="text-ink-tertiary" />
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="start"
         className="max-h-[min(70vh,var(--available-height))] w-80 rounded-xl p-1.5"
       >
         {searchable ? (
-          <div className="sticky -top-1.5 z-10 -mx-1.5 -mt-1.5 mb-1 bg-white px-1.5 pt-1.5 pb-1">
+          <div className="sticky -top-1.5 z-10 -mx-1.5 -mt-1.5 mb-1 bg-paper px-1.5 pt-1.5 pb-1">
             <input
               autoFocus
               value={query}
@@ -95,16 +95,16 @@ export function ModelPicker({ onConnect }: { onConnect: () => void }) {
               }}
               placeholder={`Search ${total} models`}
               aria-label="Search models"
-              className="h-9 w-full rounded-lg bg-[#F7F7F9] px-3 text-sm text-[#1C1C1E] outline-none placeholder:text-[#9E9EA4]"
+              className="h-9 w-full rounded-lg bg-recessed px-3 text-sm text-ink outline-none placeholder:text-ink-tertiary"
             />
           </div>
         ) : null}
         {shown.length === 0 ? (
-          <p className="px-2.5 py-2 text-sm text-[#6E6E73]">No model matches.</p>
+          <p className="px-2.5 py-2 text-sm text-ink-secondary">No model matches.</p>
         ) : null}
         {shown.map((c) => (
           <DropdownMenuGroup key={c.connectionId} className="pb-1.5 last:pb-0">
-            <DropdownMenuLabel className="flex items-center gap-2 px-2.5 pt-2 pb-1.5 text-[13px] text-[#6E6E73]">
+            <DropdownMenuLabel className="flex items-center gap-2 px-2.5 pt-2 pb-1.5 text-[13px] text-ink-secondary">
               <ConnectionMark type={c.type} label={c.label} size={16} />
               {connectionName(c)}
             </DropdownMenuLabel>
@@ -115,10 +115,10 @@ export function ModelPicker({ onConnect }: { onConnect: () => void }) {
                 <DropdownMenuItem
                   key={m.id}
                   onClick={() => select(c.connectionId, m.id)}
-                  className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-[#1C1C1E] hover:bg-[#F7F7F9]"
+                  className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-ink hover:bg-recessed"
                 >
                   <span className="flex-1 truncate">{m.name}</span>
-                  {active && <CheckIcon size={14} weight="bold" className="text-[#1A73E8]" />}
+                  {active && <CheckIcon size={14} weight="bold" className="text-accent" />}
                 </DropdownMenuItem>
               );
             })}

@@ -5,8 +5,8 @@ import { RichText } from "./rich-text";
 
 function Card({ title, children }: { title?: string; children: ReactNode }) {
   return (
-    <section data-answer-card className="rounded-[12px] border border-[#E3E3E7] px-4 py-4">
-      {title ? <h3 className="mb-3 text-[13px] text-[#6E6E73]">{title}</h3> : null}
+    <section data-answer-card className="rounded-[12px] border border-line-quiet px-4 py-4">
+      {title ? <h3 className="mb-3 text-[13px] text-ink-secondary">{title}</h3> : null}
       {children}
     </section>
   );
@@ -21,7 +21,7 @@ export function StatStrip({ cells }: ComponentProps["StatStrip"]) {
   return (
     <dl
       data-answer-card
-      className="grid grid-cols-2 gap-x-6 gap-y-5 rounded-[12px] border border-[#E3E3E7] px-4 py-4 sm:grid-cols-4"
+      className="grid grid-cols-2 gap-x-6 gap-y-5 rounded-[12px] border border-line-quiet px-4 py-4 sm:grid-cols-4"
     >
       {cells.map((cell) => (
         <div key={cell.label} className="flex flex-col gap-1">
@@ -36,7 +36,10 @@ export function StatStrip({ cells }: ComponentProps["StatStrip"]) {
 
 export function Table({ columns, rows }: ComponentProps["Table"]) {
   return (
-    <div data-answer-card className="overflow-x-auto rounded-[12px] border border-[#E3E3E7] px-4 py-3">
+    <div
+      data-answer-card
+      className="overflow-x-auto rounded-[12px] border border-line-quiet px-4 py-3"
+    >
       <table className="w-full text-left text-sm tabular-nums">
         <thead>
           <tr className="text-muted-foreground">
@@ -74,14 +77,14 @@ export function Changes({ files }: ComponentProps["Changes"]) {
             <li key={f.path} className="flex items-center gap-4">
               <span className="min-w-0 flex-1 truncate font-mono text-sm">{f.path}</span>
               <span className="flex gap-2 font-mono text-xs tabular-nums">
-                <span className="text-[#1B7F4E]">+{f.additions}</span>
-                <span className="text-[#A33B3B]">-{f.deletions}</span>
+                <span className="text-add">+{f.additions}</span>
+                <span className="text-remove">-{f.deletions}</span>
               </span>
               <span
                 aria-hidden="true"
-                className="flex h-1.5 w-16 shrink-0 overflow-hidden rounded-full bg-[#A33B3B]/30"
+                className="flex h-1.5 w-16 shrink-0 overflow-hidden rounded-full bg-remove/30"
               >
-                <span className="h-full bg-[#1B7F4E]" style={{ width: `${added}%` }} />
+                <span className="h-full bg-add" style={{ width: `${added}%` }} />
               </span>
             </li>
           );
@@ -111,8 +114,7 @@ export function Diff({ file, startLine, note, patch }: ComponentProps["Diff"]) {
               <span
                 key={i}
                 className={
-                  "flex px-3 " +
-                  (r.mark === "+" ? "text-[#1B7F4E]" : r.mark === "-" ? "text-[#A33B3B]" : "")
+                  "flex px-3 " + (r.mark === "+" ? "text-add" : r.mark === "-" ? "text-remove" : "")
                 }
               >
                 <span className="text-muted-foreground w-8 shrink-0 pr-3 text-right select-none tabular-nums">
@@ -134,8 +136,8 @@ export function Decisions({ items }: ComponentProps["Decisions"]) {
     <Card title="Decisions">
       <ul className="flex flex-col gap-2.5">
         {items.map((item) => (
-          <li key={item} className="flex items-start gap-2.5 text-[#1C1C1E]">
-            <span aria-hidden="true" className="mt-1 text-[#1A73E8]">
+          <li key={item} className="flex items-start gap-2.5 text-ink">
+            <span aria-hidden="true" className="mt-1 text-accent">
               ✓
             </span>
             <RichText text={item} className="min-w-0 flex-1" />
@@ -152,15 +154,15 @@ export function OpenItems({ groups }: ComponentProps["OpenItems"]) {
       <div className="grid gap-6 sm:grid-cols-2">
         {groups.map((group) => (
           <div key={group.title} className="flex flex-col gap-3">
-            <h4 className="text-sm font-medium text-[#1C1C1E]">{group.title}</h4>
+            <h4 className="text-sm font-medium text-ink">{group.title}</h4>
             <div className="flex flex-col gap-2">
               {group.cards.map((card) => (
                 <div
                   key={card.title}
-                  className="flex flex-col gap-0.5 rounded-xl bg-[#F7F7F9] px-4 py-3"
+                  className="flex flex-col gap-0.5 rounded-xl bg-recessed px-4 py-3"
                 >
-                  <RichText text={card.title} className="text-sm font-medium text-[#1C1C1E]" />
-                  <RichText text={card.detail} className="text-sm text-[#6E6E73]" />
+                  <RichText text={card.title} className="text-sm font-medium text-ink" />
+                  <RichText text={card.detail} className="text-sm text-ink-secondary" />
                 </div>
               ))}
             </div>
@@ -175,9 +177,9 @@ export function Todo({ person, task, time }: ComponentProps["Todo"]) {
   return (
     <Card title="To do">
       <div data-block="todo" className="flex items-baseline gap-3 text-sm">
-        <span className="w-20 shrink-0 truncate font-medium text-[#1C1C1E]">{person}</span>
-        <RichText text={task} className="min-w-0 flex-1 text-sm text-[#1C1C1E]" />
-        <span className="shrink-0 text-[#6E6E73]">{time}</span>
+        <span className="w-20 shrink-0 truncate font-medium text-ink">{person}</span>
+        <RichText text={task} className="min-w-0 flex-1 text-sm text-ink" />
+        <span className="shrink-0 text-ink-secondary">{time}</span>
       </div>
     </Card>
   );
@@ -186,13 +188,13 @@ export function Todo({ person, task, time }: ComponentProps["Todo"]) {
 export function Notes({ title, items }: ComponentProps["Notes"]) {
   return (
     <Card title={title}>
-      <ul className="flex flex-col gap-1.5 text-sm text-[#6E6E73]">
+      <ul className="flex flex-col gap-1.5 text-sm text-ink-secondary">
         {items.map((item) => (
           <li key={item} className="flex gap-2">
-            <span aria-hidden="true" className="text-[#1A73E8]">
+            <span aria-hidden="true" className="text-accent">
               •
             </span>
-            <RichText text={item} className="min-w-0 flex-1 text-sm text-[#6E6E73]" />
+            <RichText text={item} className="min-w-0 flex-1 text-sm text-ink-secondary" />
           </li>
         ))}
       </ul>

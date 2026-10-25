@@ -150,7 +150,7 @@ export function ChatShell({
     navigate({ to: "/chat", search: (prev) => ({ ...prev, settings: tab }) });
 
   return (
-    <div className="flex h-svh bg-[#F7F7F9] p-2">
+    <div className="flex h-svh bg-fill p-2">
       <Sidebar
         threads={shown}
         activeId={thread}
@@ -166,13 +166,13 @@ export function ChatShell({
           void queryClient.prefetchQuery({ ...historyQuery(id), staleTime: PREFETCH_FRESH_MS });
         }}
       />
-      <main className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-[20px] border border-[#E3E3E7] bg-white">
+      <main className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-[20px] border border-line-quiet bg-paper">
         <header className="flex h-14 shrink-0 items-center justify-between px-4">
           <ModelPicker onConnect={() => openSettings("providers")} />
           <div className="flex items-center gap-2">
             <button
               type="button"
-              className="flex h-9 items-center gap-1.5 rounded-full border border-[#DCDCE0] px-3 text-sm font-medium text-[#1C1C1E] hover:bg-[#F7F7F9]"
+              className="flex h-9 items-center gap-1.5 rounded-full border border-line px-3 text-sm font-medium text-ink hover:bg-recessed"
             >
               <ExportIcon size={14} />
               Export chat

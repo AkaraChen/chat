@@ -32,18 +32,18 @@ const AssistantTurn = memo(
 
 function UserBubbleView({ turn }: { turn: UserTurn }) {
   return (
-    <div className="flex max-w-[560px] flex-col items-start gap-2 self-end rounded-[14px] bg-[#F7F7F9] px-3.5 py-2.5">
-      <p className="text-[15px] leading-6 whitespace-pre-wrap text-[#1C1C1E]">{turn.text}</p>
+    <div className="flex max-w-[560px] flex-col items-start gap-2 self-end rounded-[14px] bg-recessed px-3.5 py-2.5">
+      <p className="text-[15px] leading-6 whitespace-pre-wrap text-ink">{turn.text}</p>
       {turn.attachment ? (
-        <span className="flex items-center gap-2 rounded-lg bg-white px-2.5 py-1 text-[13px] text-[#1C1C1E]">
-          <PaperclipIcon size={14} className="text-[#6E6E73]" />
+        <span className="flex items-center gap-2 rounded-lg bg-paper px-2.5 py-1 text-[13px] text-ink">
+          <PaperclipIcon size={14} className="text-ink-secondary" />
           {turn.attachment}
         </span>
       ) : null}
       {turn.source && (
-        <span className="flex items-center gap-1.5 rounded-lg bg-white py-1 pr-2.5 pl-2 text-[13px] text-[#1C1C1E]">
-          <span className="flex size-4 items-center justify-center rounded-full bg-[#1C1C1E]">
-            <GitHubMark size={10} />
+        <span className="flex items-center gap-1.5 rounded-lg bg-paper py-1 pr-2.5 pl-2 text-[13px] text-ink">
+          <span className="flex size-4 items-center justify-center rounded-full bg-solid text-on-solid">
+            <GitHubMark size={10} fill="currentColor" />
           </span>
           {turn.source.repo} #{turn.source.number}
         </span>
@@ -64,7 +64,7 @@ function AssistantTurnView({ turn, live }: { turn: AssistantTurnData; live: bool
   return (
     <div className="flex flex-col gap-4">
       <Trace steps={turn.steps} />
-      {text ? <RichText text={text} streaming={live} className="text-[#1C1C1E]" /> : null}
+      {text ? <RichText text={text} streaming={live} className="text-ink" /> : null}
       <AnswerView spec={view} loading={live} />
       {waiting && <Spinner size={16} />}
     </div>
@@ -119,7 +119,7 @@ export const Messages = memo(function Messages({
           ),
         )}
         {awaiting && <Spinner size={16} />}
-        {error && <p className="text-sm text-[#C2410C]">{error}</p>}
+        {error && <p className="text-sm text-warn">{error}</p>}
       </div>
     </div>
   );

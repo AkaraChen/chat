@@ -7,6 +7,7 @@ import type { ProviderSlug } from "@my-better-t-app/api/credentials/store";
 import { orpc } from "@/utils/orpc";
 
 import { GitHubMark } from "../../github-mark";
+import { AppearancePanel } from "./appearance";
 import { GeneralPanel } from "./general";
 import { GithubPanel } from "./github-panel";
 import {
@@ -182,33 +183,33 @@ export function SettingsDialog({
       aria-hidden={!open}
       inert={!open}
       data-open={open}
-      className="modal-backdrop fixed inset-0 z-50 flex items-center justify-center bg-black/25"
+      className="modal-backdrop fixed inset-0 z-50 flex items-center justify-center bg-scrim"
     >
-      <div className="modal-panel flex h-[640px] max-h-[90svh] w-[820px] max-w-[94vw] overflow-hidden rounded-3xl bg-white shadow-xl">
-        <nav className="flex w-52 shrink-0 flex-col gap-0.5 border-r border-[#E3E3E7] bg-[#F7F7F9] px-3 pt-5">
-          <p className="px-3 pb-2 text-[13px] text-[#6E6E73]">Settings</p>
+      <div className="modal-panel flex h-[640px] max-h-[90svh] w-[820px] max-w-[94vw] overflow-hidden rounded-3xl bg-paper shadow-[var(--elevation-modal)]">
+        <nav className="flex w-52 shrink-0 flex-col gap-0.5 border-r border-line-quiet bg-recessed px-3 pt-5">
+          <p className="px-3 pb-2 text-[13px] text-ink-secondary">Settings</p>
           {tabs.map(({ id, label, Icon }) => (
             <button
               key={id}
               type="button"
               onClick={() => onTab(id)}
-              className={`flex h-10 items-center gap-2.5 rounded-xl px-3 text-left text-sm font-medium text-[#1C1C1E] ${
-                id === view ? "bg-white" : "hover:bg-[#E8E8EC]"
+              className={`flex h-10 items-center gap-2.5 rounded-xl px-3 text-left text-sm font-medium text-ink ${
+                id === view ? "bg-paper" : "hover:bg-raised"
               }`}
             >
-              {Icon ? <Icon size={16} /> : <GitHubMark size={16} fill="#1C1C1E" />}
+              {Icon ? <Icon size={16} /> : <GitHubMark size={16} fill="currentColor" />}
               {label}
             </button>
           ))}
         </nav>
         <div className="flex min-w-0 flex-1 flex-col">
-          <div className="flex h-14 shrink-0 items-center justify-between border-b border-[#E3E3E7] px-6">
-            <h2 className="text-[17px] font-semibold text-[#1C1C1E]">{title}</h2>
+          <div className="flex h-14 shrink-0 items-center justify-between border-b border-line-quiet px-6">
+            <h2 className="text-[17px] font-semibold text-ink">{title}</h2>
             <button
               type="button"
               aria-label="Close"
               onClick={onClose}
-              className="flex size-9 items-center justify-center rounded-full text-[#6E6E73] hover:bg-[#F7F7F9]"
+              className="flex size-9 items-center justify-center rounded-full text-ink-secondary hover:bg-recessed"
             >
               <XIcon size={16} weight="bold" />
             </button>
@@ -259,7 +260,7 @@ export function SettingsDialog({
                 }}
               />
             ) : null}
-            {view === "appearance" ? <div /> : null}
+            {view === "appearance" ? <AppearancePanel /> : null}
             {view === "github" ? (
               <GithubPanel
                 set={resolved.githubSet}

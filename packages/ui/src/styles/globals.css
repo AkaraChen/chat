@@ -9,77 +9,140 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * The paper palette. Every surface colour in the app comes from these names,
+ * so light and dark are the same design with the light turned off: the canvas
+ * is one step away from the paper, and the ink stays readable on both.
+ *
+ * Light values are the Paper file's base tokens; dark values are its
+ * `--color-dark-*` set. `recessed` and `selected` name the two roles that
+ * change direction between modes — a chip pressed into the paper reads
+ * darker in light, and a selected row reads lighter in dark.
+ */
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.58 0.22 27);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.809 0.105 251.813);
-  --chart-2: oklch(0.623 0.214 259.815);
-  --chart-3: oklch(0.546 0.245 262.881);
-  --chart-4: oklch(0.488 0.243 264.376);
-  --chart-5: oklch(0.424 0.199 265.638);
+  color-scheme: light;
+
+  --paper: #ffffff;
+  --ink: #1c1c1e;
+  --ink-secondary: #6e6e73;
+  --ink-tertiary: #9e9ea4;
+  --line: #dcdce0;
+  --line-quiet: #e3e3e7;
+  --line-strong: #b4b4ba;
+  --fill: #f7f7f9;
+  --fill-strong: #e8e8ec;
+  --recessed: var(--fill);
+  --selected: var(--fill-strong);
+  --raised: var(--fill-strong);
+  --accent: #1a73e8;
+  --accent-soft: #f3f8fe;
+  --accent-line: #c9ddf8;
+  --add: #1b7f4e;
+  --add-soft: #e7f6ec;
+  --remove: #a33b3b;
+  --remove-soft: #f8eaea;
+  --warn: #c2410c;
+  --on-accent: #ffffff;
+  --thumb: #ffffff;
+  --solid: #1c1c1e;
+  --on-solid: #ffffff;
+  --scrim: rgb(0 0 0 / 0.25);
+  --elevation-menu: 0 12px 32px rgb(16 24 40 / 0.14);
+  --elevation-modal: 0 12px 28px rgb(0 0 0 / 0.18);
+
+  --background: var(--paper);
+  --foreground: var(--ink);
+  --card: var(--paper);
+  --card-foreground: var(--ink);
+  --popover: var(--paper);
+  --popover-foreground: var(--ink);
+  --primary: var(--accent);
+  --primary-foreground: var(--on-accent);
+  --secondary: var(--recessed);
+  --secondary-foreground: var(--ink);
+  --muted: var(--recessed);
+  --muted-foreground: var(--ink-secondary);
+  --accent-foreground: var(--on-accent);
+  --destructive: var(--remove);
+  --destructive-foreground: var(--on-accent);
+  --border: var(--line-quiet);
+  --input: var(--line);
+  --ring: var(--accent);
+  --chart-1: var(--accent);
+  --chart-2: var(--line-strong);
+  --chart-3: var(--add);
+  --chart-4: var(--warn);
+  --chart-5: var(--remove);
   --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar: var(--fill);
+  --sidebar-foreground: var(--ink);
+  --sidebar-primary: var(--accent);
+  --sidebar-primary-foreground: var(--on-accent);
+  --sidebar-accent: var(--selected);
+  --sidebar-accent-foreground: var(--ink);
+  --sidebar-border: var(--line-quiet);
+  --sidebar-ring: var(--accent);
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.87 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.371 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.809 0.105 251.813);
-  --chart-2: oklch(0.623 0.214 259.815);
-  --chart-3: oklch(0.546 0.245 262.881);
-  --chart-4: oklch(0.488 0.243 264.376);
-  --chart-5: oklch(0.424 0.199 265.638);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  color-scheme: dark;
+
+  --paper: #2c2c34;
+  --ink: #f3f3f5;
+  --ink-secondary: #c6c6ce;
+  --ink-tertiary: #a0a0aa;
+  --line: #5c5c68;
+  --line-quiet: #45454f;
+  --line-strong: #90909a;
+  --fill: #24242c;
+  --fill-strong: #22222c;
+  --recessed: var(--fill-strong);
+  --selected: var(--paper);
+  --raised: #3a3a44;
+  --accent: #1a73e8;
+  --accent-soft: #314868;
+  --accent-line: #7aa2d4;
+  --add: #3eaa74;
+  --add-soft: #2a5a40;
+  --remove: #d46565;
+  --remove-soft: #684048;
+  --warn: #e8834f;
+  --on-accent: #ffffff;
+  --thumb: #f3f3f5;
+  --solid: var(--ink);
+  --on-solid: #1c1c1e;
+  --scrim: rgb(0 0 0 / 0.32);
+  --elevation-menu: 0 12px 32px rgb(0 0 0 / 0.45);
+  --elevation-modal: 0 12px 28px rgb(0 0 0 / 0.55);
 }
 
 @theme inline {
   --font-sans: "Geist Variable", "PingFang SC", "Noto Sans SC", sans-serif;
+  --color-paper: var(--paper);
+  --color-ink: var(--ink);
+  --color-ink-secondary: var(--ink-secondary);
+  --color-ink-tertiary: var(--ink-tertiary);
+  --color-line: var(--line);
+  --color-line-quiet: var(--line-quiet);
+  --color-line-strong: var(--line-strong);
+  --color-fill: var(--fill);
+  --color-fill-strong: var(--fill-strong);
+  --color-recessed: var(--recessed);
+  --color-selected: var(--selected);
+  --color-raised: var(--raised);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-line: var(--accent-line);
+  --color-add: var(--add);
+  --color-add-soft: var(--add-soft);
+  --color-remove: var(--remove);
+  --color-remove-soft: var(--remove-soft);
+  --color-warn: var(--warn);
+  --color-on-accent: var(--on-accent);
+  --color-thumb: var(--thumb);
+  --color-solid: var(--solid);
+  --color-on-solid: var(--on-solid);
+  --color-scrim: var(--scrim);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -98,7 +161,6 @@
   --color-border: var(--border);
   --color-destructive: var(--destructive);
   --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
   --color-muted: var(--muted);
   --color-secondary-foreground: var(--secondary-foreground);
@@ -131,7 +193,7 @@
 }
 
 .typeset-chat :where(a) {
-  color: #1a73e8;
+  color: var(--accent);
 }
 
 @layer base {

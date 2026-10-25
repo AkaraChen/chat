@@ -50,5 +50,5 @@ export function ConnectionMark({
       </span>
     );
   }
-  return <Icon size={size} className="shrink-0 text-[#1C1C1E]" />;
+  return <Icon size={size} className="shrink-0 text-ink" />;
 }

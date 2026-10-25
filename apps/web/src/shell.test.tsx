@@ -91,9 +91,9 @@ test("hover and active threads share a background, and the menu renames", async 
 
   const active = await screen.findByRole("link", { name: "Morning notes" });
   const resting = screen.getByRole("link", { name: "Older note" });
-  expect(active.parentElement?.className.split(/\s+/)).toContain("bg-[#E8E8EC]");
-  expect(resting.parentElement?.className.split(/\s+/)).toContain("hover:bg-[#E8E8EC]");
-  expect(resting.parentElement?.className.split(/\s+/)).not.toContain("bg-[#E8E8EC]");
+  expect(active.parentElement?.className.split(/\s+/)).toContain("bg-selected");
+  expect(resting.parentElement?.className.split(/\s+/)).toContain("hover:bg-selected");
+  expect(resting.parentElement?.className.split(/\s+/)).not.toContain("bg-selected");
 
   fireEvent.click(screen.getByRole("button", { name: "Actions for Morning notes" }));
   expect(await screen.findByRole("menuitem", { name: "Rename" })).toBeTruthy();

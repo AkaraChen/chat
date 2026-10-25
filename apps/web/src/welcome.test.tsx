@@ -7,7 +7,9 @@ afterEach(() => cleanup());
 
 test("welcome offers GitHub on desktop and mobile, with no account form", () => {
   render(<Welcome onContinue={() => {}} />);
-  expect(screen.getByRole("heading", { name: "Know or learn anything, or everything." })).toBeTruthy();
+  expect(
+    screen.getByRole("heading", { name: "Know or learn anything, or everything." }),
+  ).toBeTruthy();
   expect(screen.getByText("Every model you already use, in one calm place.")).toBeTruthy();
   expect(
     screen.getByText("Bring the models you already use into one calm place to chat."),

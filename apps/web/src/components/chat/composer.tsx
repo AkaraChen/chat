@@ -45,7 +45,7 @@ export function Composer({
         event.preventDefault();
         if (canSend) onSend();
       }}
-      className="flex flex-col rounded-2xl border border-[#DCDCE0] bg-white px-4 pt-3 pb-3"
+      className="flex flex-col rounded-2xl border border-line bg-paper px-4 pt-3 pb-3"
     >
       <textarea
         ref={(el) => {
@@ -66,20 +66,20 @@ export function Composer({
           event.preventDefault();
           if (canSend) onSend();
         }}
-        className="max-h-[200px] min-h-12 flex-1 resize-none bg-transparent py-1 text-[15px] leading-6 text-[#1C1C1E] outline-none placeholder:text-[#9E9EA4]"
+        className="max-h-[200px] min-h-12 flex-1 resize-none bg-transparent py-1 text-[15px] leading-6 text-ink outline-none placeholder:text-ink-tertiary"
       />
       <div className="mt-2 flex items-center gap-1">
         <button
           type="button"
           aria-label="Attach"
-          className="flex size-8 items-center justify-center rounded-full text-[#6E6E73] hover:bg-[#F7F7F9]"
+          className="flex size-8 items-center justify-center rounded-full text-ink-secondary hover:bg-recessed"
         >
           <PaperclipIcon size={16} />
         </button>
         <button
           type="button"
           aria-label="Tools"
-          className="flex size-8 items-center justify-center rounded-full text-[#6E6E73] hover:bg-[#F7F7F9]"
+          className="flex size-8 items-center justify-center rounded-full text-ink-secondary hover:bg-recessed"
         >
           <SlidersHorizontalIcon size={16} />
         </button>
@@ -87,14 +87,14 @@ export function Composer({
           <button
             type="button"
             aria-label="Microphone"
-            className="flex size-8 items-center justify-center rounded-full text-[#6E6E73] hover:bg-[#F7F7F9]"
+            className="flex size-8 items-center justify-center rounded-full text-ink-secondary hover:bg-recessed"
           >
             <WaveformIcon size={16} />
           </button>
           <button
             type="button"
             aria-label="Globe"
-            className="flex size-8 items-center justify-center rounded-full text-[#6E6E73] hover:bg-[#F7F7F9]"
+            className="flex size-8 items-center justify-center rounded-full text-ink-secondary hover:bg-recessed"
           >
             <GlobeIcon size={16} />
           </button>
@@ -104,7 +104,7 @@ export function Composer({
             onClick={() => {
               if (canSend) onSend();
             }}
-            className="flex size-9 items-center justify-center rounded-full bg-[#1A73E8] text-white"
+            className="flex size-9 items-center justify-center rounded-full bg-accent text-on-accent"
           >
             {busy ? <Spinner size={16} light /> : <MicrophoneIcon size={16} weight="fill" />}
           </button>

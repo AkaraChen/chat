@@ -44,14 +44,20 @@ function Mark({ status }: { status: TraceStep["status"] }) {
   const label = status === "running" ? "Running" : status === "error" ? "Failed" : "Done";
   return (
     <span role="img" aria-label={label} className="inline-flex">
-      {status === "running" ? <Spinner size={14} /> : status === "error" ? <ErrorMark /> : <DoneMark />}
+      {status === "running" ? (
+        <Spinner size={14} />
+      ) : status === "error" ? (
+        <ErrorMark />
+      ) : (
+        <DoneMark />
+      )}
     </span>
   );
 }
 
 function ErrorMark() {
   return (
-    <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true" className="text-[#C2410C]">
+    <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true" className="text-warn">
       <path
         d="M3.5 3.5l7 7M10.5 3.5l-7 7"
         stroke="currentColor"
@@ -64,7 +70,7 @@ function ErrorMark() {
 
 function DoneMark() {
   return (
-    <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true" className="text-[#1A73E8]">
+    <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true" className="text-accent">
       <path
         d="M2.75 7.25l2.75 2.75 5.75-6"
         fill="none"
@@ -121,7 +127,7 @@ export function Trace({ steps }: { steps: TraceStep[] }) {
   if (steps.length === 0) return null;
 
   return (
-    <div className="flex flex-col gap-2 text-sm text-[#1C1C1E]">
+    <div className="flex flex-col gap-2 text-sm text-ink">
       {template ? (
         <div>
           <button
@@ -130,15 +136,17 @@ export function Trace({ steps }: { steps: TraceStep[] }) {
             onClick={() => setTemplateOpen((open) => !open)}
             className="flex w-full items-center gap-2 text-left"
           >
-            <span aria-hidden="true" className="w-3 text-[#9E9EA4]">
+            <span aria-hidden="true" className="w-3 text-ink-tertiary">
               {templateOpen ? "▾" : "›"}
             </span>
             <Mark status={template.status} />
-            <span className="text-[#6E6E73]">{templateLabel(template.status)}</span>
-            <span className="ml-auto text-[#9E9EA4]">{templateName}</span>
+            <span className="text-ink-secondary">{templateLabel(template.status)}</span>
+            <span className="ml-auto text-ink-tertiary">{templateName}</span>
           </button>
           {templateOpen ? (
-            <p className="pt-1 pl-5 text-[#6E6E73]">Using the {templateName || "matching"} template.</p>
+            <p className="pt-1 pl-5 text-ink-secondary">
+              Using the {templateName || "matching"} template.
+            </p>
           ) : null}
         </div>
       ) : null}
@@ -150,12 +158,12 @@ export function Trace({ steps }: { steps: TraceStep[] }) {
             onClick={() => setGroupOpen((open) => !open)}
             className="flex w-full items-center gap-2 text-left"
           >
-            <span aria-hidden="true" className="w-3 text-[#9E9EA4]">
+            <span aria-hidden="true" className="w-3 text-ink-tertiary">
               {groupOpen ? "▾" : "›"}
             </span>
             <Mark status={groupStatus(rest)} />
             <span>{groupTitle}</span>
-            <span className="ml-auto text-[#9E9EA4]">
+            <span className="ml-auto text-ink-tertiary">
               {rest.length} {rest.length === 1 ? "step" : "steps"}
             </span>
           </button>
@@ -166,10 +174,12 @@ export function Trace({ steps }: { steps: TraceStep[] }) {
                 return (
                   <li key={`${step.tool}-${index}`} className="flex items-center gap-2.5">
                     <Mark status={step.status} />
-                    <span className={step.status === "running" ? "text-[#6E6E73]" : undefined}>
+                    <span className={step.status === "running" ? "text-ink-secondary" : undefined}>
                       {labelOf(step)}
                     </span>
-                    {right ? <span className="ml-auto text-[#9E9EA4] tabular-nums">{right}</span> : null}
+                    {right ? (
+                      <span className="ml-auto text-ink-tertiary tabular-nums">{right}</span>
+                    ) : null}
                   </li>
                 );
               })}

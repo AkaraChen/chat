@@ -168,7 +168,7 @@ test("a thread shows the attachment, trace, answer cards, and composer tools", (
   expect(screen.getByText("Notes")).toBeTruthy();
   expect(document.querySelectorAll("[data-answer-card]").length).toBeGreaterThan(0);
   for (const card of document.querySelectorAll("[data-answer-card]")) {
-    expect(card.className).toContain("border-[#E3E3E7]");
+    expect(card.className).toContain("border-line-quiet");
   }
 
   fireEvent.click(screen.getByRole("button", { name: /Reviewed the diff/ }));
@@ -181,9 +181,9 @@ test("a thread shows the attachment, trace, answer cards, and composer tools", (
   expect(screen.getByRole("button", { name: "Microphone" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "Globe" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "Voice" })).toBeTruthy();
-  expect(document.querySelector("form")?.className).toContain("bg-white");
+  expect(document.querySelector("form")?.className).toContain("bg-paper");
   expect(screen.getByText("Review AkaraChen/chat#128.").parentElement?.className).toContain(
-    "#F7F7F9",
+    "bg-recessed",
   );
 });
 

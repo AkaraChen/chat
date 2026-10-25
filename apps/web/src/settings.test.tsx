@@ -84,7 +84,7 @@ test("settings dialog covers general, providers, appearance, and github", async 
   expect(screen.getByRole("combobox", { name: "Language" })).toBeTruthy();
   expect(screen.getByRole("switch", { name: "Enter to send" })).toBeTruthy();
   expect(screen.getByRole("switch", { name: "Spell check" })).toBeTruthy();
-  expect(document.querySelector("form")?.className).toContain("bg-white");
+  expect(document.querySelector("form")?.className).toContain("bg-paper");
 
   fireEvent.click(screen.getByRole("button", { name: "Providers" }));
   expect(

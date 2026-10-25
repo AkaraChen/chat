@@ -195,7 +195,7 @@ export function ProvidersPanel({
   });
   return (
     <div className="flex flex-col gap-6">
-      <p className="text-[15px] text-[#6E6E73]">
+      <p className="text-[15px] text-ink-secondary">
         {fixed.length + custom.length > 0
           ? `${titleOf(fixed[0] ?? custom[0]!, catalog)} is on this device. Add another model any time.`
           : "Add a model to chat with. Credentials stay on the device."}
@@ -203,10 +203,10 @@ export function ProvidersPanel({
       {fixed.length + custom.length > 0 ? (
         <section className="flex flex-col gap-2">
           <div className="flex items-center justify-between">
-            <h3 className="text-[13px] text-[#6E6E73]">On this device</h3>
+            <h3 className="text-[13px] text-ink-secondary">On this device</h3>
             <RefreshButton onRefresh={onRefresh} onNotice={onNotice} />
           </div>
-          <div className="overflow-hidden rounded-[12px] border border-[#E3E3E7]">
+          <div className="overflow-hidden rounded-[12px] border border-line-quiet">
             {[...fixed, ...custom].map((connection) => (
               <ConnectedRow
                 key={connection.id}
@@ -223,8 +223,8 @@ export function ProvidersPanel({
         </section>
       ) : null}
       <section className="flex flex-col gap-2">
-        <h3 className="text-[13px] text-[#6E6E73]">Available</h3>
-        <div className="overflow-hidden rounded-[12px] border border-[#E3E3E7]">
+        <h3 className="text-[13px] text-ink-secondary">Available</h3>
+        <div className="overflow-hidden rounded-[12px] border border-line-quiet">
           {available.map((provider) => (
             <AvailableRow
               key={provider.slug}
@@ -244,7 +244,7 @@ export function ProvidersPanel({
             />
           ))}
           <AvailableRow
-            mark={<PlusIcon size={18} className="text-[#6E6E73]" />}
+            mark={<PlusIcon size={18} className="text-ink-secondary" />}
             title="Custom provider"
             detail="OpenAI-compatible"
             onConnect={() => setScreen({ kind: "pick-custom" })}
@@ -254,9 +254,9 @@ export function ProvidersPanel({
       {notice ? (
         <p
           role="status"
-          className="mx-auto flex items-center gap-2 rounded-full border border-[#E3E3E7] bg-white px-3 py-1.5 text-sm text-[#1C1C1E] shadow-sm"
+          className="mx-auto flex items-center gap-2 rounded-full border border-line-quiet bg-paper px-3 py-1.5 text-sm text-ink shadow-sm"
         >
-          <CheckIcon size={14} weight="bold" className="text-[#1A73E8]" />
+          <CheckIcon size={14} weight="bold" className="text-accent" />
           {notice}
         </p>
       ) : null}
@@ -296,7 +296,7 @@ function RefreshButton({
           setBusy(false);
         }
       }}
-      className="text-[13px] font-medium text-[#1A73E8] disabled:opacity-40"
+      className="text-[13px] font-medium text-accent disabled:opacity-40"
     >
       {busy ? "Refreshing…" : "Refresh models"}
     </button>
@@ -321,12 +321,12 @@ function ConnectedRow({
     models === undefined ? how : `${how} · ${models} ${models === 1 ? "model" : "models"}`;
   const text = (
     <>
-      <span className="block truncate text-[15px] font-medium text-[#1C1C1E]">{title}</span>
-      <span className="block truncate text-[13px] text-[#6E6E73]">{detail}</span>
+      <span className="block truncate text-[15px] font-medium text-ink">{title}</span>
+      <span className="block truncate text-[13px] text-ink-secondary">{detail}</span>
     </>
   );
   return (
-    <div className="flex min-h-14 items-center gap-3 border-b border-[#E3E3E7] px-4 last:border-b-0">
+    <div className="flex min-h-14 items-center gap-3 border-b border-line-quiet px-4 last:border-b-0">
       <ConnectionMark
         type={connection.type}
         label={connection.provider ?? connection.label}
@@ -339,11 +339,11 @@ function ConnectedRow({
       ) : (
         <span className="min-w-0 flex-1">{text}</span>
       )}
-      <span className="text-[13px] text-[#6E6E73]">Connected</span>
+      <span className="text-[13px] text-ink-secondary">Connected</span>
       <button
         type="button"
         onClick={onRemove}
-        className="text-[13px] text-[#6E6E73] hover:text-[#1C1C1E]"
+        className="text-[13px] text-ink-secondary hover:text-ink"
       >
         Remove
       </button>
@@ -363,13 +363,13 @@ function AvailableRow({
   onConnect: () => void;
 }) {
   return (
-    <div className="flex min-h-14 items-center gap-3 border-b border-[#E3E3E7] px-4 last:border-b-0">
+    <div className="flex min-h-14 items-center gap-3 border-b border-line-quiet px-4 last:border-b-0">
       <span className="flex size-6 items-center justify-center">{mark}</span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-[15px] font-medium text-[#1C1C1E]">{title}</span>
-        <span className="block text-[13px] text-[#6E6E73]">{detail}</span>
+        <span className="block truncate text-[15px] font-medium text-ink">{title}</span>
+        <span className="block text-[13px] text-ink-secondary">{detail}</span>
       </span>
-      <button type="button" onClick={onConnect} className="text-sm font-medium text-[#1A73E8]">
+      <button type="button" onClick={onConnect} className="text-sm font-medium text-accent">
         Connect
       </button>
     </div>
@@ -378,7 +378,7 @@ function AvailableRow({
 
 function Back({ label, onClick }: { label: string; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} className="mb-4 text-sm font-medium text-[#1C1C1E]">
+    <button type="button" onClick={onClick} className="mb-4 text-sm font-medium text-ink">
       ‹ {label}
     </button>
   );
@@ -388,7 +388,7 @@ function TargetMark({ target }: { target: Target }) {
   return (
     <div className="mb-4 flex items-center gap-2">
       <ConnectionMark type={target.slug} label={target.providerId} size={20} />
-      <span className="text-[15px] font-medium text-[#1C1C1E]">{target.title}</span>
+      <span className="text-[15px] font-medium text-ink">{target.title}</span>
     </div>
   );
 }
@@ -408,28 +408,30 @@ function ConnectChoice({
     <div>
       <Back label="All providers" onClick={onBack} />
       <TargetMark target={target} />
-      <h3 className="text-[22px] font-semibold tracking-[-0.02em] text-[#1C1C1E]">
+      <h3 className="text-[22px] font-semibold tracking-[-0.02em] text-ink">
         Connect to {target.title}
       </h3>
-      <p className="mt-1 text-[15px] text-[#6E6E73]">
+      <p className="mt-1 text-[15px] text-ink-secondary">
         Use your ChatGPT plan, or pay per use with a key.
       </p>
       <div className="mt-5 flex flex-col gap-3">
         <button
           type="button"
           onClick={onSignIn}
-          className="rounded-[12px] border border-[#E3E3E7] px-4 py-3 text-left"
+          className="rounded-[12px] border border-line-quiet px-4 py-3 text-left"
         >
-          <span className="block text-[15px] font-medium text-[#1C1C1E]">Sign in with ChatGPT</span>
-          <span className="block text-[13px] text-[#6E6E73]">The models your plan includes.</span>
+          <span className="block text-[15px] font-medium text-ink">Sign in with ChatGPT</span>
+          <span className="block text-[13px] text-ink-secondary">
+            The models your plan includes.
+          </span>
         </button>
         <button
           type="button"
           onClick={onKey}
-          className="rounded-[12px] border border-[#E3E3E7] px-4 py-3 text-left"
+          className="rounded-[12px] border border-line-quiet px-4 py-3 text-left"
         >
-          <span className="block text-[15px] font-medium text-[#1C1C1E]">Use an API key</span>
-          <span className="block text-[13px] text-[#6E6E73]">
+          <span className="block text-[15px] font-medium text-ink">Use an API key</span>
+          <span className="block text-[13px] text-ink-secondary">
             Connect through {target.title} Console
           </span>
         </button>
@@ -499,17 +501,17 @@ function SignInStep({
     <div>
       <Back label="Connection" onClick={onBack} />
       <TargetMark target={target} />
-      <h3 className="text-[22px] font-semibold tracking-[-0.02em] text-[#1C1C1E]">
+      <h3 className="text-[22px] font-semibold tracking-[-0.02em] text-ink">
         Enter this code at OpenAI
       </h3>
-      <p className="mt-2 max-w-[440px] text-[15px] leading-6 text-[#6E6E73]">
+      <p className="mt-2 max-w-[440px] text-[15px] leading-6 text-ink-secondary">
         Open the page, sign in to ChatGPT, and enter the code. This screen finishes on its own.
       </p>
       {code ? (
         <>
           <p
             aria-label="Sign-in code"
-            className="mt-5 font-mono text-[28px] font-semibold tracking-[0.12em] text-[#1C1C1E] select-all"
+            className="mt-5 font-mono text-[28px] font-semibold tracking-[0.12em] text-ink select-all"
           >
             {code.userCode}
           </p>
@@ -517,27 +519,27 @@ function SignInStep({
             href={code.verificationUrl}
             target="_blank"
             rel="noreferrer"
-            className="mt-4 inline-flex h-10 items-center rounded-xl bg-[#1A73E8] px-4 text-sm font-medium text-white"
+            className="mt-4 inline-flex h-10 items-center rounded-xl bg-accent px-4 text-sm font-medium text-on-accent"
           >
             Open OpenAI
           </a>
         </>
       ) : error ? null : (
-        <p className="mt-5 text-[15px] text-[#6E6E73]">Getting a code…</p>
+        <p className="mt-5 text-[15px] text-ink-secondary">Getting a code…</p>
       )}
       {error ? (
         <div className="mt-5">
-          <p className="text-[13px] text-[#C2410C]">{error}</p>
+          <p className="text-[13px] text-warn">{error}</p>
           <button
             type="button"
             onClick={() => setAttempt((n) => n + 1)}
-            className="mt-3 h-10 rounded-xl bg-[#1A73E8] px-4 text-sm font-medium text-white"
+            className="mt-3 h-10 rounded-xl bg-accent px-4 text-sm font-medium text-on-accent"
           >
             Start again
           </button>
         </div>
       ) : null}
-      <p className="mt-4 max-w-[440px] text-[13px] leading-5 text-[#6E6E73]">
+      <p className="mt-4 max-w-[440px] text-[13px] leading-5 text-ink-secondary">
         If OpenAI says device sign-in is off, turn on device code sign-in for Codex in ChatGPT's
         security settings.
       </p>
@@ -570,14 +572,12 @@ function KeyStep({
     >
       <Back label={backLabel} onClick={onBack} />
       <TargetMark target={target} />
-      <h3 className="text-[22px] font-semibold tracking-[-0.02em] text-[#1C1C1E]">
-        Add your API key
-      </h3>
-      <p className="mt-1 text-[15px] text-[#6E6E73]">
+      <h3 className="text-[22px] font-semibold tracking-[-0.02em] text-ink">Add your API key</h3>
+      <p className="mt-1 text-[15px] text-ink-secondary">
         Paste a key from the {target.title} Console to connect.
       </p>
       <label className="mt-5 flex flex-col gap-1.5">
-        <span className="text-[13px] font-medium text-[#1C1C1E]">API key</span>
+        <span className="text-[13px] font-medium text-ink">API key</span>
         <input
           value={value}
           onChange={(event) => setValue(event.target.value)}
@@ -585,7 +585,7 @@ function KeyStep({
           autoComplete="off"
           spellCheck={false}
           aria-label="API key"
-          className="h-11 rounded-[12px] border border-[#E3E3E7] bg-white px-3 text-sm outline-none"
+          className="h-11 rounded-[12px] border border-line-quiet bg-paper px-3 text-sm outline-none"
         />
       </label>
       {target.consoleUrl ? (
@@ -593,20 +593,20 @@ function KeyStep({
           href={target.consoleUrl}
           target="_blank"
           rel="noreferrer"
-          className="mt-2 inline-block text-[13px] text-[#1A73E8]"
+          className="mt-2 inline-block text-[13px] text-accent"
         >
           Get an API key from {target.title} Console ↗
         </a>
       ) : null}
-      {error ? <p className="mt-2 text-[13px] text-[#C2410C]">{error}</p> : null}
+      {error ? <p className="mt-2 text-[13px] text-warn">{error}</p> : null}
       <button
         type="submit"
         disabled={pending || value.trim() === ""}
-        className="mt-4 h-10 rounded-xl bg-[#1A73E8] px-4 text-sm font-medium text-white disabled:opacity-40"
+        className="mt-4 h-10 rounded-xl bg-accent px-4 text-sm font-medium text-on-accent disabled:opacity-40"
       >
         Connect
       </button>
-      <p className="mt-4 text-[13px] text-[#6E6E73]">
+      <p className="mt-4 text-[13px] text-ink-secondary">
         The key is stored on this device. Its models come from models.dev.
       </p>
     </form>
@@ -629,14 +629,14 @@ function CustomPick({
   return (
     <div>
       <Back label="All providers" onClick={onBack} />
-      <h3 className="text-[22px] font-semibold text-[#1C1C1E]">Custom provider</h3>
-      <p className="mt-1 text-[15px] text-[#6E6E73]">Pick an OpenAI-compatible provider.</p>
+      <h3 className="text-[22px] font-semibold text-ink">Custom provider</h3>
+      <p className="mt-1 text-[15px] text-ink-secondary">Pick an OpenAI-compatible provider.</p>
       <input
         value={filter}
         onChange={(event) => setFilter(event.target.value)}
         placeholder="Search providers on models.dev"
         aria-label="Search providers"
-        className="mt-4 h-11 w-full rounded-[12px] border border-[#E3E3E7] bg-white px-3 text-sm outline-none"
+        className="mt-4 h-11 w-full rounded-[12px] border border-line-quiet bg-paper px-3 text-sm outline-none"
       />
       <ul className="mt-2 max-h-64 overflow-y-auto">
         {shown.map((entry) => (
@@ -644,7 +644,7 @@ function CustomPick({
             <button
               type="button"
               onClick={() => onPick(entry)}
-              className="flex h-10 w-full items-center gap-3 rounded-lg px-2 text-left text-sm hover:bg-[#F7F7F9]"
+              className="flex h-10 w-full items-center gap-3 rounded-lg px-2 text-left text-sm hover:bg-recessed"
             >
               <ModelsDevMark id={entry.id} size={18} />
               <span className="truncate">{entry.name}</span>
@@ -652,7 +652,7 @@ function CustomPick({
           </li>
         ))}
         {shown.length === 0 ? (
-          <li className="px-2 py-2 text-[13px] text-[#6E6E73]">
+          <li className="px-2 py-2 text-[13px] text-ink-secondary">
             {entries.length === 0 ? "models.dev is unavailable right now." : "No provider matches."}
           </li>
         ) : null}
@@ -711,14 +711,14 @@ function ModelsStep({
           label={connection.provider ?? connection.label}
           size={20}
         />
-        <span className="text-[15px] font-medium text-[#1C1C1E]">{title}</span>
+        <span className="text-[15px] font-medium text-ink">{title}</span>
       </div>
-      <h3 className="text-[22px] font-semibold text-[#1C1C1E]">Models</h3>
-      <p className="mt-1 max-w-[460px] text-[15px] leading-6 text-[#6E6E73]">
+      <h3 className="text-[22px] font-semibold text-ink">Models</h3>
+      <p className="mt-1 max-w-[460px] text-[15px] leading-6 text-ink-secondary">
         Synced from models.dev twice a day. A model you add by hand stays through every sync.
       </p>
       <div className="mt-5 flex items-center justify-between">
-        <h4 className="text-[13px] text-[#6E6E73]">
+        <h4 className="text-[13px] text-ink-secondary">
           {shown.length} {shown.length === 1 ? "model" : "models"}
         </h4>
         <RefreshButton
@@ -729,17 +729,15 @@ function ModelsStep({
           onNotice={setNotice}
         />
       </div>
-      <ul className="mt-2 max-h-[320px] overflow-y-auto rounded-[12px] border border-[#E3E3E7]">
+      <ul className="mt-2 max-h-[320px] overflow-y-auto rounded-[12px] border border-line-quiet">
         {shown.map((model) => (
           <li
             key={model.id}
-            className="flex items-center gap-3 border-b border-[#E3E3E7] px-4 py-3 last:border-b-0"
+            className="flex items-center gap-3 border-b border-line-quiet px-4 py-3 last:border-b-0"
           >
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-[15px] font-medium text-[#1C1C1E]">
-                {model.name}
-              </span>
-              <span className="block truncate text-[13px] text-[#6E6E73]">{model.id}</span>
+              <span className="block truncate text-[15px] font-medium text-ink">{model.name}</span>
+              <span className="block truncate text-[13px] text-ink-secondary">{model.id}</span>
             </span>
             {model.manual ? (
               <button
@@ -747,7 +745,7 @@ function ModelsStep({
                 onClick={async () => {
                   showSaved(await onRemove({ connectionId: connection.id, modelId: model.id }));
                 }}
-                className="text-sm font-medium text-[#1A73E8]"
+                className="text-sm font-medium text-accent"
               >
                 Remove
               </button>
@@ -755,16 +753,16 @@ function ModelsStep({
           </li>
         ))}
         {shown.length === 0 ? (
-          <li className="px-4 py-3 text-[13px] text-[#6E6E73]">
+          <li className="px-4 py-3 text-[13px] text-ink-secondary">
             No models yet. Refresh to sync them from models.dev.
           </li>
         ) : null}
       </ul>
-      {notice ? <p className="mt-2 text-[13px] text-[#6E6E73]">{notice}</p> : null}
+      {notice ? <p className="mt-2 text-[13px] text-ink-secondary">{notice}</p> : null}
       <button
         type="button"
         onClick={() => setAdding(true)}
-        className="mt-4 h-10 rounded-xl bg-[#1A73E8] px-4 text-sm font-medium text-white"
+        className="mt-4 h-10 rounded-xl bg-accent px-4 text-sm font-medium text-on-accent"
       >
         Add model
       </button>
@@ -772,41 +770,41 @@ function ModelsStep({
         <div
           role="dialog"
           aria-labelledby="add-model-title"
-          className="inline-dialog mt-4 rounded-2xl border border-[#E3E3E7] bg-white p-5 shadow-xl"
+          className="inline-dialog mt-4 rounded-2xl border border-line-quiet bg-paper p-5 shadow-[var(--elevation-modal)]"
         >
-          <h3 id="add-model-title" className="text-[17px] font-semibold text-[#1C1C1E]">
+          <h3 id="add-model-title" className="text-[17px] font-semibold text-ink">
             Add a model
           </h3>
-          <p className="mt-1 text-[13px] leading-5 text-[#6E6E73]">
+          <p className="mt-1 text-[13px] leading-5 text-ink-secondary">
             For a model models.dev does not list yet. The alias is what the picker shows; the name
             is sent to {title}.
           </p>
           <label className="mt-4 flex flex-col gap-1.5">
-            <span className="text-[13px] font-medium text-[#1C1C1E]">Name</span>
+            <span className="text-[13px] font-medium text-ink">Name</span>
             <input
               value={name}
               onChange={(event) => setName(event.target.value)}
               placeholder="provider/model-name"
               aria-label="Name"
-              className="h-11 rounded-[12px] border border-[#E3E3E7] bg-white px-3 text-sm outline-none"
+              className="h-11 rounded-[12px] border border-line-quiet bg-paper px-3 text-sm outline-none"
             />
           </label>
           <label className="mt-3 flex flex-col gap-1.5">
-            <span className="text-[13px] font-medium text-[#1C1C1E]">Alias</span>
+            <span className="text-[13px] font-medium text-ink">Alias</span>
             <input
               value={alias}
               onChange={(event) => setAlias(event.target.value)}
               placeholder="My reviewer"
               aria-label="Alias"
-              className="h-11 rounded-[12px] border border-[#E3E3E7] bg-white px-3 text-sm outline-none"
+              className="h-11 rounded-[12px] border border-line-quiet bg-paper px-3 text-sm outline-none"
             />
           </label>
-          {error ? <p className="mt-2 text-[13px] text-[#C2410C]">{error}</p> : null}
+          {error ? <p className="mt-2 text-[13px] text-warn">{error}</p> : null}
           <div className="mt-4 flex justify-end gap-2">
             <button
               type="button"
               onClick={() => setAdding(false)}
-              className="h-9 rounded-lg border border-[#E3E3E7] px-3 text-sm"
+              className="h-9 rounded-lg border border-line-quiet px-3 text-sm"
             >
               Cancel
             </button>
@@ -830,7 +828,7 @@ function ModelsStep({
                   setError("Couldn't add the model. Try again.");
                 }
               }}
-              className="h-9 rounded-lg bg-[#1A73E8] px-3 text-sm font-medium text-white disabled:opacity-40"
+              className="h-9 rounded-lg bg-accent px-3 text-sm font-medium text-on-accent disabled:opacity-40"
             >
               Add model
             </button>

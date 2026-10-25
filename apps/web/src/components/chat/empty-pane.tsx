@@ -62,8 +62,8 @@ export function EmptyPane({
   return (
     <div className="flex flex-1 flex-col items-center justify-center px-6 pb-10">
       <div className="flex w-full max-w-[760px] flex-col">
-        <p className="text-center text-[15px] text-[#6E6E73]">Hello, {name}</p>
-        <h1 className="mt-1 mb-8 text-center text-[34px] leading-[40px] font-semibold tracking-[-0.03em] text-[#1C1C1E]">
+        <p className="text-center text-[15px] text-ink-secondary">Hello, {name}</p>
+        <h1 className="mt-1 mb-8 text-center text-[34px] leading-[40px] font-semibold tracking-[-0.03em] text-ink">
           How can I assist you today?
         </h1>
         <Composer
@@ -81,11 +81,11 @@ export function EmptyPane({
               <button
                 type="button"
                 onClick={() => fill(body)}
-                className="flex flex-1 flex-col gap-2 rounded-2xl border border-[#DCDCE0] bg-white px-4 py-4 text-left"
+                className="flex flex-1 flex-col gap-2 rounded-2xl border border-line bg-paper px-4 py-4 text-left"
               >
-                <Icon size={16} className="text-[#6E6E73]" />
-                <span className="text-[15px] font-semibold text-[#1C1C1E]">{title}</span>
-                <span className="text-[13px] leading-[18px] text-[#6E6E73]">{body}</span>
+                <Icon size={16} className="text-ink-secondary" />
+                <span className="text-[15px] font-semibold text-ink">{title}</span>
+                <span className="text-[13px] leading-[18px] text-ink-secondary">{body}</span>
               </button>
             </li>
           ))}

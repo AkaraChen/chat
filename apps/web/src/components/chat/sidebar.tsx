@@ -138,8 +138,8 @@ function SidebarLayer({
             aria-label="The Chat"
             className="flex items-baseline gap-1 font-['Inter_Variable'] text-[18px] leading-[22px] tracking-[-0.045em] [font-synthesis:none]"
           >
-            <span className="font-semibold text-[#1C1C1E]">The</span>
-            <span className="font-normal text-[#6E6E73]">Chat</span>
+            <span className="font-semibold text-ink">The</span>
+            <span className="font-normal text-ink-secondary">Chat</span>
           </span>
         )}
         <button
@@ -147,7 +147,7 @@ function SidebarLayer({
           type="button"
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           onClick={onToggle}
-          className="flex size-8 items-center justify-center rounded-lg text-[#6E6E73] hover:bg-white"
+          className="flex size-8 items-center justify-center rounded-lg text-ink-secondary hover:bg-paper"
         >
           <SidebarSimpleIcon size={18} />
         </button>
@@ -156,7 +156,7 @@ function SidebarLayer({
         to="/chat"
         search={{}}
         aria-label="New chat"
-        className={`mt-4 flex items-center justify-center bg-[#1A73E8] font-medium text-white ${
+        className={`mt-4 flex items-center justify-center bg-accent font-medium text-on-accent ${
           collapsed ? "size-10 rounded-xl" : "h-10 gap-2 rounded-xl px-3 text-sm"
         }`}
       >
@@ -165,18 +165,18 @@ function SidebarLayer({
       </Link>
       <button
         type="button"
-        className={`mt-2 flex items-center text-sm text-[#6E6E73] hover:bg-white ${
+        className={`mt-2 flex items-center text-sm text-ink-secondary hover:bg-paper ${
           collapsed ? "size-10 justify-center rounded-xl" : "h-10 gap-2.5 rounded-xl px-3"
         }`}
       >
-        <BooksIcon size={18} className="shrink-0 text-[#6E6E73]" />
+        <BooksIcon size={18} className="shrink-0 text-ink-secondary" />
         {collapsed ? <span className="sr-only">Library</span> : "Library"}
       </button>
       {collapsed ? null : (
         <nav className="mt-4 flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto">
           {group(threads).map(({ label, threads }) => (
             <section key={label} className="flex flex-col gap-0.5">
-              <h2 className="px-3 pb-1 text-xs font-medium text-[#9E9EA4]">{label}</h2>
+              <h2 className="px-3 pb-1 text-xs font-medium text-ink-tertiary">{label}</h2>
               {threads.map((thread) => (
                 <ThreadRow
                   key={thread.id}
@@ -197,21 +197,21 @@ function SidebarLayer({
         <span
           role="img"
           aria-label={name}
-          className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[#E8E8EC] text-[13px] font-medium text-[#6E6E73]"
+          className="flex size-8 shrink-0 items-center justify-center rounded-full bg-selected text-[13px] font-medium text-ink-secondary"
         >
           {initial}
         </span>
         {collapsed ? null : (
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-[13px] font-medium text-[#1C1C1E]">{name}</span>
-            <span className="block text-xs text-[#6E6E73]">{roleName(role)}</span>
+            <span className="block truncate text-[13px] font-medium text-ink">{name}</span>
+            <span className="block text-xs text-ink-secondary">{roleName(role)}</span>
           </span>
         )}
         <button
           type="button"
           aria-label="Settings"
           onClick={onSettings}
-          className="flex size-8 items-center justify-center rounded-lg text-[#6E6E73] hover:bg-white"
+          className="flex size-8 items-center justify-center rounded-lg text-ink-secondary hover:bg-paper"
         >
           <GearSixIcon size={18} />
         </button>
@@ -279,7 +279,7 @@ function ThreadRow({
   return (
     <div
       className={`group flex h-8 items-center rounded-[8px] pr-1 pl-2.5 ${
-        filled ? "bg-[#E8E8EC]" : "hover:bg-[#E8E8EC]"
+        filled ? "bg-selected" : "hover:bg-selected"
       }`}
     >
       {editing ? (
@@ -299,7 +299,7 @@ function ThreadRow({
               cancel();
             }
           }}
-          className="min-w-0 flex-1 bg-transparent text-[13px] font-medium leading-[18px] text-[#1C1C1E] outline-none"
+          className="min-w-0 flex-1 bg-transparent text-[13px] font-medium leading-[18px] text-ink outline-none"
         />
       ) : (
         <Link
@@ -313,7 +313,7 @@ function ThreadRow({
           onFocus={() => onPrefetch?.(thread.id)}
           className="flex h-full min-w-0 flex-1 items-center"
         >
-          <span className="truncate text-[13px] font-medium leading-[18px] text-[#1C1C1E]">
+          <span className="truncate text-[13px] font-medium leading-[18px] text-ink">
             {thread.title}
           </span>
         </Link>
@@ -322,9 +322,9 @@ function ThreadRow({
         <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
           <DropdownMenuTrigger
             aria-label={`Actions for ${thread.title}`}
-            className={`ml-2 flex size-5 shrink-0 items-center justify-center rounded-[6px] text-[#6E6E73] outline-none ${
+            className={`ml-2 flex size-5 shrink-0 items-center justify-center rounded-[6px] text-ink-secondary outline-none ${
               menuOpen
-                ? "bg-white"
+                ? "bg-paper"
                 : "pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100"
             }`}
           >
@@ -334,20 +334,20 @@ function ThreadRow({
             align="end"
             sideOffset={6}
             finalFocus={false}
-            className="flex w-[216px] flex-col gap-0.5 rounded-[12px] border border-[#E3E3E7] bg-white p-1.5 shadow-[0_12px_32px_#10182824] ring-0"
+            className="flex w-[216px] flex-col gap-0.5 rounded-[12px] border border-line-quiet bg-paper p-1.5 shadow-[var(--elevation-menu)] ring-0"
           >
             <DropdownMenuItem
               onClick={() => {
                 setDraft(thread.title);
                 setEditing(true);
               }}
-              className="h-8 rounded-[8px] px-2.5 text-[13px] font-medium text-[#1C1C1E] focus:bg-[#F7F7F9] focus:text-[#1C1C1E]"
+              className="h-8 rounded-[8px] px-2.5 text-[13px] font-medium text-ink focus:bg-recessed focus:text-ink"
             >
               Rename
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => void onDelete(thread.id)}
-              className="h-8 rounded-[8px] px-2.5 text-[13px] font-medium text-[#A33B3B] focus:bg-[#F7F7F9] focus:text-[#A33B3B]"
+              className="h-8 rounded-[8px] px-2.5 text-[13px] font-medium text-remove focus:bg-recessed focus:text-remove"
             >
               Delete
             </DropdownMenuItem>
