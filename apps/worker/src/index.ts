@@ -43,7 +43,11 @@ const deps: ThreadTitleDeps = {
     apiKey: required("PROXY_API_KEY"),
   }),
   async saveTitle(threadId, title, titledAt) {
-    await db.thread.update({ where: { id: threadId }, data: { title, titledAt } });
+    // Rename sets titledAt first. Do not replace a title the user chose.
+    await db.thread.updateMany({
+      where: { id: threadId, titledAt: null },
+      data: { title, titledAt },
+    });
   },
 };
 

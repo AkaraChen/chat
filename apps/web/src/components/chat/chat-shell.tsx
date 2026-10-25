@@ -68,6 +68,32 @@ export function ChatShell({
     }
   }
 
+  async function renameThread(id: string, title: string) {
+    try {
+      const updated = await client.threads.rename({ id, title });
+      queryClient.setQueryData(orpc.threads.list.key(), (current: ThreadList | undefined) =>
+        current?.map((item) => (item.id === id ? { ...item, ...updated } : item)),
+      );
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Couldn't rename the chat.");
+      throw error;
+    }
+  }
+
+  async function deleteThread(id: string) {
+    try {
+      await client.threads.delete({ id });
+      queryClient.setQueryData(orpc.threads.list.key(), (current: ThreadList | undefined) =>
+        current?.filter((item) => item.id !== id),
+      );
+      if (thread === id) {
+        await navigate({ to: "/chat", search: (prev) => ({ ...prev, thread: undefined }) });
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Couldn't delete the chat.");
+    }
+  }
+
   const openSettings = (tab: SettingsTab) =>
     navigate({ to: "/chat", search: (prev) => ({ ...prev, settings: tab }) });
 
@@ -79,6 +105,8 @@ export function ChatShell({
         name={name}
         role={role}
         onSettings={() => openSettings("general")}
+        onRename={renameThread}
+        onDelete={deleteThread}
       />
       <main className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-[20px] border border-[#E3E3E7] bg-white">
         <header className="flex h-14 shrink-0 items-center justify-between px-4">

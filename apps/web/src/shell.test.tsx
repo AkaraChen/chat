@@ -57,3 +57,38 @@ test("signed-in shell shows the empty state and collapses the thread list", asyn
   expect(screen.getByLabelText("Eric")).toBeTruthy();
   expect(screen.getByRole("button", { name: "Settings" })).toBeTruthy();
 });
+
+test("hover and active threads share a background, and the menu renames", async () => {
+  await renderApp(
+    <ChatShell
+      name="Eric"
+      email="eric@example.com"
+      role="admin"
+      thread="t1"
+      settings={undefined}
+      threadList={[
+        { id: "t1", title: "Morning notes", updatedAt: new Date().toISOString() },
+        {
+          id: "t2",
+          title: "Older note",
+          updatedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+        },
+      ]}
+      settingsData={emptySettings}
+    />,
+  );
+
+  const active = await screen.findByRole("link", { name: "Morning notes" });
+  const resting = screen.getByRole("link", { name: "Older note" });
+  expect(active.parentElement?.className.split(/\s+/)).toContain("bg-[#E8E8EC]");
+  expect(resting.parentElement?.className.split(/\s+/)).toContain("hover:bg-[#E8E8EC]");
+  expect(resting.parentElement?.className.split(/\s+/)).not.toContain("bg-[#E8E8EC]");
+
+  fireEvent.click(screen.getByRole("button", { name: "Actions for Morning notes" }));
+  expect(await screen.findByRole("menuitem", { name: "Rename" })).toBeTruthy();
+  expect(screen.getByRole("menuitem", { name: "Delete" })).toBeTruthy();
+  fireEvent.click(screen.getByRole("menuitem", { name: "Rename" }));
+
+  const name = await screen.findByRole("textbox", { name: "Chat name" });
+  expect((name as HTMLInputElement).value).toBe("Morning notes");
+});

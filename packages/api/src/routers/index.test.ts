@@ -220,6 +220,43 @@ describe("threads and chat", () => {
     expect(refused.status).toBe(400);
   });
 
+  test("rename and delete stay on the owner's threads", async () => {
+    const ctx = as("u1");
+    const a = await call(appRouter.threads.create, { text: "mine" }, { context: ctx });
+    await expect(
+      call(appRouter.threads.rename, { id: a.id, title: "renamed" }, { context: as("u2") }),
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(
+      call(appRouter.threads.rename, { id: a.id, title: "   " }, { context: ctx }),
+    ).rejects.toBeTruthy();
+
+    const renamed = await call(
+      appRouter.threads.rename,
+      { id: a.id, title: "  renamed  " },
+      { context: ctx },
+    );
+    expect(renamed.title).toBe("renamed");
+    expect(renamed.titledAt).toBeInstanceOf(Date);
+    expect(
+      (await call(appRouter.threads.list, undefined, { context: ctx })).find((t) => t.id === a.id)
+        ?.title,
+    ).toBe("renamed");
+
+    await expect(
+      call(appRouter.threads.delete, { id: a.id }, { context: as("u2") }),
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+    expect(await call(appRouter.threads.get, { id: a.id }, { context: ctx })).toMatchObject({
+      id: a.id,
+    });
+    await call(appRouter.threads.delete, { id: a.id }, { context: ctx });
+    await expect(call(appRouter.threads.get, { id: a.id }, { context: ctx })).rejects.toMatchObject(
+      { code: "NOT_FOUND" },
+    );
+    expect(await call(appRouter.threads.list, undefined, { context: ctx })).not.toContainEqual(
+      expect.objectContaining({ id: a.id }),
+    );
+  });
+
   test("POST /api/chat streams the answer, and threads.get returns the stored UIMessages", async () => {
     const ctx = as("u1");
     const claude = (await base.credentials.list()).find((c) => c.type === "claude")!;

@@ -212,6 +212,33 @@ export const appRouter = {
           select: { id: true, title: true, titledAt: true, createdAt: true, updatedAt: true },
         });
       }),
+
+    // A manual title is final: titledAt stops the sidebar poll and the worker.
+    rename: memberProcedure
+      .input(z.object({ id: z.string().min(1), title: z.string().trim().min(1).max(80) }))
+      .handler(async ({ context, input }) => {
+        const updated = await context.db.thread.updateMany({
+          where: { id: input.id, userId: context.session.userId },
+          data: { title: input.title, titledAt: new Date() },
+        });
+        if (updated.count !== 1) throw new ORPCError("NOT_FOUND");
+        const thread = await context.db.thread.findFirst({
+          where: { id: input.id, userId: context.session.userId },
+          select: { id: true, title: true, titledAt: true, createdAt: true, updatedAt: true },
+        });
+        if (!thread) throw new ORPCError("NOT_FOUND");
+        return thread;
+      }),
+
+    delete: memberProcedure
+      .input(z.object({ id: z.string().min(1) }))
+      .handler(async ({ context, input }) => {
+        const deleted = await context.db.thread.deleteMany({
+          where: { id: input.id, userId: context.session.userId },
+        });
+        if (deleted.count !== 1) throw new ORPCError("NOT_FOUND");
+        return { id: input.id };
+      }),
   },
 
   github: {

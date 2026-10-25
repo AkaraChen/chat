@@ -1,6 +1,18 @@
-import { BooksIcon, GearSixIcon, PlusIcon, SidebarSimpleIcon } from "@phosphor-icons/react";
+import {
+  BooksIcon,
+  DotsThreeVerticalIcon,
+  GearSixIcon,
+  PlusIcon,
+  SidebarSimpleIcon,
+} from "@phosphor-icons/react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@my-better-t-app/ui/components/dropdown-menu";
 import { Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type Thread = { id: string; title: string; updatedAt: Date | string };
 
@@ -32,12 +44,16 @@ export function Sidebar({
   name,
   role,
   onSettings,
+  onRename,
+  onDelete,
 }: {
   threads: Thread[];
   activeId: string | undefined;
   name: string;
   role: string;
   onSettings: () => void;
+  onRename: (id: string, title: string) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const initial = name.trim().slice(0, 1).toUpperCase() || "A";
@@ -51,7 +67,8 @@ export function Sidebar({
             aria-label="The Chat"
             className="flex items-baseline gap-1 font-['Inter_Variable'] text-[18px] leading-[22px] tracking-[-0.045em] [font-synthesis:none]"
           >
-            <span className="font-semibold text-[#1C1C1E]">The</span><span className="font-normal text-[#6E6E73]">Chat</span>
+            <span className="font-semibold text-[#1C1C1E]">The</span>
+            <span className="font-normal text-[#6E6E73]">Chat</span>
           </span>
         )}
         <button
@@ -89,22 +106,21 @@ export function Sidebar({
             <section key={label} className="flex flex-col gap-0.5">
               <h2 className="px-3 pb-1 text-xs font-medium text-[#9E9EA4]">{label}</h2>
               {threads.map((thread) => (
-                <Link
+                <ThreadRow
                   key={thread.id}
-                  to="/chat"
-                  search={{ thread: thread.id }}
-                  className={`truncate rounded-xl px-3 py-2 text-sm text-[#1C1C1E] ${
-                    thread.id === activeId ? "bg-[#E8E8EC]" : "hover:bg-white"
-                  }`}
-                >
-                  {thread.title}
-                </Link>
+                  thread={thread}
+                  active={thread.id === activeId}
+                  onRename={onRename}
+                  onDelete={onDelete}
+                />
               ))}
             </section>
           ))}
         </nav>
       )}
-      <div className={`mt-auto flex items-center gap-2 ${collapsed ? "flex-col pt-3" : "px-1 pt-3"}`}>
+      <div
+        className={`mt-auto flex items-center gap-2 ${collapsed ? "flex-col pt-3" : "px-1 pt-3"}`}
+      >
         <span
           aria-label={name}
           className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[#E8E8EC] text-[13px] font-medium text-[#6E6E73]"
@@ -127,5 +143,133 @@ export function Sidebar({
         </button>
       </div>
     </aside>
+  );
+}
+
+function ThreadRow({
+  thread,
+  active,
+  onRename,
+  onDelete,
+}: {
+  thread: Thread;
+  active: boolean;
+  onRename: (id: string, title: string) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
+}) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(thread.title);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const skipCommit = useRef(false);
+  const filled = active || menuOpen || editing;
+
+  useEffect(() => {
+    if (!editing) setDraft(thread.title);
+  }, [editing, thread.title]);
+
+  useEffect(() => {
+    if (!editing) return;
+    inputRef.current?.focus();
+    inputRef.current?.select();
+  }, [editing]);
+
+  function cancel() {
+    skipCommit.current = true;
+    setDraft(thread.title);
+    setEditing(false);
+  }
+
+  async function commit() {
+    if (skipCommit.current) {
+      skipCommit.current = false;
+      return;
+    }
+    const title = draft.trim();
+    setEditing(false);
+    if (!title || title === thread.title) {
+      setDraft(thread.title);
+      return;
+    }
+    try {
+      await onRename(thread.id, title);
+    } catch {
+      setDraft(thread.title);
+    }
+  }
+
+  return (
+    <div
+      className={`group flex h-8 items-center rounded-[8px] pr-1 pl-2.5 ${
+        filled ? "bg-[#E8E8EC]" : "hover:bg-[#E8E8EC]"
+      }`}
+    >
+      {editing ? (
+        <input
+          ref={inputRef}
+          aria-label="Chat name"
+          value={draft}
+          maxLength={80}
+          onChange={(event) => setDraft(event.target.value)}
+          onBlur={() => void commit()}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              event.currentTarget.blur();
+            } else if (event.key === "Escape") {
+              event.preventDefault();
+              cancel();
+            }
+          }}
+          className="min-w-0 flex-1 bg-transparent text-[13px] font-medium leading-[18px] text-[#1C1C1E] outline-none"
+        />
+      ) : (
+        <Link
+          to="/chat"
+          search={{ thread: thread.id }}
+          className="flex h-full min-w-0 flex-1 items-center"
+        >
+          <span className="truncate text-[13px] font-medium leading-[18px] text-[#1C1C1E]">
+            {thread.title}
+          </span>
+        </Link>
+      )}
+      {editing ? null : (
+        <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
+          <DropdownMenuTrigger
+            aria-label={`Actions for ${thread.title}`}
+            className={`ml-2 flex size-5 shrink-0 items-center justify-center rounded-[6px] text-[#6E6E73] outline-none ${
+              menuOpen
+                ? "bg-white"
+                : "pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100"
+            }`}
+          >
+            <DotsThreeVerticalIcon size={16} weight="bold" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="end"
+            sideOffset={6}
+            finalFocus={false}
+            className="flex w-[216px] flex-col gap-0.5 rounded-[12px] border border-[#E3E3E7] bg-white p-1.5 shadow-[0_12px_32px_#10182824] ring-0"
+          >
+            <DropdownMenuItem
+              onClick={() => {
+                setDraft(thread.title);
+                setEditing(true);
+              }}
+              className="h-8 rounded-[8px] px-2.5 text-[13px] font-medium text-[#1C1C1E] focus:bg-[#F7F7F9] focus:text-[#1C1C1E]"
+            >
+              Rename
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => void onDelete(thread.id)}
+              className="h-8 rounded-[8px] px-2.5 text-[13px] font-medium text-[#A33B3B] focus:bg-[#F7F7F9] focus:text-[#A33B3B]"
+            >
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+    </div>
   );
 }
