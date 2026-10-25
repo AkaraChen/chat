@@ -1,7 +1,7 @@
 import { useJsonRenderMessage } from "@json-render/react";
 import { validateSpec } from "@my-better-t-app/api/templates/catalog";
 import { PaperclipIcon } from "@phosphor-icons/react";
-import { useEffect, useMemo, useRef } from "react";
+import { memo, useLayoutEffect, useMemo, useRef } from "react";
 
 import { AnswerView, Trace } from "../answer";
 import { RichText } from "../answer/rich-text";
@@ -9,7 +9,28 @@ import { GitHubMark } from "../github-mark";
 import { Spinner } from "../spinner";
 import type { Turn } from "./turns";
 
-function UserBubble({ turn }: { turn: Extract<Turn, { role: "user" }> }) {
+type UserTurn = Extract<Turn, { role: "user" }>;
+type AssistantTurnData = Extract<Turn, { role: "assistant" }>;
+
+// Turns are rebuilt from the messages on every streamed update, but only the
+// last message changes; the AI SDK keeps the others, and their parts, as they
+// were. Comparing what a turn draws from keeps the finished ones from parsing
+// their markdown again on each update.
+const UserBubble = memo(
+  UserBubbleView,
+  (a, b) =>
+    a.turn.text === b.turn.text &&
+    a.turn.attachment === b.turn.attachment &&
+    a.turn.source?.repo === b.turn.source?.repo &&
+    a.turn.source?.number === b.turn.source?.number,
+);
+
+const AssistantTurn = memo(
+  AssistantTurnView,
+  (a, b) => a.turn.parts === b.turn.parts && a.live === b.live,
+);
+
+function UserBubbleView({ turn }: { turn: UserTurn }) {
   return (
     <div className="flex max-w-[560px] flex-col items-start gap-2 self-end rounded-[14px] bg-[#F7F7F9] px-3.5 py-2.5">
       <p className="text-[15px] leading-6 whitespace-pre-wrap text-[#1C1C1E]">{turn.text}</p>
@@ -31,13 +52,7 @@ function UserBubble({ turn }: { turn: Extract<Turn, { role: "user" }> }) {
   );
 }
 
-function AssistantTurn({
-  turn,
-  live,
-}: {
-  turn: Extract<Turn, { role: "assistant" }>;
-  live: boolean;
-}) {
+function AssistantTurnView({ turn, live }: { turn: AssistantTurnData; live: boolean }) {
   const { spec, text, hasSpec } = useJsonRenderMessage(turn.parts);
   // While streaming the view builds up as json-render draws it. Once the turn
   // is over, a view that fails the catalog is left out, as the server does.
@@ -56,8 +71,11 @@ function AssistantTurn({
   );
 }
 
-/** The conversation. Follows the stream unless the reader scrolled up. */
-export function Messages({
+/**
+ * The conversation. Follows the stream unless the reader scrolled up.
+ * Memoized, so typing in the composer does not draw the transcript again.
+ */
+export const Messages = memo(function Messages({
   turns,
   streaming,
   error,
@@ -69,14 +87,15 @@ export function Messages({
   const scroller = useRef<HTMLDivElement>(null);
   const pinned = useRef(true);
 
-  useEffect(() => {
-    const el = scroller.current;
-    if (el && pinned.current) el.scrollTop = el.scrollHeight;
-  });
-
   const last = turns.at(-1);
   // Between sending and the first chunk there is no assistant turn yet.
   const awaiting = streaming && last?.role === "user";
+
+  // Only when the transcript changes: reading scrollHeight forces a layout.
+  useLayoutEffect(() => {
+    const el = scroller.current;
+    if (el && pinned.current) el.scrollTop = el.scrollHeight;
+  }, [turns, awaiting, error]);
 
   return (
     <div
@@ -104,4 +123,4 @@ export function Messages({
       </div>
     </div>
   );
-}
+});

@@ -4,12 +4,22 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { orpc } from "@/utils/orpc";
 
+import { historyQuery, type Pending } from "./thread-history";
 import { chatTransport, type ChatMessage } from "./transport";
 import { ThreadView } from "./thread-view";
 import { toTurns } from "./turns";
 import { useModelChoice } from "./use-model-choice";
 
-export type Pending = { threadId: string; text: string };
+export type { Pending };
+
+// Draw the stream at most this often. Each draw parses the answer's markdown.
+const STREAM_THROTTLE_MS = 50;
+
+// Only the newest message can differ between two reads that agree on the
+// count: an answer cut short here and finished on the server keeps its id.
+function sameMessages(a: ChatMessage[], b: ChatMessage[]) {
+  return a.length === b.length && JSON.stringify(a.at(-1)) === JSON.stringify(b.at(-1));
+}
 
 function Conversation({
   threadId,
@@ -27,11 +37,34 @@ function Conversation({
     id: threadId,
     messages: initial,
     transport: chatTransport,
-    // The title is made after the first answer; refetching here starts the
-    // sidebar's wait for it.
-    onFinish: () => queryClient.invalidateQueries({ queryKey: orpc.threads.list.key() }),
+    throttle: STREAM_THROTTLE_MS,
+    onFinish: ({ messages, isAbort, isDisconnect, isError }) => {
+      // The next visit then starts from this answer, not the one cached before
+      // it. An answer cut short here (the reader left, the connection dropped)
+      // is still finished and saved by the server, so it is not cached.
+      if (!isAbort && !isDisconnect && !isError) {
+        queryClient.setQueryData(historyQuery(threadId).queryKey, (current) =>
+          current ? { ...current, messages } : current,
+        );
+      }
+      // The title is made after the first answer; refetching here starts the
+      // sidebar's wait for it.
+      void queryClient.invalidateQueries({ queryKey: orpc.threads.list.key() });
+    },
   });
   const busy = chat.status === "submitted" || chat.status === "streaming";
+
+  // The thread can open from the cache while a fresh read is on its way. When
+  // that read differs (an answer that ended after this tab left, another
+  // device), it replaces what is shown, unless a turn is under way.
+  const busyRef = useRef(busy);
+  busyRef.current = busy;
+  const { messages: shown, setMessages } = chat;
+  const shownRef = useRef(shown);
+  shownRef.current = shown;
+  useEffect(() => {
+    if (!busyRef.current && !sameMessages(initial, shownRef.current)) setMessages(initial);
+  }, [initial, setMessages]);
 
   // A thread started from the empty state sends its first message once.
   useEffect(() => {
@@ -76,17 +109,7 @@ export function ThreadPane({
   pending: React.RefObject<Pending | null>;
   onMissing: () => void;
 }) {
-  // History is read fresh each time the thread opens; the live chat holds it after.
-  const history = useQuery(
-    orpc.threads.get.queryOptions({
-      input: { id: threadId },
-      gcTime: 0,
-      staleTime: 0,
-      refetchOnWindowFocus: false,
-      retry: false,
-      meta: { quiet: true },
-    }),
-  );
+  const history = useQuery(historyQuery(threadId));
   const missing = history.isError;
   const onMissingRef = useRef(onMissing);
   onMissingRef.current = onMissing;

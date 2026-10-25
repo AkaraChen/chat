@@ -1,15 +1,23 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { z } from "zod";
 
 import { ChatShell } from "../components/chat/chat-shell";
+import { settingsTabs, type SettingsTab } from "../components/chat/settings/tabs";
 
-const searchSchema = z.object({
-  thread: z.string().min(1).optional().catch(undefined),
-  settings: z.enum(["general", "providers", "appearance", "github"]).optional().catch(undefined),
-});
+// Checked by hand, not with zod: route files load with the app's entry, and
+// zod would make every page, the public welcome too, download it.
+function validateSearch(search: Record<string, unknown>): {
+  thread?: string;
+  settings?: SettingsTab;
+} {
+  const { thread, settings } = search;
+  return {
+    thread: typeof thread === "string" && thread.length > 0 ? thread : undefined,
+    settings: settingsTabs.find((tab) => tab === settings),
+  };
+}
 
 export const Route = createFileRoute("/_member/chat")({
-  validateSearch: searchSchema,
+  validateSearch,
   component: Chat,
 });
 

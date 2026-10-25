@@ -15,8 +15,9 @@ import {
   type SavedModel,
   type SettingsCatalog,
 } from "./providers";
+import type { SettingsTab } from "./tabs";
 
-export type SettingsTab = "general" | "providers" | "appearance" | "github";
+export type { SettingsTab };
 
 const tabs: { id: SettingsTab; label: string; Icon: ComponentType<{ size?: number }> | null }[] = [
   { id: "general", label: "General", Icon: SlidersHorizontalIcon },
@@ -114,7 +115,7 @@ export function SettingsDialog({
       name: model.display_name || model.name,
     }));
     setModelOverrides((current) => ({ ...current, [connectionId]: items }));
-    queryClient.setQueryData(orpc.models.list.key(), (current) => {
+    queryClient.setQueryData(orpc.models.list.queryKey(), (current) => {
       const data = (current ?? {}) as {
         connections?: {
           connectionId: string;
@@ -130,7 +131,9 @@ export function SettingsDialog({
             item.connectionId === connectionId ? { ...item, models: items } : item,
           )
         : [...connections, { connectionId, type: "openrouter", label: connectionId, models: items }];
-      return { ...data, connections: next, choice: data.choice ?? null };
+      return { ...data, connections: next, choice: data.choice ?? null } as NonNullable<
+        typeof current
+      >;
     });
   }
   const saveKey = useMutation(orpc.connections.saveApiKey.mutationOptions({ onSuccess: refresh }));

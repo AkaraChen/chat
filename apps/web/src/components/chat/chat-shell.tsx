@@ -1,16 +1,33 @@
 import { DotsThreeIcon, ExportIcon } from "@phosphor-icons/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { useRef } from "react";
+import { Suspense, useEffect, useRef } from "react";
 import { toast } from "sonner";
 
 import { client, orpc } from "@/utils/orpc";
 
+import { preloadable } from "../preloadable";
 import { EmptyPane } from "./empty-pane";
 import { ModelPicker } from "./model-picker";
-import { SettingsDialog, type SettingsData, type SettingsTab } from "./settings/settings-dialog";
+import type { SettingsData } from "./settings/settings-dialog";
+import type { SettingsTab } from "./settings/tabs";
 import { Sidebar } from "./sidebar";
-import { ThreadPane, type Pending } from "./thread-pane";
+import { historyQuery, type Pending } from "./thread-history";
+
+// The thread (the AI SDK, markdown, views) and the settings dialog load on
+// their own, so the empty state and the shell show before they arrive.
+const threadPane = preloadable(() => import("./thread-pane").then((m) => m.ThreadPane));
+const settingsDialog = preloadable(() =>
+  import("./settings/settings-dialog").then((m) => m.SettingsDialog),
+);
+const ThreadPane = threadPane.Component;
+const SettingsDialog = settingsDialog.Component;
+const loadThreadPane = threadPane.preload;
+// Most visits end in a thread; the settings are small. Both load when idle.
+const preloadPanes = () => {
+  void threadPane.preload();
+  void settingsDialog.preload();
+};
 
 type ThreadList = { id: string; title: string; updatedAt: Date | string }[];
 
@@ -39,6 +56,9 @@ export function ChatShell({
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const pending = useRef<Pending | null>(null);
+  // Mounted on first open and kept, so closing it keeps what it holds.
+  const settingsOpened = useRef(false);
+  if (settings) settingsOpened.current = true;
 
   // The newest thread keeps its cut-off title until the background task has
   // summarised it, so ask again every 2 seconds until it has.
@@ -55,12 +75,34 @@ export function ChatShell({
     enabled: threadList === undefined,
   });
   const shown = threadList ?? threads.data ?? [];
+  const listKey = orpc.threads.list.queryKey();
 
+  useEffect(() => {
+    // Safari has no requestIdleCallback.
+    if (typeof requestIdleCallback !== "function") {
+      const id = setTimeout(preloadPanes, 1000);
+      return () => clearTimeout(id);
+    }
+    const id = requestIdleCallback(preloadPanes);
+    return () => cancelIdleCallback(id);
+  }, []);
+
+  // A new thread is empty and already listed, so it opens without asking the
+  // server for either; the first message goes out as soon as it shows.
   async function start(text: string) {
     try {
-      const created = await client.threads.create({ text });
+      // The thread's code loads alongside, so it opens without waiting on it.
+      // If that load fails, the pane's own lazy load tries again.
+      const [created] = await Promise.all([
+        client.threads.create({ text }),
+        loadThreadPane().catch(() => {}),
+      ]);
       pending.current = { threadId: created.id, text };
-      await queryClient.invalidateQueries({ queryKey: orpc.threads.list.key() });
+      queryClient.setQueryData(historyQuery(created.id).queryKey, { ...created, messages: [] });
+      queryClient.setQueryData(listKey, (current) => [
+        created,
+        ...(current ?? []).filter((item) => item.id !== created.id),
+      ]);
       await navigate({ to: "/chat", search: { thread: created.id } });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Couldn't start the conversation.");
@@ -71,7 +113,7 @@ export function ChatShell({
   async function renameThread(id: string, title: string) {
     try {
       const updated = await client.threads.rename({ id, title });
-      queryClient.setQueryData(orpc.threads.list.key(), (current: ThreadList | undefined) =>
+      queryClient.setQueryData(listKey, (current) =>
         current?.map((item) => (item.id === id ? { ...item, ...updated } : item)),
       );
     } catch (error) {
@@ -83,9 +125,7 @@ export function ChatShell({
   async function deleteThread(id: string) {
     try {
       await client.threads.delete({ id });
-      queryClient.setQueryData(orpc.threads.list.key(), (current: ThreadList | undefined) =>
-        current?.filter((item) => item.id !== id),
-      );
+      queryClient.setQueryData(listKey, (current) => current?.filter((item) => item.id !== id));
       if (thread === id) {
         await navigate({ to: "/chat", search: (prev) => ({ ...prev, thread: undefined }) });
       }
@@ -107,6 +147,10 @@ export function ChatShell({
         onSettings={() => openSettings("general")}
         onRename={renameThread}
         onDelete={deleteThread}
+        onPrefetch={(id) => {
+          void loadThreadPane();
+          void queryClient.prefetchQuery(historyQuery(id));
+        }}
       />
       <main className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-[20px] border border-[#E3E3E7] bg-white">
         <header className="flex h-14 shrink-0 items-center justify-between px-4">
@@ -129,26 +173,32 @@ export function ChatShell({
           </div>
         </header>
         {thread ? (
-          <ThreadPane
-            key={thread}
-            threadId={thread}
-            pending={pending}
-            onMissing={() => navigate({ to: "/chat", search: {}, replace: true })}
-          />
+          <Suspense fallback={<div className="flex-1" />}>
+            <ThreadPane
+              key={thread}
+              threadId={thread}
+              pending={pending}
+              onMissing={() => navigate({ to: "/chat", search: {}, replace: true })}
+            />
+          </Suspense>
         ) : (
           <EmptyPane name={name} onStart={start} />
         )}
       </main>
-      <SettingsDialog
-        tab={settings}
-        name={name}
-        email={email}
-        onTab={openSettings}
-        onClose={() =>
-          navigate({ to: "/chat", search: (prev) => ({ ...prev, settings: undefined }) })
-        }
-        data={settingsData}
-      />
+      {settingsOpened.current ? (
+        <Suspense fallback={null}>
+          <SettingsDialog
+            tab={settings}
+            name={name}
+            email={email}
+            onTab={openSettings}
+            onClose={() =>
+              navigate({ to: "/chat", search: (prev) => ({ ...prev, settings: undefined }) })
+            }
+            data={settingsData}
+          />
+        </Suspense>
+      ) : null}
     </div>
   );
 }

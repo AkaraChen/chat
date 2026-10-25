@@ -46,6 +46,7 @@ export function Sidebar({
   onSettings,
   onRename,
   onDelete,
+  onPrefetch,
 }: {
   threads: Thread[];
   activeId: string | undefined;
@@ -54,6 +55,8 @@ export function Sidebar({
   onSettings: () => void;
   onRename: (id: string, title: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
+  /** A thread is about to be opened: hovered or focused. */
+  onPrefetch?: (id: string) => void;
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const initial = name.trim().slice(0, 1).toUpperCase() || "A";
@@ -112,6 +115,7 @@ export function Sidebar({
                   active={thread.id === activeId}
                   onRename={onRename}
                   onDelete={onDelete}
+                  onPrefetch={onPrefetch}
                 />
               ))}
             </section>
@@ -151,11 +155,13 @@ function ThreadRow({
   active,
   onRename,
   onDelete,
+  onPrefetch,
 }: {
   thread: Thread;
   active: boolean;
   onRename: (id: string, title: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
+  onPrefetch?: (id: string) => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -227,6 +233,8 @@ function ThreadRow({
         <Link
           to="/chat"
           search={{ thread: thread.id }}
+          onMouseEnter={() => onPrefetch?.(thread.id)}
+          onFocus={() => onPrefetch?.(thread.id)}
           className="flex h-full min-w-0 flex-1 items-center"
         >
           <span className="truncate text-[13px] font-medium leading-[18px] text-[#1C1C1E]">

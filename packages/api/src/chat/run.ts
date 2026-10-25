@@ -17,7 +17,9 @@ import type { GithubStore } from "../github/store";
 import { githubTools, githubToolsFor } from "../github/tools";
 import { enqueueThreadTitle, type ThreadTitleQueue } from "../jobs/thread-title";
 import { createSearchTemplatesTool } from "../templates/search";
+import { coalesceTextDeltas } from "./coalesce";
 import { forModel } from "./history";
+import { paceText } from "./pace";
 import {
   dataSchemas,
   metadataSchema,
@@ -188,6 +190,8 @@ export async function streamChat(deps: ChatDeps, input: ChatInput): Promise<Resp
         // call whose result the model would not see.
         prepareStep: ({ stepNumber }) =>
           stepNumber === MAX_STEPS - 1 ? { toolChoice: "none" } : undefined,
+        // Large deltas arrive in blocks from some providers; spread them out.
+        experimental_transform: paceText(),
         onError: () => {},
       });
       const chunks = toUIMessageStream({
@@ -195,7 +199,7 @@ export async function streamChat(deps: ChatDeps, input: ChatInput): Promise<Resp
         messageMetadata: ({ part }) => (part.type === "start" ? metadata : undefined),
         onError: messageOf,
       }) as ReadableStream<InferUIMessageChunk<ChatMessage>>;
-      writer.merge(pipeJsonRender(chunks));
+      writer.merge(pipeJsonRender(chunks).pipeThrough(coalesceTextDeltas()));
     },
     async onEnd({ responseMessage }) {
       try {
@@ -226,12 +230,12 @@ export async function streamChat(deps: ChatDeps, input: ChatInput): Promise<Resp
       where: { threadId: threadId, role: "assistant" },
     });
     if (answers === 1) {
-      try {
-        await enqueueThreadTitle(deps.titleQueue(), threadId);
-      } catch (error) {
-        // A title is nice to have; Redis being down must not fail the answer.
-        console.error("thread title was not queued:", messageOf(error));
-      }
+      // Not awaited: the stream closes when this returns, and the reader
+      // should not wait on Redis. A title is nice to have; Redis being slow or
+      // down must not hold up or fail the answer.
+      void Promise.resolve()
+        .then(() => enqueueThreadTitle(deps.titleQueue(), threadId))
+        .catch((error) => console.error("thread title was not queued:", messageOf(error)));
     }
   }
 }
