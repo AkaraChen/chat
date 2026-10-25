@@ -2,6 +2,8 @@ import { afterEach, expect, test } from "bun:test";
 import type { Spec } from "@json-render/core";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 
+import "@/i18n";
+
 import { Trace } from "./components/answer/trace";
 import { ThreadView } from "./components/chat/thread-view";
 import type { ChatMessage } from "./components/chat/transport";
