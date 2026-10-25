@@ -1,7 +1,7 @@
 import { ExportIcon } from "@phosphor-icons/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { Suspense, useEffect, useRef } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
@@ -9,6 +9,7 @@ import { client, orpc } from "@/utils/orpc";
 
 import { preloadable } from "../preloadable";
 import { EmptyPane } from "./empty-pane";
+import { ExportDialog } from "./export-dialog";
 import { ModelPicker } from "./model-picker";
 import type { SettingsData } from "./settings/settings-dialog";
 import type { SettingsTab } from "./settings/tabs";
@@ -66,6 +67,9 @@ export function ChatShell({
   // Mounted on first open and kept, so closing it keeps what it holds.
   const settingsOpened = useRef(false);
   if (settings) settingsOpened.current = true;
+  const exportOpened = useRef(false);
+  const [exportOpen, setExportOpen] = useState(false);
+  if (exportOpen) exportOpened.current = true;
 
   // The newest thread keeps its cut-off title until the background task has
   // summarised it, so ask again until it has.
@@ -174,7 +178,14 @@ export function ChatShell({
           <div className="flex items-center gap-2">
             <button
               type="button"
-              className="flex h-9 items-center gap-1.5 rounded-full border border-[#DCDCE0] px-3 text-sm font-medium text-[#1C1C1E] hover:bg-[#F7F7F9]"
+              aria-expanded={exportOpen}
+              onClick={() => {
+                if (!thread) return;
+                setExportOpen(true);
+              }}
+              className={`flex h-8 items-center gap-1.5 rounded-full border pr-3 pl-2.5 text-[13px] leading-4 font-medium text-[#1C1C1E] ${
+                exportOpen ? "border-[#1A73E8] bg-[#F3F8FE]" : "border-[#DCDCE0] hover:bg-[#F7F7F9]"
+              }`}
             >
               <ExportIcon size={14} />
               {t("shell.exportChat")}
@@ -194,6 +205,14 @@ export function ChatShell({
           <EmptyPane name={name} onStart={start} />
         )}
       </main>
+      {exportOpened.current ? (
+        <ExportDialog
+          open={exportOpen}
+          threadId={thread}
+          title={shown.find((item) => item.id === thread)?.title ?? ""}
+          onClose={() => setExportOpen(false)}
+        />
+      ) : null}
       {settingsOpened.current ? (
         <Suspense fallback={null}>
           <SettingsDialog

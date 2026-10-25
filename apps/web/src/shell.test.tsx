@@ -1,6 +1,8 @@
 import { afterEach, expect, test } from "bun:test";
 import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 
+import "@/i18n";
+
 import { orpc } from "./utils/orpc";
 import { ChatShell } from "./components/chat/chat-shell";
 import { renderApp } from "./test-harness";

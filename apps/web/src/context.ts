@@ -34,6 +34,7 @@ export async function createContext({ req }: { req: Request }): Promise<ApiConte
     titleQueue,
     createModel,
     session: result ? { userId: result.user.id, role: toRole(result.user.role) } : null,
+    authSecret: ENV.BETTER_AUTH_SECRET,
   };
 }
 
