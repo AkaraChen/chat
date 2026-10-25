@@ -2,8 +2,9 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 
 import type { ExportAccess } from "./duration";
 
-// A JWT-shaped token: claims, then an HMAC. The key is the Better Auth
-// secret, the only salt. Nothing here is stored.
+// A JWT-shaped token: claims, then an HMAC. Nothing here is stored. The key
+// is derived from the Better Auth secret for this one use, so a share link's
+// MAC is never a MAC Better Auth would accept for a cookie, or the reverse.
 export type ExportClaims = {
   v: 1;
   tid: string;
@@ -26,8 +27,14 @@ function payloadOf(claims: ExportClaims): string {
   ).toString("base64url");
 }
 
+const KEY_LABEL = "chat-export-v1";
+
+function keyOf(secret: string): Buffer {
+  return createHmac("sha256", secret).update(KEY_LABEL).digest();
+}
+
 function macOf(secret: string, payload: string): string {
-  return createHmac("sha256", secret).update(payload).digest("base64url");
+  return createHmac("sha256", keyOf(secret)).update(payload).digest("base64url");
 }
 
 function sameMac(a: string, b: string): boolean {

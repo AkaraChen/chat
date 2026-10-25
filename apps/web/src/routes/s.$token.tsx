@@ -32,6 +32,8 @@ const loadShare = createServerFn({ method: "GET", strict: { output: false } })
   });
 
 export const Route = createFileRoute("/s/$token")({
+  // A shared chat is for whoever has the link, not for search engines.
+  head: () => ({ meta: [{ name: "robots", content: "noindex, nofollow" }] }),
   loader: ({ params }) => loadShare({ data: params.token }),
   component: SharePage,
 });

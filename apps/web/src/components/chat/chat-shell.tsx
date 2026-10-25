@@ -175,14 +175,12 @@ export function ChatShell({
       <main className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-[20px] border border-[#E3E3E7] bg-white">
         <header className="flex h-14 shrink-0 items-center justify-between px-4">
           <ModelPicker onConnect={() => openSettings("providers")} />
-          <div className="flex items-center gap-2">
+          {/* Only a chat that exists can be exported; the empty state has none. */}
+          {thread ? (
             <button
               type="button"
               aria-expanded={exportOpen}
-              onClick={() => {
-                if (!thread) return;
-                setExportOpen(true);
-              }}
+              onClick={() => setExportOpen(true)}
               className={`flex h-8 items-center gap-1.5 rounded-full border pr-3 pl-2.5 text-[13px] leading-4 font-medium text-[#1C1C1E] ${
                 exportOpen ? "border-[#1A73E8] bg-[#F3F8FE]" : "border-[#DCDCE0] hover:bg-[#F7F7F9]"
               }`}
@@ -190,7 +188,7 @@ export function ChatShell({
               <ExportIcon size={14} />
               {t("shell.exportChat")}
             </button>
-          </div>
+          ) : null}
         </header>
         {thread ? (
           <Suspense fallback={<div className="flex-1" />}>

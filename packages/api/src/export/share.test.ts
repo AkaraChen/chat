@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { createHmac } from "node:crypto";
 
 import { call } from "@orpc/server";
 
@@ -71,6 +72,22 @@ describe("stateless export token", () => {
     expect(exportDurationMs["1h"]).toBe(60 * 60 * 1000);
     expect(exportDurationMs["1d"]).toBe(24 * 60 * 60 * 1000);
     expect(exportDurationMs["7d"]).toBe(7 * 24 * 60 * 60 * 1000);
+  });
+
+  test("the MAC is keyed by a key derived for exports, not the auth secret itself", () => {
+    const token = mintExportToken({
+      secret,
+      threadId: "thread-1",
+      access: "public",
+      expiresAt: new Date(now.getTime() + exportDurationMs["1d"]),
+      until: null,
+    });
+    const payload = token.split(".")[0]!;
+    // What Better Auth would make with the raw secret is not a valid link.
+    const raw = createHmac("sha256", secret).update(payload).digest("base64url");
+    expect(token.endsWith(`.${raw}`)).toBe(false);
+    expect(verifyExportToken(`${payload}.${raw}`, secret, now)).toBeNull();
+    expect(verifyExportToken(token, secret, now)).not.toBeNull();
   });
 
   test("wrong secret and mutated claims fail", () => {

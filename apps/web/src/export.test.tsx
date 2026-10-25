@@ -138,9 +138,10 @@ test("no link is minted when no thread is open", async () => {
       settingsData={{ connections: [], catalog: null, listed: {}, githubSet: false }}
     />,
   );
-  fireEvent.click(await screen.findByRole("button", { name: "Export chat" }));
+  // The empty state has no chat to export, so there is no button for it.
+  expect(await screen.findByText("Hello, Eric")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Export chat" })).toBeNull();
   expect(screen.queryByRole("dialog", { name: "Export chat" })).toBeNull();
-  expect(screen.queryByRole("button", { name: "Create link" })).toBeNull();
   expect(exports).toBe(0);
 });
 
