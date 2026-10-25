@@ -1,16 +1,27 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
+
+import { type Locale, localeNames, locales, saveLocale, toLocale } from "@/i18n";
 
 import { authClient } from "../../../auth-client";
 import { usePreferences } from "../preferences";
 
 export function GeneralPanel({ name, email }: { name: string; email: string }) {
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
+  const router = useRouter();
   const queryClient = useQueryClient();
   const [pending, setPending] = useState(false);
   const [prefs, setPrefs] = usePreferences();
   const initial = name.trim().slice(0, 1).toUpperCase() || "A";
+
+  // The root route reads the cookie again and hands down that language.
+  function changeLocale(locale: Locale) {
+    saveLocale(locale);
+    void router.invalidate();
+  }
 
   async function signOut() {
     setPending(true);
@@ -22,7 +33,7 @@ export function GeneralPanel({ name, email }: { name: string; email: string }) {
   return (
     <div className="flex flex-col gap-8">
       <section className="flex flex-col gap-2">
-        <h3 className="text-[13px] text-[#6E6E73]">Account</h3>
+        <h3 className="text-[13px] text-[#6E6E73]">{t("general.account")}</h3>
         <div className="flex items-center gap-3 rounded-[12px] border border-[#E3E3E7] px-4 py-3">
           <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[#E8E8EC] text-sm font-medium text-[#6E6E73]">
             {initial}
@@ -37,21 +48,25 @@ export function GeneralPanel({ name, email }: { name: string; email: string }) {
             disabled={pending}
             className="text-sm font-medium text-[#1A73E8] disabled:opacity-60"
           >
-            Sign out
+            {t("general.signOut")}
           </button>
         </div>
       </section>
       <section className="flex flex-col gap-2">
-        <h3 className="text-[13px] text-[#6E6E73]">Language</h3>
+        <h3 className="text-[13px] text-[#6E6E73]">{t("general.language")}</h3>
         <label className="relative block">
-          <span className="sr-only">Language</span>
+          <span className="sr-only">{t("general.language")}</span>
           <select
-            aria-label="Language"
-            value={prefs.language}
-            onChange={() => setPrefs({ language: "English" })}
+            aria-label={t("general.language")}
+            value={toLocale(i18n.language) ?? "en"}
+            onChange={(event) => changeLocale(event.target.value as Locale)}
             className="h-12 w-full appearance-none rounded-[12px] border border-[#E3E3E7] bg-white px-4 text-[15px] text-[#1C1C1E] outline-none"
           >
-            <option>English</option>
+            {locales.map((locale) => (
+              <option key={locale} value={locale}>
+                {localeNames[locale]}
+              </option>
+            ))}
           </select>
           <span
             aria-hidden="true"
@@ -62,17 +77,17 @@ export function GeneralPanel({ name, email }: { name: string; email: string }) {
         </label>
       </section>
       <section className="flex flex-col gap-2">
-        <h3 className="text-[13px] text-[#6E6E73]">Preferences</h3>
+        <h3 className="text-[13px] text-[#6E6E73]">{t("general.preferences")}</h3>
         <div className="overflow-hidden rounded-[12px] border border-[#E3E3E7]">
           <Preference
-            title="Enter to send"
-            detail="Press Enter to send a message, Shift + Enter for a new line."
+            title={t("general.enterToSend")}
+            detail={t("general.enterToSendDetail")}
             checked={prefs.enterToSend}
             onChange={(enterToSend) => setPrefs({ enterToSend })}
           />
           <Preference
-            title="Spell check"
-            detail="Underline misspelled words as you type."
+            title={t("general.spellCheck")}
+            detail={t("general.spellCheckDetail")}
             checked={prefs.spellCheck}
             onChange={(spellCheck) => setPrefs({ spellCheck })}
           />

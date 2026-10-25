@@ -1,6 +1,7 @@
 import { EyeIcon, PlugsIcon, SlidersHorizontalIcon, XIcon } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState, type ComponentType } from "react";
+import { useTranslation } from "react-i18next";
 
 import type { ProviderSlug } from "@my-better-t-app/api/credentials/store";
 
@@ -22,11 +23,11 @@ import type { SettingsTab } from "./tabs";
 
 export type { SettingsTab };
 
-const tabs: { id: SettingsTab; label: string; Icon: ComponentType<{ size?: number }> | null }[] = [
-  { id: "general", label: "General", Icon: SlidersHorizontalIcon },
-  { id: "providers", label: "Providers", Icon: PlugsIcon },
-  { id: "appearance", label: "Appearance", Icon: EyeIcon },
-  { id: "github", label: "GitHub", Icon: null },
+const tabs: { id: SettingsTab; Icon: ComponentType<{ size?: number }> | null }[] = [
+  { id: "general", Icon: SlidersHorizontalIcon },
+  { id: "providers", Icon: PlugsIcon },
+  { id: "appearance", Icon: EyeIcon },
+  { id: "github", Icon: null },
 ];
 
 export type SettingsData = {
@@ -103,6 +104,7 @@ export function SettingsDialog({
   data?: SettingsData;
   handlers?: SettingsHandlers;
 }) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [notice, setNotice] = useState<string | null>(null);
   const [modelOverrides, setModelOverrides] = useState<SettingsData["listed"]>({});
@@ -173,12 +175,12 @@ export function SettingsDialog({
   if (tab !== undefined) lastTab.current = tab;
   const open = tab !== undefined;
   const view = tab ?? lastTab.current;
-  const title = tabs.find((item) => item.id === view)?.label ?? "Settings";
+  const title = view ? t(`settings.${view}`) : t("settings.title");
 
   return (
     <div
       role="dialog"
-      aria-label="Settings"
+      aria-label={t("settings.title")}
       aria-hidden={!open}
       inert={!open}
       data-open={open}
@@ -186,8 +188,8 @@ export function SettingsDialog({
     >
       <div className="modal-panel flex h-[640px] max-h-[90svh] w-[820px] max-w-[94vw] overflow-hidden rounded-3xl bg-white shadow-xl">
         <nav className="flex w-52 shrink-0 flex-col gap-0.5 border-r border-[#E3E3E7] bg-[#F7F7F9] px-3 pt-5">
-          <p className="px-3 pb-2 text-[13px] text-[#6E6E73]">Settings</p>
-          {tabs.map(({ id, label, Icon }) => (
+          <p className="px-3 pb-2 text-[13px] text-[#6E6E73]">{t("settings.title")}</p>
+          {tabs.map(({ id, Icon }) => (
             <button
               key={id}
               type="button"
@@ -197,7 +199,7 @@ export function SettingsDialog({
               }`}
             >
               {Icon ? <Icon size={16} /> : <GitHubMark size={16} fill="#1C1C1E" />}
-              {label}
+              {t(`settings.${id}`)}
             </button>
           ))}
         </nav>
@@ -206,7 +208,7 @@ export function SettingsDialog({
             <h2 className="text-[17px] font-semibold text-[#1C1C1E]">{title}</h2>
             <button
               type="button"
-              aria-label="Close"
+              aria-label={t("common.close")}
               onClick={onClose}
               className="flex size-9 items-center justify-center rounded-full text-[#6E6E73] hover:bg-[#F7F7F9]"
             >

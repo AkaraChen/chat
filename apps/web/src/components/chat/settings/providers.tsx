@@ -1,5 +1,6 @@
 import { CheckIcon, PlusIcon } from "@phosphor-icons/react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 
 import type { ProviderSlug } from "@my-better-t-app/api/credentials/store";
 
@@ -89,6 +90,7 @@ export function ProvidersPanel({
   onSignInPoll: (input: { deviceAuthId: string; userCode: string }) => Promise<SignInPoll>;
   onNotice: (message: string | null) => void;
 }) {
+  const { t } = useTranslation();
   const [screen, setScreen] = useState<Screen>({ kind: "list" });
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -106,10 +108,10 @@ export function ProvidersPanel({
         apiKey,
         provider: target.slug === "custom" ? target.providerId : undefined,
       });
-      onNotice(`${target.title} is connected`);
+      onNotice(t("providers.connected", { name: target.title }));
       setScreen({ kind: "list" });
     } catch {
-      setError("Couldn't save the key. Try again.");
+      setError(t("providers.saveFailed"));
     } finally {
       setPending(false);
     }
@@ -151,7 +153,7 @@ export function ProvidersPanel({
         onPoll={onSignInPoll}
         onBack={() => setScreen({ kind: "connect", target: screen.target })}
         onDone={() => {
-          onNotice(`${screen.target.title} is connected`);
+          onNotice(t("providers.connected", { name: screen.target.title }));
           setScreen({ kind: "list" });
         }}
       />
@@ -164,7 +166,7 @@ export function ProvidersPanel({
         target={screen.target}
         pending={pending}
         error={error}
-        backLabel={back.kind === "connect" ? "Connection" : "All providers"}
+        backLabel={back.kind === "connect" ? t("providers.backConnection") : t("providers.backAll")}
         onBack={() => {
           setError(null);
           setScreen(back.kind === "connect" ? back : { kind: "list" });
@@ -197,13 +199,13 @@ export function ProvidersPanel({
     <div className="flex flex-col gap-6">
       <p className="text-[15px] text-[#6E6E73]">
         {fixed.length + custom.length > 0
-          ? `${titleOf(fixed[0] ?? custom[0]!, catalog)} is on this device. Add another model any time.`
-          : "Add a model to chat with. Credentials stay on the device."}
+          ? t("providers.onDeviceIntro", { name: titleOf(fixed[0] ?? custom[0]!, catalog) })
+          : t("providers.emptyIntro")}
       </p>
       {fixed.length + custom.length > 0 ? (
         <section className="flex flex-col gap-2">
           <div className="flex items-center justify-between">
-            <h3 className="text-[13px] text-[#6E6E73]">On this device</h3>
+            <h3 className="text-[13px] text-[#6E6E73]">{t("providers.onDevice")}</h3>
             <RefreshButton onRefresh={onRefresh} onNotice={onNotice} />
           </div>
           <div className="overflow-hidden rounded-[12px] border border-[#E3E3E7]">
@@ -223,14 +225,14 @@ export function ProvidersPanel({
         </section>
       ) : null}
       <section className="flex flex-col gap-2">
-        <h3 className="text-[13px] text-[#6E6E73]">Available</h3>
+        <h3 className="text-[13px] text-[#6E6E73]">{t("providers.available")}</h3>
         <div className="overflow-hidden rounded-[12px] border border-[#E3E3E7]">
           {available.map((provider) => (
             <AvailableRow
               key={provider.slug}
               mark={<ConnectionMark type={provider.slug} size={22} />}
               title={provider.name}
-              detail={provider.signIn ? "ChatGPT account or API key" : "API key"}
+              detail={provider.signIn ? t("providers.accountOrKey") : t("providers.apiKey")}
               onConnect={() =>
                 setScreen(
                   connectTo({
@@ -245,8 +247,8 @@ export function ProvidersPanel({
           ))}
           <AvailableRow
             mark={<PlusIcon size={18} className="text-[#6E6E73]" />}
-            title="Custom provider"
-            detail="OpenAI-compatible"
+            title={t("providers.custom")}
+            detail={t("providers.openaiCompatible")}
             onConnect={() => setScreen({ kind: "pick-custom" })}
           />
         </div>
@@ -280,6 +282,7 @@ function RefreshButton({
   onRefresh: () => Promise<void>;
   onNotice: (message: string | null) => void;
 }) {
+  const { t } = useTranslation();
   const [busy, setBusy] = useState(false);
   return (
     <button
@@ -289,16 +292,16 @@ function RefreshButton({
         setBusy(true);
         try {
           await onRefresh();
-          onNotice("Models are up to date");
+          onNotice(t("providers.upToDate"));
         } catch (error) {
-          onNotice(errorText(error, "Couldn't refresh the models."));
+          onNotice(errorText(error, t("providers.refreshFailed")));
         } finally {
           setBusy(false);
         }
       }}
       className="text-[13px] font-medium text-[#1A73E8] disabled:opacity-40"
     >
-      {busy ? "Refreshing…" : "Refresh models"}
+      {busy ? t("providers.refreshing") : t("providers.refresh")}
     </button>
   );
 }
@@ -316,9 +319,9 @@ function ConnectedRow({
   onOpen?: () => void;
   onRemove: () => void;
 }) {
-  const how = isSignIn(connection) ? `ChatGPT · ${connection.label}` : "API key";
-  const detail =
-    models === undefined ? how : `${how} · ${models} ${models === 1 ? "model" : "models"}`;
+  const { t } = useTranslation();
+  const how = isSignIn(connection) ? `ChatGPT · ${connection.label}` : t("providers.apiKey");
+  const detail = models === undefined ? how : `${how} · ${t("common.model", { count: models })}`;
   const text = (
     <>
       <span className="block truncate text-[15px] font-medium text-[#1C1C1E]">{title}</span>
@@ -339,13 +342,13 @@ function ConnectedRow({
       ) : (
         <span className="min-w-0 flex-1">{text}</span>
       )}
-      <span className="text-[13px] text-[#6E6E73]">Connected</span>
+      <span className="text-[13px] text-[#6E6E73]">{t("providers.statusConnected")}</span>
       <button
         type="button"
         onClick={onRemove}
         className="text-[13px] text-[#6E6E73] hover:text-[#1C1C1E]"
       >
-        Remove
+        {t("common.remove")}
       </button>
     </div>
   );
@@ -362,6 +365,7 @@ function AvailableRow({
   detail: string;
   onConnect: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="flex min-h-14 items-center gap-3 border-b border-[#E3E3E7] px-4 last:border-b-0">
       <span className="flex size-6 items-center justify-center">{mark}</span>
@@ -370,7 +374,7 @@ function AvailableRow({
         <span className="block text-[13px] text-[#6E6E73]">{detail}</span>
       </span>
       <button type="button" onClick={onConnect} className="text-sm font-medium text-[#1A73E8]">
-        Connect
+        {t("common.connect")}
       </button>
     </div>
   );
@@ -404,33 +408,36 @@ function ConnectChoice({
   onSignIn: () => void;
   onKey: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <div>
-      <Back label="All providers" onClick={onBack} />
+      <Back label={t("providers.backAll")} onClick={onBack} />
       <TargetMark target={target} />
       <h3 className="text-[22px] font-semibold tracking-[-0.02em] text-[#1C1C1E]">
-        Connect to {target.title}
+        {t("providers.connectTo", { name: target.title })}
       </h3>
-      <p className="mt-1 text-[15px] text-[#6E6E73]">
-        Use your ChatGPT plan, or pay per use with a key.
-      </p>
+      <p className="mt-1 text-[15px] text-[#6E6E73]">{t("providers.connectChoice")}</p>
       <div className="mt-5 flex flex-col gap-3">
         <button
           type="button"
           onClick={onSignIn}
           className="rounded-[12px] border border-[#E3E3E7] px-4 py-3 text-left"
         >
-          <span className="block text-[15px] font-medium text-[#1C1C1E]">Sign in with ChatGPT</span>
-          <span className="block text-[13px] text-[#6E6E73]">The models your plan includes.</span>
+          <span className="block text-[15px] font-medium text-[#1C1C1E]">
+            {t("providers.signIn")}
+          </span>
+          <span className="block text-[13px] text-[#6E6E73]">{t("providers.signInDetail")}</span>
         </button>
         <button
           type="button"
           onClick={onKey}
           className="rounded-[12px] border border-[#E3E3E7] px-4 py-3 text-left"
         >
-          <span className="block text-[15px] font-medium text-[#1C1C1E]">Use an API key</span>
+          <span className="block text-[15px] font-medium text-[#1C1C1E]">
+            {t("providers.useKey")}
+          </span>
           <span className="block text-[13px] text-[#6E6E73]">
-            Connect through {target.title} Console
+            {t("providers.useKeyDetail", { name: target.title })}
           </span>
         </button>
       </div>
@@ -455,6 +462,7 @@ function SignInStep({
   onBack: () => void;
   onDone: () => void;
 }) {
+  const { t } = useTranslation();
   const [code, setCode] = useState<SignInStart | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
@@ -469,7 +477,7 @@ function SignInStep({
     async function check(started: SignInStart) {
       if (!live) return;
       if (Date.now() > Date.parse(started.expiresAt)) {
-        setError("The code expired. Start again for a new one.");
+        setError(t("providers.codeExpired"));
         return;
       }
       try {
@@ -478,7 +486,7 @@ function SignInStep({
         if (result.status === "done") handlers.current.onDone();
         else timer = setTimeout(() => void check(started), started.intervalSeconds * 1000);
       } catch (cause) {
-        if (live) setError(errorText(cause, "The sign-in did not finish."));
+        if (live) setError(errorText(cause, t("providers.signInUnfinished")));
       }
     }
     handlers.current
@@ -488,27 +496,28 @@ function SignInStep({
         setCode(started);
         timer = setTimeout(() => void check(started), started.intervalSeconds * 1000);
       })
-      .catch((cause) => live && setError(errorText(cause, "Couldn't start the sign-in.")));
+      .catch((cause) => live && setError(errorText(cause, t("providers.signInStartFailed"))));
     return () => {
       live = false;
       clearTimeout(timer);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [attempt]);
 
   return (
     <div>
-      <Back label="Connection" onClick={onBack} />
+      <Back label={t("providers.backConnection")} onClick={onBack} />
       <TargetMark target={target} />
       <h3 className="text-[22px] font-semibold tracking-[-0.02em] text-[#1C1C1E]">
-        Enter this code at OpenAI
+        {t("providers.enterCode")}
       </h3>
       <p className="mt-2 max-w-[440px] text-[15px] leading-6 text-[#6E6E73]">
-        Open the page, sign in to ChatGPT, and enter the code. This screen finishes on its own.
+        {t("providers.enterCodeDetail")}
       </p>
       {code ? (
         <>
           <p
-            aria-label="Sign-in code"
+            aria-label={t("providers.code")}
             className="mt-5 font-mono text-[28px] font-semibold tracking-[0.12em] text-[#1C1C1E] select-all"
           >
             {code.userCode}
@@ -519,11 +528,11 @@ function SignInStep({
             rel="noreferrer"
             className="mt-4 inline-flex h-10 items-center rounded-xl bg-[#1A73E8] px-4 text-sm font-medium text-white"
           >
-            Open OpenAI
+            {t("providers.openOpenAI")}
           </a>
         </>
       ) : error ? null : (
-        <p className="mt-5 text-[15px] text-[#6E6E73]">Getting a code…</p>
+        <p className="mt-5 text-[15px] text-[#6E6E73]">{t("providers.gettingCode")}</p>
       )}
       {error ? (
         <div className="mt-5">
@@ -533,13 +542,12 @@ function SignInStep({
             onClick={() => setAttempt((n) => n + 1)}
             className="mt-3 h-10 rounded-xl bg-[#1A73E8] px-4 text-sm font-medium text-white"
           >
-            Start again
+            {t("providers.startAgain")}
           </button>
         </div>
       ) : null}
       <p className="mt-4 max-w-[440px] text-[13px] leading-5 text-[#6E6E73]">
-        If OpenAI says device sign-in is off, turn on device code sign-in for Codex in ChatGPT's
-        security settings.
+        {t("providers.deviceCodeHint")}
       </p>
     </div>
   );
@@ -560,6 +568,7 @@ function KeyStep({
   onBack: () => void;
   onSubmit: (apiKey: string) => void;
 }) {
+  const { t } = useTranslation();
   const [value, setValue] = useState("");
   return (
     <form
@@ -571,20 +580,20 @@ function KeyStep({
       <Back label={backLabel} onClick={onBack} />
       <TargetMark target={target} />
       <h3 className="text-[22px] font-semibold tracking-[-0.02em] text-[#1C1C1E]">
-        Add your API key
+        {t("providers.addKey")}
       </h3>
       <p className="mt-1 text-[15px] text-[#6E6E73]">
-        Paste a key from the {target.title} Console to connect.
+        {t("providers.addKeyDetail", { name: target.title })}
       </p>
       <label className="mt-5 flex flex-col gap-1.5">
-        <span className="text-[13px] font-medium text-[#1C1C1E]">API key</span>
+        <span className="text-[13px] font-medium text-[#1C1C1E]">{t("providers.apiKey")}</span>
         <input
           value={value}
           onChange={(event) => setValue(event.target.value)}
-          placeholder={target.keyHint ? `${target.keyHint}…` : "API key"}
+          placeholder={target.keyHint ? `${target.keyHint}…` : t("providers.apiKey")}
           autoComplete="off"
           spellCheck={false}
-          aria-label="API key"
+          aria-label={t("providers.apiKey")}
           className="h-11 rounded-[12px] border border-[#E3E3E7] bg-white px-3 text-sm outline-none"
         />
       </label>
@@ -595,7 +604,7 @@ function KeyStep({
           rel="noreferrer"
           className="mt-2 inline-block text-[13px] text-[#1A73E8]"
         >
-          Get an API key from {target.title} Console ↗
+          {t("providers.getKey", { name: target.title })}
         </a>
       ) : null}
       {error ? <p className="mt-2 text-[13px] text-[#C2410C]">{error}</p> : null}
@@ -604,11 +613,9 @@ function KeyStep({
         disabled={pending || value.trim() === ""}
         className="mt-4 h-10 rounded-xl bg-[#1A73E8] px-4 text-sm font-medium text-white disabled:opacity-40"
       >
-        Connect
+        {t("common.connect")}
       </button>
-      <p className="mt-4 text-[13px] text-[#6E6E73]">
-        The key is stored on this device. Its models come from models.dev.
-      </p>
+      <p className="mt-4 text-[13px] text-[#6E6E73]">{t("providers.keyStored")}</p>
     </form>
   );
 }
@@ -622,20 +629,21 @@ function CustomPick({
   onBack: () => void;
   onPick: (entry: CatalogEntry) => void;
 }) {
+  const { t } = useTranslation();
   const [filter, setFilter] = useState("");
   const shown = entries.filter((entry) =>
     `${entry.name} ${entry.id}`.toLowerCase().includes(filter.trim().toLowerCase()),
   );
   return (
     <div>
-      <Back label="All providers" onClick={onBack} />
-      <h3 className="text-[22px] font-semibold text-[#1C1C1E]">Custom provider</h3>
-      <p className="mt-1 text-[15px] text-[#6E6E73]">Pick an OpenAI-compatible provider.</p>
+      <Back label={t("providers.backAll")} onClick={onBack} />
+      <h3 className="text-[22px] font-semibold text-[#1C1C1E]">{t("providers.custom")}</h3>
+      <p className="mt-1 text-[15px] text-[#6E6E73]">{t("providers.pickCustom")}</p>
       <input
         value={filter}
         onChange={(event) => setFilter(event.target.value)}
-        placeholder="Search providers on models.dev"
-        aria-label="Search providers"
+        placeholder={t("providers.searchProviders")}
+        aria-label={t("providers.searchProvidersLabel")}
         className="mt-4 h-11 w-full rounded-[12px] border border-[#E3E3E7] bg-white px-3 text-sm outline-none"
       />
       <ul className="mt-2 max-h-64 overflow-y-auto">
@@ -653,7 +661,7 @@ function CustomPick({
         ))}
         {shown.length === 0 ? (
           <li className="px-2 py-2 text-[13px] text-[#6E6E73]">
-            {entries.length === 0 ? "models.dev is unavailable right now." : "No provider matches."}
+            {entries.length === 0 ? t("providers.modelsDevDown") : t("providers.noProvider")}
           </li>
         ) : null}
       </ul>
@@ -682,6 +690,7 @@ function ModelsStep({
   onRemove: (input: { connectionId: string; modelId: string }) => Promise<SavedModel[] | void>;
   onRefresh: () => Promise<void>;
 }) {
+  const { t } = useTranslation();
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState("");
   const [alias, setAlias] = useState("");
@@ -704,7 +713,7 @@ function ModelsStep({
 
   return (
     <div>
-      <Back label="All providers" onClick={onBack} />
+      <Back label={t("providers.backAll")} onClick={onBack} />
       <div className="mb-3 flex items-center gap-2">
         <ConnectionMark
           type={connection.type}
@@ -713,14 +722,12 @@ function ModelsStep({
         />
         <span className="text-[15px] font-medium text-[#1C1C1E]">{title}</span>
       </div>
-      <h3 className="text-[22px] font-semibold text-[#1C1C1E]">Models</h3>
+      <h3 className="text-[22px] font-semibold text-[#1C1C1E]">{t("providers.models")}</h3>
       <p className="mt-1 max-w-[460px] text-[15px] leading-6 text-[#6E6E73]">
-        Synced from models.dev twice a day. A model you add by hand stays through every sync.
+        {t("providers.modelsDetail")}
       </p>
       <div className="mt-5 flex items-center justify-between">
-        <h4 className="text-[13px] text-[#6E6E73]">
-          {shown.length} {shown.length === 1 ? "model" : "models"}
-        </h4>
+        <h4 className="text-[13px] text-[#6E6E73]">{t("common.model", { count: shown.length })}</h4>
         <RefreshButton
           onRefresh={async () => {
             await onRefresh();
@@ -749,15 +756,13 @@ function ModelsStep({
                 }}
                 className="text-sm font-medium text-[#1A73E8]"
               >
-                Remove
+                {t("common.remove")}
               </button>
             ) : null}
           </li>
         ))}
         {shown.length === 0 ? (
-          <li className="px-4 py-3 text-[13px] text-[#6E6E73]">
-            No models yet. Refresh to sync them from models.dev.
-          </li>
+          <li className="px-4 py-3 text-[13px] text-[#6E6E73]">{t("providers.noModels")}</li>
         ) : null}
       </ul>
       {notice ? <p className="mt-2 text-[13px] text-[#6E6E73]">{notice}</p> : null}
@@ -766,7 +771,7 @@ function ModelsStep({
         onClick={() => setAdding(true)}
         className="mt-4 h-10 rounded-xl bg-[#1A73E8] px-4 text-sm font-medium text-white"
       >
-        Add model
+        {t("providers.addModel")}
       </button>
       {adding ? (
         <div
@@ -775,29 +780,28 @@ function ModelsStep({
           className="inline-dialog mt-4 rounded-2xl border border-[#E3E3E7] bg-white p-5 shadow-xl"
         >
           <h3 id="add-model-title" className="text-[17px] font-semibold text-[#1C1C1E]">
-            Add a model
+            {t("providers.addModelTitle")}
           </h3>
           <p className="mt-1 text-[13px] leading-5 text-[#6E6E73]">
-            For a model models.dev does not list yet. The alias is what the picker shows; the name
-            is sent to {title}.
+            {t("providers.addModelDetail", { name: title })}
           </p>
           <label className="mt-4 flex flex-col gap-1.5">
-            <span className="text-[13px] font-medium text-[#1C1C1E]">Name</span>
+            <span className="text-[13px] font-medium text-[#1C1C1E]">{t("providers.name")}</span>
             <input
               value={name}
               onChange={(event) => setName(event.target.value)}
               placeholder="provider/model-name"
-              aria-label="Name"
+              aria-label={t("providers.name")}
               className="h-11 rounded-[12px] border border-[#E3E3E7] bg-white px-3 text-sm outline-none"
             />
           </label>
           <label className="mt-3 flex flex-col gap-1.5">
-            <span className="text-[13px] font-medium text-[#1C1C1E]">Alias</span>
+            <span className="text-[13px] font-medium text-[#1C1C1E]">{t("providers.alias")}</span>
             <input
               value={alias}
               onChange={(event) => setAlias(event.target.value)}
-              placeholder="My reviewer"
-              aria-label="Alias"
+              placeholder={t("providers.aliasPlaceholder")}
+              aria-label={t("providers.alias")}
               className="h-11 rounded-[12px] border border-[#E3E3E7] bg-white px-3 text-sm outline-none"
             />
           </label>
@@ -808,7 +812,7 @@ function ModelsStep({
               onClick={() => setAdding(false)}
               className="h-9 rounded-lg border border-[#E3E3E7] px-3 text-sm"
             >
-              Cancel
+              {t("common.cancel")}
             </button>
             <button
               type="button"
@@ -827,12 +831,12 @@ function ModelsStep({
                   setName("");
                   setAlias("");
                 } catch {
-                  setError("Couldn't add the model. Try again.");
+                  setError(t("providers.addFailed"));
                 }
               }}
               className="h-9 rounded-lg bg-[#1A73E8] px-3 text-sm font-medium text-white disabled:opacity-40"
             >
-              Add model
+              {t("providers.addModel")}
             </button>
           </div>
         </div>

@@ -1,4 +1,6 @@
+import type { TFunction } from "i18next";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { Spinner } from "../spinner";
 
@@ -8,43 +10,61 @@ export type TraceStep = {
   detail?: Record<string, string | number | undefined>;
 };
 
+type Detail = NonNullable<TraceStep["detail"]>;
+
 type Copy = {
-  label: (d: NonNullable<TraceStep["detail"]>) => string;
-  right?: (d: NonNullable<TraceStep["detail"]>) => string;
+  label: (t: TFunction, d: Detail) => string;
+  right?: (t: TFunction, d: Detail) => string;
 };
 
 const COPY: Record<string, Copy> = {
-  search_templates: { label: () => "Found a template", right: (d) => String(d.template ?? "") },
-  get_pull_request: { label: () => "Fetched the pull request" },
+  search_templates: {
+    label: (t) => t("trace.foundTemplate"),
+    right: (_, d) => String(d.template ?? ""),
+  },
+  get_pull_request: { label: (t) => t("trace.fetchedPullRequest") },
   get_pull_request_files: {
-    label: (d) => `Opened ${d.repo ?? ""} #${d.number ?? ""}`,
-    right: (d) => (d.files == null ? "" : `${d.files} ${Number(d.files) === 1 ? "file" : "files"}`),
+    label: (t, d) => t("trace.openedPullRequest", { repo: d.repo ?? "", number: d.number ?? "" }),
+    right: (t, d) => (d.files == null ? "" : t("trace.file", { count: Number(d.files) })),
   },
   get_pull_request_diff: {
-    label: () => "Read the diff",
-    right: (d) => (d.additions == null ? "" : `+${d.additions} -${d.deletions ?? 0}`),
+    label: (t) => t("trace.readDiff"),
+    right: (_, d) => (d.additions == null ? "" : `+${d.additions} -${d.deletions ?? 0}`),
   },
   get_pull_request_checks: {
-    label: () => "Checked CI",
-    right: (d) => (d.failed == null ? "" : `${d.failed} failed`),
+    label: (t) => t("trace.checkedCi"),
+    right: (t, d) => (d.failed == null ? "" : t("trace.failedCount", { count: Number(d.failed) })),
   },
   list_pull_request_comments: {
-    label: () => "Collected comments",
-    right: (d) => (d.unresolved == null ? "" : `${d.unresolved} unresolved`),
+    label: (t) => t("trace.collectedComments"),
+    right: (t, d) =>
+      d.unresolved == null ? "" : t("trace.unresolved", { count: Number(d.unresolved) }),
   },
 };
 
-const GROUP: Record<string, string> = {
-  meeting: "Sorted the meeting",
-  review: "Reviewed the diff",
-  economy: "Charted the figures",
-};
+const GROUP = {
+  meeting: "trace.sortedMeeting",
+  review: "trace.reviewedDiff",
+  economy: "trace.chartedFigures",
+} as const;
 
 function Mark({ status }: { status: TraceStep["status"] }) {
-  const label = status === "running" ? "Running" : status === "error" ? "Failed" : "Done";
+  const { t } = useTranslation();
+  const label =
+    status === "running"
+      ? t("trace.running")
+      : status === "error"
+        ? t("trace.failed")
+        : t("trace.done");
   return (
     <span role="img" aria-label={label} className="inline-flex">
-      {status === "running" ? <Spinner size={14} /> : status === "error" ? <ErrorMark /> : <DoneMark />}
+      {status === "running" ? (
+        <Spinner size={14} />
+      ) : status === "error" ? (
+        <ErrorMark />
+      ) : (
+        <DoneMark />
+      )}
     </span>
   );
 }
@@ -77,17 +97,17 @@ function DoneMark() {
   );
 }
 
-function labelOf(step: TraceStep) {
+function labelOf(t: TFunction, step: TraceStep) {
   const detail = step.detail ?? {};
   const copy = COPY[step.tool];
-  const label = copy ? copy.label(detail) : step.tool;
-  return step.status === "error" ? `${label} failed` : label;
+  const label = copy ? copy.label(t, detail) : step.tool;
+  return step.status === "error" ? t("trace.stepFailed", { label }) : label;
 }
 
-function templateLabel(status: TraceStep["status"]) {
-  if (status === "running") return "Finding a template";
-  if (status === "error") return "Finding a template failed";
-  return "Found a template";
+function templateLabel(t: TFunction, status: TraceStep["status"]) {
+  if (status === "running") return t("trace.findingTemplate");
+  if (status === "error") return t("trace.findingTemplateFailed");
+  return t("trace.foundTemplate");
 }
 
 function groupStatus(steps: TraceStep[]): TraceStep["status"] {
@@ -96,11 +116,11 @@ function groupStatus(steps: TraceStep[]): TraceStep["status"] {
   return "done";
 }
 
-function rightOf(step: TraceStep) {
+function rightOf(t: TFunction, step: TraceStep) {
   if (step.status === "error") return "";
   const detail = step.detail ?? {};
   const copy = COPY[step.tool];
-  if (copy?.right) return copy.right(detail);
+  if (copy?.right) return copy.right(t, detail);
   const values = Object.values(detail).filter((value) => value != null && value !== "");
   return values.length ? values.join(" ") : "";
 }
@@ -112,10 +132,12 @@ function prettyTemplate(value: string) {
 
 /** Collapsible step list. The template row starts closed; the work group starts open. */
 export function Trace({ steps }: { steps: TraceStep[] }) {
+  const { t } = useTranslation();
   const template = steps.find((step) => step.tool === "search_templates");
   const rest = steps.filter((step) => step !== template);
   const templateName = prettyTemplate(String(template?.detail?.template ?? ""));
-  const groupTitle = GROUP[String(template?.detail?.template ?? "")] ?? "Steps";
+  const group = GROUP[String(template?.detail?.template ?? "") as keyof typeof GROUP];
+  const groupTitle = group ? t(group) : t("trace.steps");
   const [templateOpen, setTemplateOpen] = useState(false);
   const [groupOpen, setGroupOpen] = useState(true);
   if (steps.length === 0) return null;
@@ -134,11 +156,13 @@ export function Trace({ steps }: { steps: TraceStep[] }) {
               {templateOpen ? "▾" : "›"}
             </span>
             <Mark status={template.status} />
-            <span className="text-[#6E6E73]">{templateLabel(template.status)}</span>
+            <span className="text-[#6E6E73]">{templateLabel(t, template.status)}</span>
             <span className="ml-auto text-[#9E9EA4]">{templateName}</span>
           </button>
           {templateOpen ? (
-            <p className="pt-1 pl-5 text-[#6E6E73]">Using the {templateName || "matching"} template.</p>
+            <p className="pt-1 pl-5 text-[#6E6E73]">
+              {t("trace.usingTemplate", { name: templateName || t("trace.matching") })}
+            </p>
           ) : null}
         </div>
       ) : null}
@@ -156,20 +180,22 @@ export function Trace({ steps }: { steps: TraceStep[] }) {
             <Mark status={groupStatus(rest)} />
             <span>{groupTitle}</span>
             <span className="ml-auto text-[#9E9EA4]">
-              {rest.length} {rest.length === 1 ? "step" : "steps"}
+              {t("trace.stepCount", { count: rest.length })}
             </span>
           </button>
           {groupOpen ? (
             <ol className="mt-1.5 flex flex-col gap-1.5 pl-8">
               {rest.map((step, index) => {
-                const right = rightOf(step);
+                const right = rightOf(t, step);
                 return (
                   <li key={`${step.tool}-${index}`} className="flex items-center gap-2.5">
                     <Mark status={step.status} />
                     <span className={step.status === "running" ? "text-[#6E6E73]" : undefined}>
-                      {labelOf(step)}
+                      {labelOf(t, step)}
                     </span>
-                    {right ? <span className="ml-auto text-[#9E9EA4] tabular-nums">{right}</span> : null}
+                    {right ? (
+                      <span className="ml-auto text-[#9E9EA4] tabular-nums">{right}</span>
+                    ) : null}
                   </li>
                 );
               })}

@@ -1,5 +1,6 @@
 import { CaretDownIcon, CheckIcon } from "@phosphor-icons/react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,20 +28,21 @@ function matches(query: string, ...texts: string[]) {
 }
 
 export function ModelPicker({ onConnect }: { onConnect: () => void }) {
+  const { t } = useTranslation();
   const { models, connections, choice, connection, model, select } = useModelChoice();
   const [query, setQuery] = useState("");
 
   if (models.isError) {
     return (
       <span className="flex h-9 items-center rounded-full bg-[#F7F7F9] px-3 text-sm text-[#6E6E73]">
-        Models are unavailable right now
+        {t("picker.unavailableAll")}
       </span>
     );
   }
   if (models.isPending) {
     return (
       <span className="flex h-9 items-center rounded-full bg-[#F7F7F9] px-3 text-sm text-[#6E6E73]">
-        Choose a model
+        {t("picker.choose")}
       </span>
     );
   }
@@ -51,7 +53,7 @@ export function ModelPicker({ onConnect }: { onConnect: () => void }) {
         onClick={onConnect}
         className="flex h-9 items-center rounded-full bg-[#F7F7F9] px-3 text-sm font-medium text-[#1A73E8]"
       >
-        Connect a provider
+        {t("picker.connect")}
       </button>
     );
   }
@@ -75,7 +77,7 @@ export function ModelPicker({ onConnect }: { onConnect: () => void }) {
         {connection && !unavailable && (
           <ConnectionMark type={connection.type} label={connection.label} size={16} />
         )}
-        <span>{unavailable ? "Model unavailable" : (model?.name ?? "Choose a model")}</span>
+        <span>{unavailable ? t("picker.unavailable") : (model?.name ?? t("picker.choose"))}</span>
         <CaretDownIcon size={12} weight="bold" className="text-[#9E9EA4]" />
       </DropdownMenuTrigger>
       <DropdownMenuContent
@@ -93,14 +95,14 @@ export function ModelPicker({ onConnect }: { onConnect: () => void }) {
               onKeyDown={(event) => {
                 if (event.key.length === 1 || event.key === "Backspace") event.stopPropagation();
               }}
-              placeholder={`Search ${total} models`}
-              aria-label="Search models"
+              placeholder={t("picker.search", { count: total })}
+              aria-label={t("picker.searchLabel")}
               className="h-9 w-full rounded-lg bg-[#F7F7F9] px-3 text-sm text-[#1C1C1E] outline-none placeholder:text-[#9E9EA4]"
             />
           </div>
         ) : null}
         {shown.length === 0 ? (
-          <p className="px-2.5 py-2 text-sm text-[#6E6E73]">No model matches.</p>
+          <p className="px-2.5 py-2 text-sm text-[#6E6E73]">{t("picker.noMatch")}</p>
         ) : null}
         {shown.map((c) => (
           <DropdownMenuGroup key={c.connectionId} className="pb-1.5 last:pb-0">

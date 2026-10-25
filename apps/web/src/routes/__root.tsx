@@ -3,6 +3,10 @@ import type { QueryClient } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { HeadContent, Outlet, Scripts, createRootRouteWithContext } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
+import { I18nextProvider } from "react-i18next";
+
+import { htmlLang, i18nFor, type Locale } from "@/i18n";
+import { resolveLocale } from "@/i18n/locale";
 
 import type { orpc } from "@/utils/orpc";
 
@@ -13,6 +17,8 @@ export interface RouterAppContext {
 }
 
 export const Route = createRootRouteWithContext<RouterAppContext>()({
+  // Again on every navigation, so a new choice takes after an invalidate.
+  beforeLoad: (): { locale: Locale } => ({ locale: resolveLocale() }),
   head: () => ({
     meta: [
       {
@@ -38,13 +44,16 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
 });
 
 function RootDocument() {
+  const { locale } = Route.useRouteContext();
   return (
-    <html lang="en">
+    <html lang={htmlLang[locale]}>
       <head>
         <HeadContent />
       </head>
       <body>
-        <Outlet />
+        <I18nextProvider i18n={i18nFor(locale)}>
+          <Outlet />
+        </I18nextProvider>
         <Toaster richColors />
         <TanStackRouterDevtools position="bottom-left" />
         <ReactQueryDevtools position="bottom" buttonPosition="bottom-right" />

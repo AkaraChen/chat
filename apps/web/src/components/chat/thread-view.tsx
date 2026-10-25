@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+
 import { Composer } from "./composer";
 import { Messages } from "./messages";
 import type { Turn } from "./turns";
@@ -22,6 +24,7 @@ export function ThreadView({
   disabled?: boolean;
   busy?: boolean;
 }) {
+  const { t } = useTranslation();
   return (
     <>
       <Messages turns={turns} streaming={streaming} error={error} />
@@ -32,7 +35,7 @@ export function ThreadView({
           onSend={onSend}
           busy={busy}
           disabled={disabled}
-          placeholder="Ask me anything..."
+          placeholder={t("composer.placeholder")}
         />
       </div>
     </>

@@ -1,5 +1,6 @@
 import type { ComponentProps } from "@my-better-t-app/api/templates/catalog";
 import type { ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 
 import { RichText } from "./rich-text";
 
@@ -36,7 +37,10 @@ export function StatStrip({ cells }: ComponentProps["StatStrip"]) {
 
 export function Table({ columns, rows }: ComponentProps["Table"]) {
   return (
-    <div data-answer-card className="overflow-x-auto rounded-[12px] border border-[#E3E3E7] px-4 py-3">
+    <div
+      data-answer-card
+      className="overflow-x-auto rounded-[12px] border border-[#E3E3E7] px-4 py-3"
+    >
       <table className="w-full text-left text-sm tabular-nums">
         <thead>
           <tr className="text-muted-foreground">
@@ -64,8 +68,9 @@ export function Table({ columns, rows }: ComponentProps["Table"]) {
 }
 
 export function Changes({ files }: ComponentProps["Changes"]) {
+  const { t } = useTranslation();
   return (
-    <Card title="Changes">
+    <Card title={t("answer.changes")}>
       <ul className="flex flex-col gap-3">
         {files.map((f) => {
           const total = f.additions + f.deletions;
@@ -92,6 +97,7 @@ export function Changes({ files }: ComponentProps["Changes"]) {
 }
 
 export function Diff({ file, startLine, note, patch }: ComponentProps["Diff"]) {
+  const { t } = useTranslation();
   let line = startLine;
   const rows = patch.split("\n").map((text) => {
     const mark = text[0] === "+" || text[0] === "-" ? text[0] : " ";
@@ -99,7 +105,7 @@ export function Diff({ file, startLine, note, patch }: ComponentProps["Diff"]) {
     return { mark, number, body: text.slice(1) };
   });
   return (
-    <Card title="Diff">
+    <Card title={t("answer.diff")}>
       <figure className="flex flex-col gap-3">
         <figcaption className="flex flex-col gap-1">
           <span className="font-mono text-sm">{file}</span>
@@ -130,8 +136,9 @@ export function Diff({ file, startLine, note, patch }: ComponentProps["Diff"]) {
 }
 
 export function Decisions({ items }: ComponentProps["Decisions"]) {
+  const { t } = useTranslation();
   return (
-    <Card title="Decisions">
+    <Card title={t("answer.decisions")}>
       <ul className="flex flex-col gap-2.5">
         {items.map((item) => (
           <li key={item} className="flex items-start gap-2.5 text-[#1C1C1E]">
@@ -147,8 +154,9 @@ export function Decisions({ items }: ComponentProps["Decisions"]) {
 }
 
 export function OpenItems({ groups }: ComponentProps["OpenItems"]) {
+  const { t } = useTranslation();
   return (
-    <Card title="Still open">
+    <Card title={t("answer.stillOpen")}>
       <div className="grid gap-6 sm:grid-cols-2">
         {groups.map((group) => (
           <div key={group.title} className="flex flex-col gap-3">
@@ -172,8 +180,9 @@ export function OpenItems({ groups }: ComponentProps["OpenItems"]) {
 }
 
 export function Todo({ person, task, time }: ComponentProps["Todo"]) {
+  const { t } = useTranslation();
   return (
-    <Card title="To do">
+    <Card title={t("answer.todo")}>
       <div data-block="todo" className="flex items-baseline gap-3 text-sm">
         <span className="w-20 shrink-0 truncate font-medium text-[#1C1C1E]">{person}</span>
         <RichText text={task} className="min-w-0 flex-1 text-sm text-[#1C1C1E]" />

@@ -6,6 +6,7 @@ import {
   WaveformIcon,
 } from "@phosphor-icons/react";
 import { useEffect, useRef, type Ref } from "react";
+import { useTranslation } from "react-i18next";
 
 import { Spinner } from "../spinner";
 import { usePreferences } from "./preferences";
@@ -28,6 +29,7 @@ export function Composer({
   placeholder: string;
   inputRef?: Ref<HTMLTextAreaElement>;
 }) {
+  const { t } = useTranslation();
   const own = useRef<HTMLTextAreaElement | null>(null);
   const [prefs] = usePreferences();
   const canSend = !disabled && !busy && value.trim() !== "";
@@ -71,14 +73,14 @@ export function Composer({
       <div className="mt-2 flex items-center gap-1">
         <button
           type="button"
-          aria-label="Attach"
+          aria-label={t("composer.attach")}
           className="flex size-8 items-center justify-center rounded-full text-[#6E6E73] hover:bg-[#F7F7F9]"
         >
           <PaperclipIcon size={16} />
         </button>
         <button
           type="button"
-          aria-label="Tools"
+          aria-label={t("composer.tools")}
           className="flex size-8 items-center justify-center rounded-full text-[#6E6E73] hover:bg-[#F7F7F9]"
         >
           <SlidersHorizontalIcon size={16} />
@@ -86,21 +88,21 @@ export function Composer({
         <span className="ml-auto flex items-center gap-1">
           <button
             type="button"
-            aria-label="Microphone"
+            aria-label={t("composer.microphone")}
             className="flex size-8 items-center justify-center rounded-full text-[#6E6E73] hover:bg-[#F7F7F9]"
           >
             <WaveformIcon size={16} />
           </button>
           <button
             type="button"
-            aria-label="Globe"
+            aria-label={t("composer.globe")}
             className="flex size-8 items-center justify-center rounded-full text-[#6E6E73] hover:bg-[#F7F7F9]"
           >
             <GlobeIcon size={16} />
           </button>
           <button
             type="button"
-            aria-label={canSend ? "Send" : "Voice"}
+            aria-label={canSend ? t("composer.send") : t("composer.voice")}
             onClick={() => {
               if (canSend) onSend();
             }}

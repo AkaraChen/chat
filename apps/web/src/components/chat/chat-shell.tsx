@@ -2,6 +2,7 @@ import { ExportIcon } from "@phosphor-icons/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { Suspense, useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { client, orpc } from "@/utils/orpc";
@@ -58,6 +59,7 @@ export function ChatShell({
   threadList?: ThreadList;
   settingsData?: SettingsData;
 }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const pending = useRef<Pending | null>(null);
@@ -114,7 +116,7 @@ export function ChatShell({
       ]);
       await navigate({ to: "/chat", search: { thread: created.id } });
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Couldn't start the conversation.");
+      toast.error(error instanceof Error ? error.message : t("shell.startFailed"));
       throw error;
     }
   }
@@ -127,7 +129,7 @@ export function ChatShell({
         current?.map((item) => (item.id === id ? { ...item, ...updated } : item)),
       );
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Couldn't rename the chat.");
+      toast.error(error instanceof Error ? error.message : t("shell.renameFailed"));
       throw error;
     }
   }
@@ -142,7 +144,7 @@ export function ChatShell({
         await navigate({ to: "/chat", search: (prev) => ({ settings: prev.settings }) });
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Couldn't delete the chat.");
+      toast.error(error instanceof Error ? error.message : t("shell.deleteFailed"));
     }
   }
 
@@ -175,7 +177,7 @@ export function ChatShell({
               className="flex h-9 items-center gap-1.5 rounded-full border border-[#DCDCE0] px-3 text-sm font-medium text-[#1C1C1E] hover:bg-[#F7F7F9]"
             >
               <ExportIcon size={14} />
-              Export chat
+              {t("shell.exportChat")}
             </button>
           </div>
         </header>

@@ -3,13 +3,12 @@ import { useEffect, useState } from "react";
 export type Preferences = {
   enterToSend: boolean;
   spellCheck: boolean;
-  language: "English";
 };
 
 const KEY = "the-chat-preferences";
 const EVENT = "the-chat-preferences";
 
-const defaults: Preferences = { enterToSend: true, spellCheck: false, language: "English" };
+const defaults: Preferences = { enterToSend: true, spellCheck: false };
 
 export function readPreferences(): Preferences {
   if (typeof localStorage === "undefined") return defaults;
@@ -20,7 +19,6 @@ export function readPreferences(): Preferences {
     return {
       enterToSend: parsed.enterToSend !== false,
       spellCheck: parsed.spellCheck === true,
-      language: "English",
     };
   } catch {
     return defaults;
