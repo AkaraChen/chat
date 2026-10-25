@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import type { ChatMessage } from "../chat/message";
 import { loadMessages } from "../chat/run";
+import { DeviceAuthError } from "../credentials/openai-device";
 import {
   fileNameFor,
   providerSlugs,
@@ -12,6 +13,7 @@ import {
 } from "../credentials/store";
 import { memberProcedure, publicProcedure } from "../index";
 import { listConnectionModels } from "../models/proxy";
+import { syncConnectionModels } from "../models/sync";
 
 const providerSchema = z.enum(providerSlugs);
 
@@ -20,6 +22,7 @@ const summarySchema = z.object({
   type: providerSchema,
   method: z.enum(["oauth", "api_key"]),
   label: z.string(),
+  provider: z.string().optional(),
 });
 
 function blank(type: Credential["type"], apiKey: string): Credential {
@@ -64,9 +67,9 @@ export const appRouter = {
       return context.credentials.list();
     }),
 
-    // Browser sign-in is not here. It needs the provider's OAuth flow, which
-    // is a separate piece of work. An API key is the whole connection.
-    // Custom also names a models.dev provider; its `api` is the base URL.
+    // An API key is the whole connection. Custom also names a models.dev
+    // provider; its `api` is the base URL. The connection's models come from
+    // models.dev straight away, so it can be picked as soon as it is saved.
     saveApiKey: memberProcedure
       .input(
         z.object({
@@ -90,13 +93,32 @@ export const appRouter = {
           credential.provider = entry.id;
           credential.base_url = entry.api;
         }
-        if (input.type === "custom" || input.type === "openrouter") {
-          // Saving writes the whole file; keep the models already added.
-          const existing = await context.credentials.get(fileNameFor(credential).slice(0, -5));
-          credential.models = existing?.models ?? [];
-        }
-        return context.credentials.save(credential);
+        // Saving writes the whole file; keep the models it already has.
+        const existing = await context.credentials.get(fileNameFor(credential).slice(0, -5));
+        credential.models = existing?.models ?? [];
+        const saved = await context.credentials.save(credential);
+        await syncOne(context, saved.id);
+        return saved;
       }),
+
+    // ChatGPT sign-in, OpenAI only: `start` returns a code to enter at OpenAI,
+    // and the browser calls `poll` until it says done. Nothing is kept here
+    // between the two; the browser holds the code.
+    openaiSignIn: {
+      start: memberProcedure.handler(async ({ context }) =>
+        deviceStep(() => context.openaiDevice.start()),
+      ),
+      poll: memberProcedure
+        .input(z.object({ deviceAuthId: z.string().min(1), userCode: z.string().min(1) }))
+        .handler(async ({ context, input }) => {
+          const result = await deviceStep(() => context.openaiDevice.poll(input));
+          if (result.status === "pending") return { status: "pending" as const };
+          return {
+            status: "done" as const,
+            connection: await context.credentials.save(result.credential),
+          };
+        }),
+    },
 
     delete: memberProcedure
       .input(z.object({ id: z.string().trim().min(1) }))
@@ -113,7 +135,15 @@ export const appRouter = {
     // Models the proxy serves, by connection, and the user's choice. The choice
     // is `available: false` once its connection or model is gone.
     list: memberProcedure.handler(async ({ context }) => {
-      const connections = await listModels(context);
+      const listed = await listModels(context);
+      // A custom connection reads as its models.dev provider's name. A missing
+      // catalog only costs the name.
+      const catalog = await context.modelsDev.catalog().catch(() => null);
+      const connections = listed.map((c) =>
+        c.type === "custom"
+          ? { ...c, name: catalog?.custom.find((e) => e.id === c.label)?.name ?? c.label }
+          : c,
+      );
       const row = await context.db.modelChoice.findUnique({
         where: { userId: context.session.userId },
       });
@@ -148,32 +178,45 @@ export const appRouter = {
     // What the settings panel may pick from, already filtered by models.dev rules.
     catalog: memberProcedure.handler(async ({ context }) => modelsDevCatalog(context)),
 
-    // Adds a models.dev model to an OpenRouter or Custom connection.
+    // Downloads models.dev again and syncs every connection's models now,
+    // instead of waiting for the twice-daily job.
+    refresh: memberProcedure.handler(async ({ context }) => {
+      let catalog;
+      try {
+        catalog = await context.modelsDev.refresh();
+      } catch {
+        throw new ORPCError("SERVICE_UNAVAILABLE", { message: "Could not reach models.dev." });
+      }
+      return syncConnectionModels(context.credentials, catalog);
+    }),
+
+    // Adds a model by hand, for one models.dev does not list yet. A sync
+    // keeps it.
     create: memberProcedure.input(modelCreate).handler(async ({ context, input }) => {
       const credential = await modelConnection(context, input.connectionId);
-      const catalog = await modelsDevCatalog(context);
-      const entry =
-        credential.type === "openrouter"
-          ? catalog.openrouter
-          : catalog.custom.find((e) => e.id === credential.provider);
-      const model = entry?.models.find((m) => m.id === input.modelId);
-      if (!model) {
-        throw new ORPCError("BAD_REQUEST", { message: "models.dev does not offer that model." });
-      }
       const models = credential.models ?? [];
-      if (!models.some((m) => m.name === model.id)) {
+      if (!models.some((m) => m.name === input.modelId)) {
         models.push({
-          name: model.id,
-          alias: model.id,
-          display_name: input.displayName || model.name,
+          name: input.modelId,
+          alias: input.modelId,
+          display_name: input.displayName || input.modelId,
+          manual: true,
         });
       }
       await context.credentials.setModels(input.connectionId, models);
       return models satisfies CredentialModel[];
     }),
 
+    // Only a model added by hand can be removed; the next sync would bring a
+    // models.dev one back.
     delete: memberProcedure.input(modelRef).handler(async ({ context, input }) => {
       const credential = await modelConnection(context, input.connectionId);
+      const target = credential.models?.find((m) => m.name === input.modelId);
+      if (target && !target.manual) {
+        throw new ORPCError("BAD_REQUEST", {
+          message: "That model comes from models.dev and comes back on the next sync.",
+        });
+      }
       const models = (credential.models ?? []).filter((m) => m.name !== input.modelId);
       await context.credentials.setModels(input.connectionId, models);
       return models satisfies CredentialModel[];
@@ -285,13 +328,40 @@ async function modelsDevCatalog(context: Ctx) {
   }
 }
 
-// Only OpenRouter and Custom keep a model list; the others come from the proxy.
+// A new key's models. If models.dev cannot be reached the key is still saved;
+// the next sync, or a manual refresh, fills the list.
+async function syncOne(context: Ctx, connectionId: string) {
+  try {
+    await syncConnectionModels(
+      context.credentials,
+      await context.modelsDev.catalog(),
+      connectionId,
+    );
+  } catch (error) {
+    console.error("models were not synced:", error instanceof Error ? error.message : error);
+  }
+}
+
+// OpenAI's own errors are worth showing; anything else is ours.
+async function deviceStep<T>(run: () => Promise<T>): Promise<T> {
+  try {
+    return await run();
+  } catch (error) {
+    if (error instanceof DeviceAuthError) {
+      throw new ORPCError("BAD_GATEWAY", { message: error.message });
+    }
+    throw error;
+  }
+}
+
+// An API-key connection keeps its own model list; a ChatGPT sign-in's models
+// come from the proxy.
 async function modelConnection(context: Ctx, connectionId: string) {
   const credential = await context.credentials.get(connectionId);
   if (!credential) throw new ORPCError("NOT_FOUND");
-  if (credential.type !== "openrouter" && credential.type !== "custom") {
+  if (credential.method !== "api_key") {
     throw new ORPCError("BAD_REQUEST", {
-      message: "Models can only be added to OpenRouter and Custom connections.",
+      message: "A ChatGPT sign-in gets its models from the plan.",
     });
   }
   return credential;

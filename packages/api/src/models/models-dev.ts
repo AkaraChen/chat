@@ -9,10 +9,14 @@ export type ModelsDevProvider = { id: string; name: string; api: string };
 export type ModelsDevModel = { id: string; name: string };
 export type ModelsDevEntry = ModelsDevProvider & { models: ModelsDevModel[] };
 
-// What the settings panel may pick from: `custom` for Custom connections,
-// `openrouter` for OpenRouter. Only models that can call tools and write text.
+// The models each kind of connection gets: `custom` for Custom connections
+// (one entry per OpenAI-compatible provider), and one entry each for OpenAI,
+// Gemini (models.dev's `google`) and OpenRouter. Only models that can call
+// tools and write text.
 export type ModelsDevCatalog = {
   custom: ModelsDevEntry[];
+  openai: ModelsDevEntry | null;
+  gemini: ModelsDevEntry | null;
   openrouter: ModelsDevEntry | null;
 };
 
@@ -42,15 +46,15 @@ function usableModels(models: unknown): ModelsDevModel[] {
   return result.sort((a, b) => a.name.localeCompare(b.name));
 }
 
+// `api` is the base URL. models.dev leaves it out for providers with an SDK
+// of their own (OpenAI, Google); those connections do not need it.
 function entryOf(value: unknown): ModelsDevEntry | null {
   const provider = asRecord(value);
-  if (!provider || typeof provider.id !== "string" || typeof provider.api !== "string") {
-    return null;
-  }
+  if (!provider || typeof provider.id !== "string") return null;
   return {
     id: provider.id,
     name: typeof provider.name === "string" ? provider.name : provider.id,
-    api: provider.api,
+    api: typeof provider.api === "string" ? provider.api : "",
     models: usableModels(provider.models),
   };
 }
@@ -63,7 +67,12 @@ export function filterCatalog(data: Record<string, unknown>): ModelsDevCatalog {
     if (entry && entry.api) custom.push(entry);
   }
   custom.sort((a, b) => a.name.localeCompare(b.name));
-  return { custom, openrouter: entryOf(data.openrouter) };
+  return {
+    custom,
+    openai: entryOf(data.openai),
+    gemini: entryOf(data.google),
+    openrouter: entryOf(data.openrouter),
+  };
 }
 
 async function readCache(cachePath: string): Promise<Cache | null> {
@@ -85,7 +94,10 @@ async function writeCache(cachePath: string, cache: Cache) {
 }
 
 export type ModelsDev = {
+  /** The catalog, from a cache up to a day old. */
   catalog(): Promise<ModelsDevCatalog>;
+  /** Downloads the catalog again whatever the cache's age. Throws if that fails. */
+  refresh(): Promise<ModelsDevCatalog>;
 };
 
 export function createModelsDev(options: ModelsDevOptions): ModelsDev {
@@ -121,12 +133,26 @@ export function createModelsDev(options: ModelsDevOptions): ModelsDev {
     return memo!.catalog;
   }
 
+  async function reload(): Promise<ModelsDevCatalog> {
+    const cache = await download();
+    memo = { fetchedAt: cache.fetchedAt, catalog: filterCatalog(cache.data) };
+    return memo.catalog;
+  }
+
+  // One download at a time, whoever asks.
+  function once(run: () => Promise<ModelsDevCatalog>) {
+    inflight ??= run().finally(() => {
+      inflight = null;
+    });
+    return inflight;
+  }
+
   return {
-    catalog() {
-      inflight ??= load().finally(() => {
-        inflight = null;
-      });
-      return inflight;
+    catalog: () => once(load),
+    refresh: async () => {
+      // A load already under way may only read the cache; wait, then download.
+      await inflight?.catch(() => {});
+      return once(reload);
     },
   };
 }

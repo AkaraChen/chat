@@ -8,7 +8,7 @@ import { listConnectionModels, splitModelId } from "./proxy";
 
 function credential(overrides: Partial<Credential>): Credential {
   return {
-    type: "claude",
+    type: "gemini",
     method: "api_key",
     email: "",
     account_id: "",
@@ -43,7 +43,7 @@ describe("proxy models", () => {
 
   test("groups models by connection with labels and display names", async () => {
     const credentials = createCredentialStore(await mkdtemp(path.join(tmpdir(), "auths-")));
-    const claude = await credentials.save(credential({ email: "me@x.co" }));
+    const gemini = await credentials.save(credential({ email: "me@x.co" }));
     const custom = await credentials.save(
       credential({
         type: "custom",
@@ -53,7 +53,7 @@ describe("proxy models", () => {
       }),
     );
     const { impl, requests } = proxyReturning([
-      `${claude.id}/claude-sonnet-4-5`,
+      `${gemini.id}/gemini-3.5-flash`,
       `${custom.id}/fast`,
       "gone-1234/whatever",
       "unprefixed",
@@ -67,20 +67,40 @@ describe("proxy models", () => {
     });
 
     expect(requests).toEqual([{ url: "http://127.0.0.1:8317/v1/models", auth: "Bearer internal" }]);
+    // Connections come in id order.
     expect(result).toEqual([
-      {
-        connectionId: claude.id,
-        type: "claude",
-        label: "me@x.co",
-        models: [{ id: "claude-sonnet-4-5", name: "claude-sonnet-4-5" }],
-      },
       {
         connectionId: custom.id,
         type: "custom",
         label: "deepseek",
         models: [{ id: "fast", name: "DeepSeek Flash" }],
       },
+      {
+        connectionId: gemini.id,
+        type: "gemini",
+        label: "me@x.co",
+        models: [{ id: "gemini-3.5-flash", name: "gemini-3.5-flash" }],
+      },
     ]);
+  });
+
+  test("a ChatGPT sign-in leaves out the plan's models a chat cannot use", async () => {
+    const credentials = createCredentialStore(await mkdtemp(path.join(tmpdir(), "auths-")));
+    const signIn = await credentials.save(
+      credential({ type: "openai", method: "oauth", api_key: "", account_id: "acct-1" }),
+    );
+    const { impl } = proxyReturning([
+      `${signIn.id}/gpt-6-sol`,
+      `${signIn.id}/gpt-image-2`,
+      `${signIn.id}/codex-auto-review`,
+    ]);
+    const result = await listConnectionModels({
+      proxyUrl: "http://p",
+      apiKey: "k",
+      credentials,
+      fetch: impl,
+    });
+    expect(result[0]?.models.map((m) => m.id)).toEqual(["gpt-6-sol"]);
   });
 
   test("omits connections the proxy lists nothing for", async () => {

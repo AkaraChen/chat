@@ -11,9 +11,12 @@ import { GeneralPanel } from "./general";
 import { GithubPanel } from "./github-panel";
 import {
   ProvidersPanel,
+  type CatalogModel,
   type ConnectionRow,
   type SavedModel,
   type SettingsCatalog,
+  type SignInPoll,
+  type SignInStart,
 } from "./providers";
 import type { SettingsTab } from "./tabs";
 
@@ -29,7 +32,7 @@ const tabs: { id: SettingsTab; label: string; Icon: ComponentType<{ size?: numbe
 export type SettingsData = {
   connections: ConnectionRow[];
   catalog: SettingsCatalog | null;
-  listed: Record<string, { id: string; name: string }[]>;
+  listed: Record<string, CatalogModel[]>;
   githubSet: boolean;
 };
 
@@ -41,7 +44,13 @@ export type SettingsHandlers = {
     modelId: string;
     displayName?: string;
   }) => Promise<SavedModel[] | void>;
-  onRemoveModel?: (input: { connectionId: string; modelId: string }) => Promise<SavedModel[] | void>;
+  onRemoveModel?: (input: {
+    connectionId: string;
+    modelId: string;
+  }) => Promise<SavedModel[] | void>;
+  onRefresh?: () => Promise<void>;
+  onSignInStart?: () => Promise<SignInStart>;
+  onSignInPoll?: (input: { deviceAuthId: string; userCode: string }) => Promise<SignInPoll>;
   onSaveToken?: (token: string) => Promise<void>;
   onClearToken?: () => Promise<void>;
 };
@@ -110,9 +119,10 @@ export function SettingsDialog({
   // refetch can stay empty for the whole stale window. The mutation payload is
   // the saved list, so show that instead of waiting.
   function rememberModels(connectionId: string, models: SavedModel[]) {
-    const items = models.map((model) => ({
+    const items: CatalogModel[] = models.map((model) => ({
       id: model.name,
       name: model.display_name || model.name,
+      ...(model.manual ? { manual: true as const } : {}),
     }));
     setModelOverrides((current) => ({ ...current, [connectionId]: items }));
     queryClient.setQueryData(orpc.models.list.queryKey(), (current) => {
@@ -130,7 +140,10 @@ export function SettingsDialog({
         ? connections.map((item) =>
             item.connectionId === connectionId ? { ...item, models: items } : item,
           )
-        : [...connections, { connectionId, type: "openrouter", label: connectionId, models: items }];
+        : [
+            ...connections,
+            { connectionId, type: "openrouter", label: connectionId, models: items },
+          ];
       return { ...data, connections: next, choice: data.choice ?? null } as NonNullable<
         typeof current
       >;
@@ -140,6 +153,17 @@ export function SettingsDialog({
   const remove = useMutation(orpc.connections.delete.mutationOptions({ onSuccess: refresh }));
   const addModel = useMutation(orpc.models.create.mutationOptions());
   const removeModel = useMutation(orpc.models.delete.mutationOptions());
+  const refreshModels = useMutation(
+    orpc.models.refresh.mutationOptions({
+      onSuccess: () => {
+        // What the sync wrote replaces what a save showed early.
+        setModelOverrides({});
+        return refresh();
+      },
+    }),
+  );
+  const signInStart = useMutation(orpc.connections.openaiSignIn.start.mutationOptions());
+  const signInPoll = useMutation(orpc.connections.openaiSignIn.poll.mutationOptions());
   const saveToken = useMutation(orpc.github.save.mutationOptions({ onSuccess: refresh }));
   const clearToken = useMutation(orpc.github.clear.mutationOptions({ onSuccess: refresh }));
 
@@ -213,6 +237,19 @@ export function SettingsDialog({
                     : await removeModel.mutateAsync(input);
                   if (models) rememberModels(input.connectionId, models);
                   return models;
+                }}
+                onRefresh={async () => {
+                  if (handlers?.onRefresh) return handlers.onRefresh();
+                  await refreshModels.mutateAsync({});
+                }}
+                onSignInStart={() =>
+                  handlers?.onSignInStart ? handlers.onSignInStart() : signInStart.mutateAsync({})
+                }
+                onSignInPoll={async (input) => {
+                  if (handlers?.onSignInPoll) return handlers.onSignInPoll(input);
+                  const result = await signInPoll.mutateAsync(input);
+                  if (result.status === "done") await refresh();
+                  return result;
                 }}
               />
             ) : null}

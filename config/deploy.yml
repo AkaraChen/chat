@@ -1,7 +1,7 @@
 # Kamal deploy for the whole app. See docs/deploy.md.
 #
-# One image runs the web server, the Go model proxy and the thread-title worker
-# (deploy/start.sh). Redis is an accessory. App data, SQLite and the credential
+# One image runs the web server, the Go model proxy and the worker (thread titles,
+# model sync; deploy/start.sh). Redis is an accessory. App data, SQLite and the credential
 # files all live in one host directory mounted at /data.
 #
 # The target comes from the environment, so the same file deploys anywhere:

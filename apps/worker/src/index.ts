@@ -6,7 +6,14 @@ import {
   type ThreadTitleDeps,
   type ThreadTitleJob,
 } from "@my-better-t-app/api/jobs/thread-title";
-import { createRedisConnection } from "@my-better-t-app/api/jobs/queue";
+import {
+  MODELS_SYNC_QUEUE,
+  runModelsSync,
+  scheduleModelsSync,
+} from "@my-better-t-app/api/jobs/models-sync";
+import { createModelsSyncQueue, createRedisConnection } from "@my-better-t-app/api/jobs/queue";
+import { createCredentialStore } from "@my-better-t-app/api/credentials/store";
+import { createModelsDev } from "@my-better-t-app/api/models/models-dev";
 import { createPrismaClient } from "@my-better-t-app/db";
 import { Worker } from "bullmq";
 
@@ -62,15 +69,34 @@ worker.on("failed", (job, error) => {
 });
 worker.on("error", (error) => console.error("worker error:", error.message));
 
+// Every connection's models, from models.dev, twice a day.
+const modelsSyncDeps = {
+  credentials: createCredentialStore(required("CREDENTIALS_DIR")),
+  modelsDev: createModelsDev({ cachePath: required("MODELS_DEV_CACHE_FILE") }),
+};
+const modelsSync = new Worker(
+  MODELS_SYNC_QUEUE,
+  async () => {
+    const results = await runModelsSync(modelsSyncDeps);
+    const changed = results.filter((result) => result.changed).length;
+    console.log(`models-sync: ${results.length} connection(s), ${changed} changed`);
+  },
+  { connection: createRedisConnection(required("REDIS_URL")), concurrency: 1 },
+);
+modelsSync.on("failed", (_job, error) => console.error("models-sync failed:", error.message));
+modelsSync.on("error", (error) => console.error("models-sync error:", error.message));
+const modelsSyncQueue = createModelsSyncQueue(required("REDIS_URL"));
+await scheduleModelsSync(modelsSyncQueue);
+
 let closing = false;
 async function shutdown() {
   if (closing) return;
   closing = true;
-  await worker.close();
+  await Promise.all([worker.close(), modelsSync.close(), modelsSyncQueue.close()]);
   await db.$disconnect();
   process.exit(0);
 }
 process.on("SIGTERM", shutdown);
 process.on("SIGINT", shutdown);
 
-console.log(`worker listening on ${THREAD_TITLE_QUEUE}`);
+console.log(`worker listening on ${THREAD_TITLE_QUEUE} and ${MODELS_SYNC_QUEUE}`);

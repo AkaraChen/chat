@@ -7,7 +7,8 @@ export type ProxyOptions = {
   fetch?: typeof fetch;
 };
 
-export type ConnectionModel = { id: string; name: string };
+/** `manual` marks a model added by hand; the rest come from models.dev. */
+export type ConnectionModel = { id: string; name: string; manual?: true };
 
 export type ConnectionModels = {
   connectionId: string;
@@ -17,6 +18,11 @@ export type ConnectionModels = {
 };
 
 type ProxyModel = { id: string; display_name?: string };
+
+// A ChatGPT sign-in lists what CLIProxyAPI's catalog has for the plan, which
+// includes models a chat cannot use: image generation and Codex's internal
+// review model. The catalog has no capability field, so they go by name.
+const NOT_FOR_CHAT = /^(gpt-image|codex-auto-review)/;
 
 // The proxy names a model `<connectionId>/<model>`: the connection's prefix
 // followed by the upstream name. This is the one place that knows the format.
@@ -53,6 +59,7 @@ export async function listConnectionModels(options: ProxyOptions): Promise<Conne
     options.credentials.list(),
   ]);
 
+  const signIns = new Set(summaries.filter((s) => s.method === "oauth").map((s) => s.id));
   const groups = new Map<string, ConnectionModels>(
     summaries.map((s) => [s.id, { connectionId: s.id, type: s.type, label: s.label, models: [] }]),
   );
@@ -68,12 +75,14 @@ export async function listConnectionModels(options: ProxyOptions): Promise<Conne
     const parts = splitModelId(model.id);
     const group = parts && groups.get(parts.connectionId);
     if (!parts || !group) continue;
+    if (signIns.has(parts.connectionId) && NOT_FOR_CHAT.test(parts.modelId)) continue;
     const known = stored
       .get(parts.connectionId)
       ?.find((m) => m.alias === parts.modelId || m.name === parts.modelId);
     group.models.push({
       id: parts.modelId,
       name: known?.display_name || model.display_name || parts.modelId,
+      ...(known?.manual ? { manual: true as const } : {}),
     });
   }
   return [...groups.values()].filter((group) => group.models.length > 0);

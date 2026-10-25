@@ -18,10 +18,15 @@ type Syncer struct {
 	Options        Options
 }
 
-// Sync writes the config if it changed and reports whether it did. Skipping
-// identical writes avoids pointless hot reloads.
+// Sync writes the config and the sign-in auth files if they changed, and
+// reports whether anything did. Skipping identical writes avoids pointless
+// hot reloads.
 func (s *Syncer) Sync() (bool, error) {
 	creds, err := LoadCredentials(s.CredentialsDir)
+	if err != nil {
+		return false, err
+	}
+	authsChanged, err := SyncAuths(s.Options.AuthDir, creds, time.Now())
 	if err != nil {
 		return false, err
 	}
@@ -30,7 +35,7 @@ func (s *Syncer) Sync() (bool, error) {
 		return false, err
 	}
 	if old, err := os.ReadFile(s.ConfigPath); err == nil && bytes.Equal(old, data) {
-		return false, nil
+		return authsChanged, nil
 	}
 	if err := os.MkdirAll(filepath.Dir(s.ConfigPath), 0o700); err != nil {
 		return false, err

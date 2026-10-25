@@ -27,12 +27,30 @@ type Credential struct {
 	APIKey  string  `json:"api_key"`
 	BaseURL string  `json:"base_url"`
 	Models  []Model `json:"models"`
+
+	// A ChatGPT sign-in (OpenAI, method oauth).
+	Email        string `json:"email"`
+	AccountID    string `json:"account_id"`
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+	IDToken      string `json:"id_token"`
+	ExpiresAt    string `json:"expires_at"`
+	PlanType     string `json:"plan_type"`
 }
 
-// usable reports whether the proxy can route to this credential. OAuth
-// files are not handled here; the web app does not use them for the proxy.
-func (c Credential) usable() bool {
+// isAPIKey reports a connection the proxy routes to as a key group.
+func (c Credential) isAPIKey() bool {
 	return c.Method == "api_key" && strings.TrimSpace(c.APIKey) != ""
+}
+
+// isSignIn reports a ChatGPT sign-in, which the proxy serves as a Codex auth
+// file. Only OpenAI signs in.
+func (c Credential) isSignIn() bool {
+	return c.Type == "openai" && c.Method == "oauth" && strings.TrimSpace(c.RefreshToken) != ""
+}
+
+func (c Credential) usable() bool {
+	return c.isAPIKey() || c.isSignIn()
 }
 
 // LoadCredentials reads every *.json file in dir. Unreadable or invalid

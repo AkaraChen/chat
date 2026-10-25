@@ -65,7 +65,7 @@ services:
           create_host_path: false
     restart: unless-stopped
 
-  # Titles threads in the background.
+  # Titles threads, and syncs connection models from models.dev twice a day.
   worker:
     build:
       context: .
@@ -76,6 +76,8 @@ services:
         required: false
     environment:
       DATABASE_URL: file:/data/local.db
+      CREDENTIALS_DIR: /data/credentials
+      MODELS_DEV_CACHE_FILE: /data/models-dev.json
       PROXY_URL: http://proxy:8317
       REDIS_URL: redis://redis:6379
     volumes:

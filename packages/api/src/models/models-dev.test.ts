@@ -36,6 +36,16 @@ describe("models.dev catalog", () => {
     expect(catalog.openrouter?.api).toBe("https://openrouter.ai/api/v1");
   });
 
+  test("OpenAI and Gemini come from models.dev's openai and google, with no base URL", async () => {
+    const dev = createModelsDev({ cachePath: await cachePath(), fetch: fakeFetch().impl });
+    const catalog = await dev.catalog();
+    expect(catalog.openai).toMatchObject({ id: "openai", api: "" });
+    expect(catalog.openai?.models.map((m) => m.id)).toEqual(["gpt-5.5"]);
+    expect(catalog.gemini?.models.map((m) => m.id)).toEqual(["gemini-3.5-flash"]);
+    // They have an SDK of their own, so they are not Custom choices.
+    expect(catalog.custom.map((p) => p.id)).not.toContain("openai");
+  });
+
   test("keeps only tool-calling models that output text", async () => {
     const dev = createModelsDev({ cachePath: await cachePath(), fetch: fakeFetch().impl });
     const ids = (await dev.catalog()).custom[0]!.models.map((m) => m.id);
@@ -73,6 +83,25 @@ describe("models.dev catalog", () => {
   test("throws when there is neither a cache nor a network", async () => {
     const dev = createModelsDev({ cachePath: await cachePath(), fetch: failing });
     await expect(dev.catalog()).rejects.toThrow("offline");
+  });
+
+  test("refresh downloads again even when the cache is fresh", async () => {
+    const file = await cachePath();
+    await createModelsDev({ cachePath: file, fetch: fakeFetch().impl, now: () => 1000 }).catalog();
+    const second = fakeFetch("{}");
+    const dev = createModelsDev({ cachePath: file, fetch: second.impl, now: () => 2000 });
+    expect((await dev.catalog()).custom).toHaveLength(1);
+    expect((await dev.refresh()).custom).toEqual([]);
+    expect(second.calls).toHaveLength(1);
+    expect((await dev.catalog()).custom).toEqual([]);
+  });
+
+  test("refresh fails when models.dev cannot be reached, and the old catalog stays", async () => {
+    const file = await cachePath();
+    await createModelsDev({ cachePath: file, fetch: fakeFetch().impl, now: () => 1000 }).catalog();
+    const dev = createModelsDev({ cachePath: file, fetch: failing, now: () => 2000 });
+    await expect(dev.refresh()).rejects.toThrow("offline");
+    expect((await dev.catalog()).custom).toHaveLength(1);
   });
 
   test("ignores a corrupt cache file", async () => {

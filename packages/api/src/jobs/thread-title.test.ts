@@ -21,7 +21,7 @@ function deps(overrides: Partial<ThreadTitleDeps> = {}) {
   const d: ThreadTitleDeps = {
     loadSource: async () => ({
       userText: "帮我审查 PR",
-      assistant: { text: textOfParts(parts), connectionId: "claude-1", modelId: "m" },
+      assistant: { text: textOfParts(parts), connectionId: "gemini-1", modelId: "m" },
     }),
     generate: async (model, prompt) => {
       prompts.push({ model, prompt });
@@ -66,7 +66,7 @@ describe("thread title", () => {
     expect(saved).toHaveLength(1);
     expect(saved[0]).toMatchObject({ id: "t1", title: "审查 PR 的结论" });
     expect(saved[0]!.at).toBeInstanceOf(Date);
-    expect(prompts[0]!.model).toEqual({ connectionId: "claude-1", modelId: "m" });
+    expect(prompts[0]!.model).toEqual({ connectionId: "gemini-1", modelId: "m" });
     expect(prompts[0]!.prompt).toContain("PR looks good");
     expect(prompts[0]!.prompt).toContain("帮我审查 PR");
   });

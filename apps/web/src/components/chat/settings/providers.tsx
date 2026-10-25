@@ -1,19 +1,40 @@
 import { CheckIcon, PlusIcon } from "@phosphor-icons/react";
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import type { ProviderSlug } from "@my-better-t-app/api/credentials/store";
 
 import { ConnectionMark, ModelsDevMark } from "../../brand-mark";
-import { providers } from "../../providers";
+import { findProvider, providers } from "../../providers";
 
-export type ConnectionRow = { id: string; type: string; label: string };
-export type CatalogModel = { id: string; name: string };
+export type ConnectionRow = {
+  id: string;
+  type: string;
+  method?: "oauth" | "api_key";
+  label: string;
+  /** The models.dev provider id, for a custom connection. */
+  provider?: string;
+};
+export type CatalogModel = { id: string; name: string; manual?: true };
 export type CatalogEntry = { id: string; name: string; api?: string; models: CatalogModel[] };
-export type SettingsCatalog = { openrouter: CatalogEntry | null; custom: CatalogEntry[] };
+export type SettingsCatalog = {
+  openai?: CatalogEntry | null;
+  gemini?: CatalogEntry | null;
+  openrouter: CatalogEntry | null;
+  custom: CatalogEntry[];
+};
 
 type Listed = Record<string, CatalogModel[]>;
 
-export type SavedModel = { name: string; display_name: string };
+export type SavedModel = { name: string; display_name: string; manual?: boolean };
+
+export type SignInStart = {
+  deviceAuthId: string;
+  userCode: string;
+  verificationUrl: string;
+  intervalSeconds: number;
+  expiresAt: string;
+};
+export type SignInPoll = { status: "pending" } | { status: "done" };
 
 type Target = {
   slug: ProviderSlug;
@@ -27,9 +48,15 @@ type Screen =
   | { kind: "list" }
   | { kind: "pick-custom" }
   | { kind: "connect"; target: Target }
-  | { kind: "browser"; target: Target }
+  | { kind: "sign-in"; target: Target }
   | { kind: "key"; target: Target }
   | { kind: "models"; connection: ConnectionRow };
+
+const isSignIn = (connection: ConnectionRow) => connection.method === "oauth";
+
+function errorText(error: unknown, fallback: string) {
+  return error instanceof Error && error.message ? error.message : fallback;
+}
 
 export function ProvidersPanel({
   connections,
@@ -40,6 +67,9 @@ export function ProvidersPanel({
   onRemove,
   onAddModel,
   onRemoveModel,
+  onRefresh,
+  onSignInStart,
+  onSignInPoll,
   onNotice,
 }: {
   connections: ConnectionRow[];
@@ -54,6 +84,9 @@ export function ProvidersPanel({
     displayName?: string;
   }) => Promise<SavedModel[] | void>;
   onRemoveModel: (input: { connectionId: string; modelId: string }) => Promise<SavedModel[] | void>;
+  onRefresh: () => Promise<void>;
+  onSignInStart: () => Promise<SignInStart>;
+  onSignInPoll: (input: { deviceAuthId: string; userCode: string }) => Promise<SignInPoll>;
   onNotice: (message: string | null) => void;
 }) {
   const [screen, setScreen] = useState<Screen>({ kind: "list" });
@@ -63,7 +96,6 @@ export function ProvidersPanel({
   const known = new Set<string>(providers.map((provider) => provider.slug));
   const fixed = connections.filter((connection) => known.has(connection.type));
   const custom = connections.filter((connection) => connection.type === "custom");
-  const connectedSlugs = new Set(fixed.map((connection) => connection.type));
 
   async function saveKey(target: Target, apiKey: string) {
     setPending(true);
@@ -83,21 +115,20 @@ export function ProvidersPanel({
     }
   }
 
+  const keyTarget = (target: Target): Screen => ({ kind: "key", target });
+  // OpenAI asks how to connect; every other provider only takes a key.
+  const connectTo = (target: Target): Screen =>
+    findProvider(target.slug)?.signIn ? { kind: "connect", target } : keyTarget(target);
+
   if (screen.kind === "pick-custom") {
     return (
       <CustomPick
         entries={catalog?.custom ?? []}
         onBack={() => setScreen({ kind: "list" })}
         onPick={(entry) =>
-          setScreen({
-            kind: "connect",
-            target: {
-              slug: "custom",
-              title: entry.name,
-              providerId: entry.id,
-              keyHint: "",
-            },
-          })
+          setScreen(
+            keyTarget({ slug: "custom", title: entry.name, providerId: entry.id, keyHint: "" }),
+          )
         }
       />
     );
@@ -107,74 +138,84 @@ export function ProvidersPanel({
       <ConnectChoice
         target={screen.target}
         onBack={() => setScreen({ kind: "list" })}
-        onBrowser={() => setScreen({ kind: "browser", target: screen.target })}
-        onKey={() => setScreen({ kind: "key", target: screen.target })}
+        onSignIn={() => setScreen({ kind: "sign-in", target: screen.target })}
+        onKey={() => setScreen(keyTarget(screen.target))}
       />
     );
   }
-  if (screen.kind === "browser") {
+  if (screen.kind === "sign-in") {
     return (
-      <BrowserWait target={screen.target} onBack={() => setScreen({ kind: "connect", target: screen.target })} />
+      <SignInStep
+        target={screen.target}
+        onStart={onSignInStart}
+        onPoll={onSignInPoll}
+        onBack={() => setScreen({ kind: "connect", target: screen.target })}
+        onDone={() => {
+          onNotice(`${screen.target.title} is connected`);
+          setScreen({ kind: "list" });
+        }}
+      />
     );
   }
   if (screen.kind === "key") {
+    const back = connectTo(screen.target);
     return (
       <KeyStep
         target={screen.target}
         pending={pending}
         error={error}
-        onBack={() => setScreen({ kind: "connect", target: screen.target })}
+        backLabel={back.kind === "connect" ? "Connection" : "All providers"}
+        onBack={() => {
+          setError(null);
+          setScreen(back.kind === "connect" ? back : { kind: "list" });
+        }}
         onSubmit={(apiKey) => saveKey(screen.target, apiKey)}
       />
     );
   }
   if (screen.kind === "models") {
-    const entry =
-      screen.connection.type === "openrouter"
-        ? catalog?.openrouter
-        : (catalog?.custom.find((item) => item.id === screen.connection.label) ?? null);
     return (
       <ModelsStep
         connection={screen.connection}
+        title={titleOf(screen.connection, catalog)}
         models={listed[screen.connection.id] ?? []}
-        entry={entry ?? null}
         onBack={() => setScreen({ kind: "list" })}
         onAdd={onAddModel}
         onRemove={onRemoveModel}
+        onRefresh={onRefresh}
       />
     );
   }
 
-  const available = providers.filter((provider) => !connectedSlugs.has(provider.slug));
+  // OpenAI stays on offer until it has both a sign-in and a key.
+  const available = providers.filter((provider) => {
+    const mine = fixed.filter((connection) => connection.type === provider.slug);
+    if (mine.length === 0) return true;
+    return provider.signIn === true && mine.length === 1;
+  });
   return (
     <div className="flex flex-col gap-6">
       <p className="text-[15px] text-[#6E6E73]">
         {fixed.length + custom.length > 0
-          ? `${nameOf(fixed[0] ?? custom[0]!)} is on this device. Add another model any time.`
+          ? `${titleOf(fixed[0] ?? custom[0]!, catalog)} is on this device. Add another model any time.`
           : "Add a model to chat with. Credentials stay on the device."}
       </p>
       {fixed.length + custom.length > 0 ? (
         <section className="flex flex-col gap-2">
-          <h3 className="text-[13px] text-[#6E6E73]">On this device</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-[13px] text-[#6E6E73]">On this device</h3>
+            <RefreshButton onRefresh={onRefresh} onNotice={onNotice} />
+          </div>
           <div className="overflow-hidden rounded-[12px] border border-[#E3E3E7]">
-            {fixed.map((connection) => (
+            {[...fixed, ...custom].map((connection) => (
               <ConnectedRow
                 key={connection.id}
                 connection={connection}
+                title={titleOf(connection, catalog)}
+                models={listed[connection.id]?.length}
                 onOpen={
-                  connection.type === "openrouter"
-                    ? () => setScreen({ kind: "models", connection })
-                    : undefined
+                  isSignIn(connection) ? undefined : () => setScreen({ kind: "models", connection })
                 }
-                onRemove={() => void onRemove(connection.id)}
-              />
-            ))}
-            {custom.map((connection) => (
-              <ConnectedRow
-                key={connection.id}
-                connection={connection}
-                title={catalog?.custom.find((entry) => entry.id === connection.label)?.name}
-                onOpen={() => setScreen({ kind: "models", connection })}
                 onRemove={() => void onRemove(connection.id)}
               />
             ))}
@@ -189,17 +230,16 @@ export function ProvidersPanel({
               key={provider.slug}
               mark={<ConnectionMark type={provider.slug} size={22} />}
               title={provider.name}
-              detail="API key"
+              detail={provider.signIn ? "ChatGPT account or API key" : "API key"}
               onConnect={() =>
-                setScreen({
-                  kind: "connect",
-                  target: {
+                setScreen(
+                  connectTo({
                     slug: provider.slug,
                     title: provider.name,
                     consoleUrl: provider.consoleUrl,
                     keyHint: provider.keyHint,
-                  },
-                })
+                  }),
+                )
               }
             />
           ))}
@@ -224,38 +264,87 @@ export function ProvidersPanel({
   );
 }
 
-function nameOf(connection: ConnectionRow) {
-  return providers.find((provider) => provider.slug === connection.type)?.name ?? connection.label;
+// A custom connection is named after its models.dev provider.
+function titleOf(connection: ConnectionRow, catalog: SettingsCatalog | null) {
+  if (connection.type === "custom") {
+    const id = connection.provider ?? connection.label;
+    return catalog?.custom.find((entry) => entry.id === id)?.name ?? id;
+  }
+  return findProvider(connection.type)?.name ?? connection.label;
+}
+
+function RefreshButton({
+  onRefresh,
+  onNotice,
+}: {
+  onRefresh: () => Promise<void>;
+  onNotice: (message: string | null) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  return (
+    <button
+      type="button"
+      disabled={busy}
+      onClick={async () => {
+        setBusy(true);
+        try {
+          await onRefresh();
+          onNotice("Models are up to date");
+        } catch (error) {
+          onNotice(errorText(error, "Couldn't refresh the models."));
+        } finally {
+          setBusy(false);
+        }
+      }}
+      className="text-[13px] font-medium text-[#1A73E8] disabled:opacity-40"
+    >
+      {busy ? "Refreshing…" : "Refresh models"}
+    </button>
+  );
 }
 
 function ConnectedRow({
   connection,
   title,
+  models,
   onOpen,
   onRemove,
 }: {
   connection: ConnectionRow;
-  title?: string;
+  title: string;
+  models?: number;
   onOpen?: () => void;
   onRemove: () => void;
 }) {
-  const label = title ?? nameOf(connection);
+  const how = isSignIn(connection) ? `ChatGPT · ${connection.label}` : "API key";
+  const detail =
+    models === undefined ? how : `${how} · ${models} ${models === 1 ? "model" : "models"}`;
+  const text = (
+    <>
+      <span className="block truncate text-[15px] font-medium text-[#1C1C1E]">{title}</span>
+      <span className="block truncate text-[13px] text-[#6E6E73]">{detail}</span>
+    </>
+  );
   return (
     <div className="flex min-h-14 items-center gap-3 border-b border-[#E3E3E7] px-4 last:border-b-0">
-      <ConnectionMark type={connection.type} label={connection.label} size={22} />
+      <ConnectionMark
+        type={connection.type}
+        label={connection.provider ?? connection.label}
+        size={22}
+      />
       {onOpen ? (
         <button type="button" onClick={onOpen} className="min-w-0 flex-1 text-left">
-          <span className="block truncate text-[15px] font-medium text-[#1C1C1E]">{label}</span>
-          <span className="block text-[13px] text-[#6E6E73]">API key</span>
+          {text}
         </button>
       ) : (
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-[15px] font-medium text-[#1C1C1E]">{label}</span>
-          <span className="block text-[13px] text-[#6E6E73]">API key</span>
-        </span>
+        <span className="min-w-0 flex-1">{text}</span>
       )}
       <span className="text-[13px] text-[#6E6E73]">Connected</span>
-      <button type="button" onClick={onRemove} className="text-[13px] text-[#6E6E73] hover:text-[#1C1C1E]">
+      <button
+        type="button"
+        onClick={onRemove}
+        className="text-[13px] text-[#6E6E73] hover:text-[#1C1C1E]"
+      >
         Remove
       </button>
     </div>
@@ -295,68 +384,163 @@ function Back({ label, onClick }: { label: string; onClick: () => void }) {
   );
 }
 
+function TargetMark({ target }: { target: Target }) {
+  return (
+    <div className="mb-4 flex items-center gap-2">
+      <ConnectionMark type={target.slug} label={target.providerId} size={20} />
+      <span className="text-[15px] font-medium text-[#1C1C1E]">{target.title}</span>
+    </div>
+  );
+}
+
 function ConnectChoice({
   target,
   onBack,
-  onBrowser,
+  onSignIn,
   onKey,
 }: {
   target: Target;
   onBack: () => void;
-  onBrowser: () => void;
+  onSignIn: () => void;
   onKey: () => void;
 }) {
   return (
     <div>
       <Back label="All providers" onClick={onBack} />
-      <div className="mb-4 flex items-center gap-2">
-        <ConnectionMark type={target.slug} label={target.providerId} size={20} />
-        <span className="text-[15px] font-medium text-[#1C1C1E]">{target.title}</span>
-      </div>
+      <TargetMark target={target} />
       <h3 className="text-[22px] font-semibold tracking-[-0.02em] text-[#1C1C1E]">
         Connect to {target.title}
       </h3>
-      <p className="mt-1 text-[15px] text-[#6E6E73]">Paste an API key from the provider.</p>
+      <p className="mt-1 text-[15px] text-[#6E6E73]">
+        Use your ChatGPT plan, or pay per use with a key.
+      </p>
       <div className="mt-5 flex flex-col gap-3">
         <button
           type="button"
-          onClick={onBrowser}
+          onClick={onSignIn}
           className="rounded-[12px] border border-[#E3E3E7] px-4 py-3 text-left"
         >
-          <span className="block text-[15px] font-medium text-[#1C1C1E]">Sign in with your browser</span>
-          <span className="block text-[13px] text-[#6E6E73]">Finish the sign-in in a browser window.</span>
+          <span className="block text-[15px] font-medium text-[#1C1C1E]">Sign in with ChatGPT</span>
+          <span className="block text-[13px] text-[#6E6E73]">The models your plan includes.</span>
         </button>
-        <button type="button" onClick={onKey} className="rounded-[12px] border border-[#E3E3E7] px-4 py-3 text-left">
+        <button
+          type="button"
+          onClick={onKey}
+          className="rounded-[12px] border border-[#E3E3E7] px-4 py-3 text-left"
+        >
           <span className="block text-[15px] font-medium text-[#1C1C1E]">Use an API key</span>
-          <span className="block text-[13px] text-[#6E6E73]">Connect through {target.title} Console</span>
+          <span className="block text-[13px] text-[#6E6E73]">
+            Connect through {target.title} Console
+          </span>
         </button>
       </div>
-      <p className="mt-4 text-[13px] text-[#6E6E73]">The key is stored on this device.</p>
     </div>
   );
 }
 
-function BrowserWait({ target, onBack }: { target: Target; onBack: () => void }) {
+/**
+ * ChatGPT sign-in by device code: OpenAI shows a page where the code is
+ * entered, and this screen checks back until it has been, then is done.
+ */
+function SignInStep({
+  target,
+  onStart,
+  onPoll,
+  onBack,
+  onDone,
+}: {
+  target: Target;
+  onStart: () => Promise<SignInStart>;
+  onPoll: (input: { deviceAuthId: string; userCode: string }) => Promise<SignInPoll>;
+  onBack: () => void;
+  onDone: () => void;
+}) {
+  const [code, setCode] = useState<SignInStart | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  const handlers = useRef({ onStart, onPoll, onDone });
+  handlers.current = { onStart, onPoll, onDone };
+
+  useEffect(() => {
+    let live = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    setCode(null);
+    setError(null);
+    async function check(started: SignInStart) {
+      if (!live) return;
+      if (Date.now() > Date.parse(started.expiresAt)) {
+        setError("The code expired. Start again for a new one.");
+        return;
+      }
+      try {
+        const result = await handlers.current.onPoll(started);
+        if (!live) return;
+        if (result.status === "done") handlers.current.onDone();
+        else timer = setTimeout(() => void check(started), started.intervalSeconds * 1000);
+      } catch (cause) {
+        if (live) setError(errorText(cause, "The sign-in did not finish."));
+      }
+    }
+    handlers.current
+      .onStart()
+      .then((started) => {
+        if (!live) return;
+        setCode(started);
+        timer = setTimeout(() => void check(started), started.intervalSeconds * 1000);
+      })
+      .catch((cause) => live && setError(errorText(cause, "Couldn't start the sign-in.")));
+    return () => {
+      live = false;
+      clearTimeout(timer);
+    };
+  }, [attempt]);
+
   return (
     <div>
       <Back label="Connection" onClick={onBack} />
-      <div className="mb-4 flex items-center gap-2">
-        <ConnectionMark type={target.slug} label={target.providerId} size={20} />
-        <span className="text-[15px] font-medium text-[#1C1C1E]">{target.title}</span>
-      </div>
+      <TargetMark target={target} />
       <h3 className="text-[22px] font-semibold tracking-[-0.02em] text-[#1C1C1E]">
-        Finish in your browser
+        Enter this code at OpenAI
       </h3>
-      <p className="mt-2 max-w-[420px] text-[15px] leading-6 text-[#6E6E73]">
-        Approve access in the window that opened. This screen stays here until it finishes.
+      <p className="mt-2 max-w-[440px] text-[15px] leading-6 text-[#6E6E73]">
+        Open the page, sign in to ChatGPT, and enter the code. This screen finishes on its own.
       </p>
-      <button
-        type="button"
-        className="mt-5 h-10 rounded-xl bg-[#1A73E8] px-4 text-sm font-medium text-white"
-      >
-        Open browser again
-      </button>
-      <p className="mt-4 text-[13px] text-[#6E6E73]">Nothing is saved until the provider confirms.</p>
+      {code ? (
+        <>
+          <p
+            aria-label="Sign-in code"
+            className="mt-5 font-mono text-[28px] font-semibold tracking-[0.12em] text-[#1C1C1E] select-all"
+          >
+            {code.userCode}
+          </p>
+          <a
+            href={code.verificationUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-4 inline-flex h-10 items-center rounded-xl bg-[#1A73E8] px-4 text-sm font-medium text-white"
+          >
+            Open OpenAI
+          </a>
+        </>
+      ) : error ? null : (
+        <p className="mt-5 text-[15px] text-[#6E6E73]">Getting a code…</p>
+      )}
+      {error ? (
+        <div className="mt-5">
+          <p className="text-[13px] text-[#C2410C]">{error}</p>
+          <button
+            type="button"
+            onClick={() => setAttempt((n) => n + 1)}
+            className="mt-3 h-10 rounded-xl bg-[#1A73E8] px-4 text-sm font-medium text-white"
+          >
+            Start again
+          </button>
+        </div>
+      ) : null}
+      <p className="mt-4 max-w-[440px] text-[13px] leading-5 text-[#6E6E73]">
+        If OpenAI says device sign-in is off, turn on device code sign-in for Codex in ChatGPT's
+        security settings.
+      </p>
     </div>
   );
 }
@@ -365,12 +549,14 @@ function KeyStep({
   target,
   pending,
   error,
+  backLabel,
   onBack,
   onSubmit,
 }: {
   target: Target;
   pending: boolean;
   error: string | null;
+  backLabel: string;
   onBack: () => void;
   onSubmit: (apiKey: string) => void;
 }) {
@@ -382,12 +568,11 @@ function KeyStep({
         if (value.trim() && !pending) onSubmit(value.trim());
       }}
     >
-      <Back label="Connection" onClick={onBack} />
-      <div className="mb-4 flex items-center gap-2">
-        <ConnectionMark type={target.slug} label={target.providerId} size={20} />
-        <span className="text-[15px] font-medium text-[#1C1C1E]">{target.title}</span>
-      </div>
-      <h3 className="text-[22px] font-semibold tracking-[-0.02em] text-[#1C1C1E]">Add your API key</h3>
+      <Back label={backLabel} onClick={onBack} />
+      <TargetMark target={target} />
+      <h3 className="text-[22px] font-semibold tracking-[-0.02em] text-[#1C1C1E]">
+        Add your API key
+      </h3>
       <p className="mt-1 text-[15px] text-[#6E6E73]">
         Paste a key from the {target.title} Console to connect.
       </p>
@@ -421,7 +606,9 @@ function KeyStep({
       >
         Connect
       </button>
-      <p className="mt-4 text-[13px] text-[#6E6E73]">The key is stored on this device.</p>
+      <p className="mt-4 text-[13px] text-[#6E6E73]">
+        The key is stored on this device. Its models come from models.dev.
+      </p>
     </form>
   );
 }
@@ -476,15 +663,16 @@ function CustomPick({
 
 function ModelsStep({
   connection,
+  title,
   models,
-  entry,
   onBack,
   onAdd,
   onRemove,
+  onRefresh,
 }: {
   connection: ConnectionRow;
+  title: string;
   models: CatalogModel[];
-  entry: CatalogEntry | null;
   onBack: () => void;
   onAdd: (input: {
     connectionId: string;
@@ -492,62 +680,87 @@ function ModelsStep({
     displayName?: string;
   }) => Promise<SavedModel[] | void>;
   onRemove: (input: { connectionId: string; modelId: string }) => Promise<SavedModel[] | void>;
+  onRefresh: () => Promise<void>;
 }) {
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState("");
   const [alias, setAlias] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   // The proxy list lags behind a save. Keep the payload from the mutation.
   const [local, setLocal] = useState<CatalogModel[] | null>(null);
   const shown = local ?? models;
 
   function showSaved(saved: SavedModel[] | void) {
     if (!saved) return;
-    setLocal(saved.map((model) => ({ id: model.name, name: model.display_name || model.name })));
+    setLocal(
+      saved.map((model) => ({
+        id: model.name,
+        name: model.display_name || model.name,
+        ...(model.manual ? { manual: true as const } : {}),
+      })),
+    );
   }
-  const base =
-    connection.type === "openrouter"
-      ? "https://openrouter.ai/api/v1"
-      : (entry?.api ?? "the provider");
-  const title = connection.type === "openrouter" ? "OpenRouter" : (entry?.name ?? connection.label);
 
   return (
     <div>
       <Back label="All providers" onClick={onBack} />
       <div className="mb-3 flex items-center gap-2">
-        <ConnectionMark type={connection.type} label={connection.label} size={20} />
+        <ConnectionMark
+          type={connection.type}
+          label={connection.provider ?? connection.label}
+          size={20}
+        />
         <span className="text-[15px] font-medium text-[#1C1C1E]">{title}</span>
       </div>
       <h3 className="text-[22px] font-semibold text-[#1C1C1E]">Models</h3>
       <p className="mt-1 max-w-[460px] text-[15px] leading-6 text-[#6E6E73]">
-        The picker shows the alias. Requests use the name. The base URL stays {base}.
+        Synced from models.dev twice a day. A model you add by hand stays through every sync.
       </p>
-      <h4 className="mt-5 text-[13px] text-[#6E6E73]">On this device</h4>
-      <ul className="mt-2 overflow-hidden rounded-[12px] border border-[#E3E3E7]">
+      <div className="mt-5 flex items-center justify-between">
+        <h4 className="text-[13px] text-[#6E6E73]">
+          {shown.length} {shown.length === 1 ? "model" : "models"}
+        </h4>
+        <RefreshButton
+          onRefresh={async () => {
+            await onRefresh();
+            setLocal(null);
+          }}
+          onNotice={setNotice}
+        />
+      </div>
+      <ul className="mt-2 max-h-[320px] overflow-y-auto rounded-[12px] border border-[#E3E3E7]">
         {shown.map((model) => (
           <li
             key={model.id}
             className="flex items-center gap-3 border-b border-[#E3E3E7] px-4 py-3 last:border-b-0"
           >
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-[15px] font-medium text-[#1C1C1E]">{model.name}</span>
+              <span className="block truncate text-[15px] font-medium text-[#1C1C1E]">
+                {model.name}
+              </span>
               <span className="block truncate text-[13px] text-[#6E6E73]">{model.id}</span>
             </span>
-            <button
-              type="button"
-              onClick={async () => {
-                showSaved(await onRemove({ connectionId: connection.id, modelId: model.id }));
-              }}
-              className="text-sm font-medium text-[#1A73E8]"
-            >
-              Remove
-            </button>
+            {model.manual ? (
+              <button
+                type="button"
+                onClick={async () => {
+                  showSaved(await onRemove({ connectionId: connection.id, modelId: model.id }));
+                }}
+                className="text-sm font-medium text-[#1A73E8]"
+              >
+                Remove
+              </button>
+            ) : null}
           </li>
         ))}
         {shown.length === 0 ? (
-          <li className="px-4 py-3 text-[13px] text-[#6E6E73]">No models on this device yet.</li>
+          <li className="px-4 py-3 text-[13px] text-[#6E6E73]">
+            No models yet. Refresh to sync them from models.dev.
+          </li>
         ) : null}
       </ul>
+      {notice ? <p className="mt-2 text-[13px] text-[#6E6E73]">{notice}</p> : null}
       <button
         type="button"
         onClick={() => setAdding(true)}
@@ -565,14 +778,15 @@ function ModelsStep({
             Add a model
           </h3>
           <p className="mt-1 text-[13px] leading-5 text-[#6E6E73]">
-            The alias is what the picker shows. The name is sent to {title}.
+            For a model models.dev does not list yet. The alias is what the picker shows; the name
+            is sent to {title}.
           </p>
           <label className="mt-4 flex flex-col gap-1.5">
             <span className="text-[13px] font-medium text-[#1C1C1E]">Name</span>
             <input
               value={name}
               onChange={(event) => setName(event.target.value)}
-              placeholder="anthropic/claude-sonnet"
+              placeholder="provider/model-name"
               aria-label="Name"
               className="h-11 rounded-[12px] border border-[#E3E3E7] bg-white px-3 text-sm outline-none"
             />

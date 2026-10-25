@@ -13,7 +13,7 @@ import { renderApp } from "./test-harness";
 afterEach(() => cleanup());
 
 const base: SettingsData = {
-  connections: [{ id: "or-1", type: "openrouter", label: "openrouter" }],
+  connections: [{ id: "or-1", type: "openrouter", method: "api_key", label: "openrouter" }],
   catalog: {
     openrouter: {
       id: "openrouter",
@@ -23,7 +23,12 @@ const base: SettingsData = {
     },
     custom: [],
   },
-  listed: { "or-1": [{ id: "anthropic/claude-sonnet", name: "Reviewer" }] },
+  listed: {
+    "or-1": [
+      { id: "moonshotai/kimi-k2", name: "Kimi K2" },
+      { id: "acme/preview", name: "Reviewer", manual: true },
+    ],
+  },
   githubSet: false,
 };
 
@@ -44,6 +49,15 @@ function SettingsScreen() {
           onRemove: async () => {},
           onAddModel: async () => {},
           onRemoveModel: async () => {},
+          onRefresh: async () => {},
+          onSignInStart: async () => ({
+            deviceAuthId: "dev-1",
+            userCode: "ABCD-1234",
+            verificationUrl: "https://auth.openai.com/codex/device",
+            intervalSeconds: 0.01,
+            expiresAt: new Date(Date.now() + 60_000).toISOString(),
+          }),
+          onSignInPoll: async () => ({ status: "done" }),
           onSaveToken: async () => setGithubSet(true),
           onClearToken: async () => setGithubSet(false),
         }}
@@ -73,36 +87,49 @@ test("settings dialog covers general, providers, appearance, and github", async 
   expect(document.querySelector("form")?.className).toContain("bg-white");
 
   fireEvent.click(screen.getByRole("button", { name: "Providers" }));
-  expect(screen.getByText("OpenRouter is on this device. Add another model any time.")).toBeTruthy();
+  expect(
+    screen.getByText("OpenRouter is on this device. Add another model any time."),
+  ).toBeTruthy();
   expect(screen.getByRole("heading", { name: "On this device" })).toBeTruthy();
   expect(screen.getByRole("heading", { name: "Available" })).toBeTruthy();
   expect(screen.queryByText("Personal access token")).toBeNull();
 
-  clickConnect("Anthropic");
-  expect(screen.getByRole("button", { name: /Sign in with your browser/ })).toBeTruthy();
+  // Anthropic is gone; OpenAI offers a ChatGPT sign-in or a key.
+  expect(screen.queryByText("Anthropic")).toBeNull();
+  expect(screen.getByText("ChatGPT account or API key")).toBeTruthy();
+  clickConnect("OpenAI");
+  expect(screen.getByRole("button", { name: /Sign in with ChatGPT/ })).toBeTruthy();
   expect(screen.getByRole("button", { name: /Use an API key/ })).toBeTruthy();
-  expect(screen.getByText("The key is stored on this device.")).toBeTruthy();
 
-  fireEvent.click(screen.getByRole("button", { name: /Sign in with your browser/ }));
-  expect(screen.getByRole("heading", { name: "Finish in your browser" })).toBeTruthy();
-  expect(screen.getByText("Nothing is saved until the provider confirms.")).toBeTruthy();
-  expect(screen.queryByRole("status")).toBeNull();
-  expect(screen.queryByText(/is connected/)).toBeNull();
+  // The sign-in shows the code, checks back, and finishes on its own.
+  fireEvent.click(screen.getByRole("button", { name: /Sign in with ChatGPT/ }));
+  expect(screen.getByRole("heading", { name: "Enter this code at OpenAI" })).toBeTruthy();
+  expect((await screen.findByLabelText("Sign-in code")).textContent).toBe("ABCD-1234");
+  expect(screen.getByRole("link", { name: "Open OpenAI" }).getAttribute("href")).toBe(
+    "https://auth.openai.com/codex/device",
+  );
+  expect((await screen.findByRole("status")).textContent).toContain("OpenAI is connected");
 
-  fireEvent.click(screen.getByRole("button", { name: /Connection/ }));
-  fireEvent.click(screen.getByRole("button", { name: /Use an API key/ }));
+  // Every other provider goes straight to the key.
+  clickConnect("Google");
   expect(screen.getByRole("heading", { name: "Add your API key" })).toBeTruthy();
-  expect(screen.getByText("The key is stored on this device.")).toBeTruthy();
-  fireEvent.change(screen.getByLabelText("API key"), { target: { value: "sk-ant-test" } });
+  expect(screen.queryByRole("button", { name: /Sign in/ })).toBeNull();
+  expect(screen.getByText(/The key is stored on this device/)).toBeTruthy();
+  fireEvent.change(screen.getByLabelText("API key"), { target: { value: "AIza-test" } });
   fireEvent.click(screen.getByRole("button", { name: "Connect" }));
-  expect((await screen.findByRole("status")).textContent).toContain("Anthropic is connected");
+  expect((await screen.findByRole("status")).textContent).toContain("Google is connected");
 
+  // Synced models are listed; only one added by hand can be removed.
+  expect(screen.getByText("API key · 2 models")).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: /OpenRouter/ }));
   expect(screen.getByRole("heading", { name: "Models" })).toBeTruthy();
+  expect(screen.getByText("2 models")).toBeTruthy();
+  expect(screen.getByText("Kimi K2")).toBeTruthy();
   expect(screen.getByText("Reviewer")).toBeTruthy();
-  expect(screen.getByText("anthropic/claude-sonnet")).toBeTruthy();
+  expect(screen.getAllByRole("button", { name: "Remove" })).toHaveLength(1);
+  fireEvent.click(screen.getByRole("button", { name: "Refresh models" }));
+  expect(await screen.findByText("Models are up to date")).toBeTruthy();
   expect(screen.getByRole("button", { name: "Add model" })).toBeTruthy();
-  expect(screen.getByRole("button", { name: "Remove" })).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Add model" }));
   expect(screen.getByLabelText("Alias")).toBeTruthy();
   expect(screen.getByLabelText("Name")).toBeTruthy();
@@ -116,7 +143,9 @@ test("settings dialog covers general, providers, appearance, and github", async 
   fireEvent.click(screen.getByRole("button", { name: "Set token" }));
   expect(screen.getByRole("heading", { name: "Set a token" })).toBeTruthy();
   expect(screen.getByText(/saved on this device/i)).toBeTruthy();
-  fireEvent.change(screen.getByPlaceholderText("github_pat_…"), { target: { value: "github_pat_test" } });
+  fireEvent.change(screen.getByPlaceholderText("github_pat_…"), {
+    target: { value: "github_pat_test" },
+  });
   fireEvent.click(screen.getByRole("button", { name: "Save token" }));
   expect(await screen.findByRole("button", { name: "Clear" })).toBeTruthy();
   expect(screen.getByText(/Saved on this device/)).toBeTruthy();
@@ -135,7 +164,7 @@ test("a saved model shows without waiting for the proxy list", async () => {
         onTab={setTab}
         onClose={() => setTab("providers")}
         data={{
-          connections: [{ id: "or-1", type: "openrouter", label: "openrouter" }],
+          connections: [{ id: "or-1", type: "openrouter", method: "api_key", label: "openrouter" }],
           catalog: {
             openrouter: {
               id: "openrouter",
@@ -154,6 +183,7 @@ test("a saved model shows without waiting for the proxy list", async () => {
               name: input.modelId,
               alias: input.modelId,
               display_name: input.displayName || input.modelId,
+              manual: true,
             },
           ],
           onRemoveModel: async () => [],
@@ -164,23 +194,25 @@ test("a saved model shows without waiting for the proxy list", async () => {
 
   await renderApp(<Screen />);
   fireEvent.click(screen.getByRole("button", { name: /OpenRouter/ }));
-  expect(screen.getByText("No models on this device yet.")).toBeTruthy();
+  expect(screen.getByText("No models yet. Refresh to sync them from models.dev.")).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Add model" }));
-  fireEvent.change(screen.getByLabelText("Name"), { target: { value: "anthropic/claude-sonnet" } });
+  fireEvent.change(screen.getByLabelText("Name"), { target: { value: "acme/preview" } });
   fireEvent.change(screen.getByLabelText("Alias"), { target: { value: "Reviewer" } });
   const addButtons = screen.getAllByRole("button", { name: "Add model" });
   fireEvent.click(addButtons[addButtons.length - 1]!);
   expect(await screen.findByText("Reviewer")).toBeTruthy();
-  expect(screen.getByText("anthropic/claude-sonnet")).toBeTruthy();
-  expect(screen.queryByText("No models on this device yet.")).toBeNull();
+  expect(screen.getByText("acme/preview")).toBeTruthy();
+  expect(screen.queryByText("No models yet. Refresh to sync them from models.dev.")).toBeNull();
 
   fireEvent.click(screen.getByRole("button", { name: "‹ All providers" }));
   fireEvent.click(screen.getByRole("button", { name: /OpenRouter/ }));
   expect(screen.getByText("Reviewer")).toBeTruthy();
-  expect(screen.queryByText("No models on this device yet.")).toBeNull();
+  expect(screen.queryByText("No models yet. Refresh to sync them from models.dev.")).toBeNull();
 
   fireEvent.click(screen.getByRole("button", { name: "Remove" }));
-  expect(await screen.findByText("No models on this device yet.")).toBeTruthy();
+  expect(
+    await screen.findByText("No models yet. Refresh to sync them from models.dev."),
+  ).toBeTruthy();
   expect(screen.queryByText("Reviewer")).toBeNull();
 });
 

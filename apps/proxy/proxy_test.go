@@ -19,8 +19,7 @@ import (
 
 type hit struct{ Path, Auth, APIKey, Model string }
 
-// fakeUpstream records requests and answers with a minimal chat completion
-// (or Anthropic message for /v1/messages).
+// fakeUpstream records requests and answers with a minimal chat completion.
 type fakeUpstream struct {
 	*httptest.Server
 	mu   sync.Mutex
@@ -37,23 +36,6 @@ func newFakeUpstream() *fakeUpstream {
 		f.hits = append(f.hits, hit{r.URL.Path, r.Header.Get("Authorization"), r.Header.Get("x-api-key"), req.Model})
 		f.mu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
-		if strings.HasSuffix(r.URL.Path, "/messages") {
-			// The claude executor always streams from upstream.
-			w.Header().Set("Content-Type", "text/event-stream")
-			for _, ev := range []string{
-				fmt.Sprintf(`{"type":"message_start","message":{"id":"m","type":"message","role":"assistant","model":%q,"content":[],"usage":{"input_tokens":1,"output_tokens":0}}}`, req.Model),
-				`{"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}`,
-				`{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"ok"}}`,
-				`{"type":"content_block_stop","index":0}`,
-				`{"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":1}}`,
-				`{"type":"message_stop"}`,
-			} {
-				var t struct{ Type string }
-				json.Unmarshal([]byte(ev), &t)
-				fmt.Fprintf(w, "event: %s\ndata: %s\n\n", t.Type, ev)
-			}
-			return
-		}
 		fmt.Fprintf(w, `{"id":"c","object":"chat.completion","created":1,"model":%q,"choices":[{"index":0,"message":{"role":"assistant","content":"ok"},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}}`, req.Model)
 	}))
 	return f
@@ -128,10 +110,9 @@ func (c client) chat(t *testing.T, model string) (int, string) {
 
 // One service for the whole test: CLIProxyAPI keeps process-wide registries.
 func TestProxyEndToEnd(t *testing.T) {
-	upA, upB, upClaude := newFakeUpstream(), newFakeUpstream(), newFakeUpstream()
+	upA, upB := newFakeUpstream(), newFakeUpstream()
 	defer upA.Close()
 	defer upB.Close()
-	defer upClaude.Close()
 
 	credDir := t.TempDir()
 	cred := func(id, typ, key, baseURL, models string) {
@@ -140,8 +121,11 @@ func TestProxyEndToEnd(t *testing.T) {
 	// Two connections expose the same model name on different upstreams.
 	cred("custom-aaaa0001", "custom", "key-A", upA.URL, `[{"name":"shared-model","alias":"shared-model","display_name":"Shared"}]`)
 	cred("custom-bbbb0002", "custom", "key-B", upB.URL, `[{"name":"shared-model","alias":"shared-model","display_name":"Shared"}]`)
-	cred("claude-cccc0003", "claude", "key-C", upClaude.URL, `[]`)
-	cred("openai-eeee0005", "openai", "key-E", "", `[]`)
+	// Models synced from models.dev, as packages/api writes them.
+	cred("gemini-cccc0003", "gemini", "key-C", "", `[{"name":"gemini-3.5-flash","alias":"gemini-3.5-flash","display_name":"Gemini 3.5 Flash"}]`)
+	cred("openai-eeee0005", "openai", "key-E", "", `[{"name":"gpt-5.5","alias":"gpt-5.5","display_name":"GPT-5.5"}]`)
+	// A ChatGPT sign-in: its models come from CLIProxyAPI's catalog for the plan.
+	writeCred(t, credDir, "openai-ffff0006", signIn)
 
 	s := Settings{
 		CredentialsDir: credDir,
@@ -162,18 +146,25 @@ func TestProxyEndToEnd(t *testing.T) {
 	}()
 
 	c := client{base: fmt.Sprintf("http://127.0.0.1:%d", s.Port), key: s.AccessKey}
-	ids := c.waitModel(t, "custom-bbbb0002/shared-model", true)
+	c.waitModel(t, "custom-bbbb0002/shared-model", true)
+	ids := c.waitModel(t, "openai-ffff0006/gpt-6-sol", true)
 	t.Logf("GET /v1/models -> %v", ids)
 
 	t.Run("models listing carries the prefix", func(t *testing.T) {
-		for _, want := range []string{"custom-aaaa0001/shared-model", "custom-bbbb0002/shared-model", "claude-cccc0003/claude-sonnet-5-5", "openai-eeee0005/gpt-5.5"} {
+		for _, want := range []string{"custom-aaaa0001/shared-model", "custom-bbbb0002/shared-model", "gemini-cccc0003/gemini-3.5-flash", "openai-eeee0005/gpt-5.5", "openai-ffff0006/gpt-6-sol"} {
 			if !slices.Contains(ids, want) {
 				t.Errorf("missing %q in %v", want, ids)
 			}
 		}
 		// force-model-prefix is on, so bare ids are not listed.
-		if slices.Contains(ids, "shared-model") {
+		if slices.Contains(ids, "shared-model") || slices.Contains(ids, "gpt-5.5") {
 			t.Errorf("unprefixed id listed: %v", ids)
+		}
+		// A key lists only its synced models, not the whole catalog.
+		for _, id := range ids {
+			if strings.HasPrefix(id, "openai-eeee0005/") && id != "openai-eeee0005/gpt-5.5" {
+				t.Errorf("key lists %q beyond its models", id)
+			}
 		}
 	})
 
@@ -193,14 +184,11 @@ func TestProxyEndToEnd(t *testing.T) {
 		}
 	})
 
-	t.Run("claude group uses its base-url and key", func(t *testing.T) {
-		if code, body := c.chat(t, "claude-cccc0003/claude-sonnet-5-5"); code != 200 {
-			t.Fatalf("%d %s", code, body)
+	t.Run("signing out removes the account's models", func(t *testing.T) {
+		if err := os.Remove(filepath.Join(credDir, "openai-ffff0006.json")); err != nil {
+			t.Fatal(err)
 		}
-		h := upClaude.snapshot()
-		if len(h) != 1 || h[0].Auth+h[0].APIKey != "Bearer key-C" && h[0].APIKey != "key-C" || h[0].Model != "claude-sonnet-5-5" {
-			t.Errorf("claude upstream: %+v", h)
-		}
+		c.waitModel(t, "openai-ffff0006/gpt-6-sol", false)
 	})
 
 	t.Run("rejects missing or wrong key", func(t *testing.T) {

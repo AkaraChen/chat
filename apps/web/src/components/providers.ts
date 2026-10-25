@@ -2,7 +2,7 @@ import type { ComponentType, SVGProps } from "react";
 
 import type { ProviderSlug } from "@my-better-t-app/api/credentials/store";
 
-import { ClaudeIcon, GeminiIcon, OpenAIIcon, OpenRouterIcon } from "./provider-icon";
+import { GeminiIcon, OpenAIIcon, OpenRouterIcon } from "./provider-icon";
 
 type MarkIcon = ComponentType<SVGProps<SVGSVGElement> & { size?: number | string }>;
 
@@ -12,24 +12,20 @@ export type ProviderInfo = {
   consoleUrl: string;
   keyHint: string;
   Icon: MarkIcon;
+  /** Can also sign in with an account instead of a key. Only OpenAI (ChatGPT). */
+  signIn?: boolean;
 };
 
 // The providers with a fixed brand mark, in the order the design shows them.
 // `custom` takes its mark from models.dev, so it is handled on its own.
 export const providers: readonly ProviderInfo[] = [
   {
-    slug: "claude",
-    name: "Anthropic",
-    consoleUrl: "https://console.anthropic.com/settings/keys",
-    keyHint: "sk-ant-",
-    Icon: ClaudeIcon,
-  },
-  {
     slug: "openai",
     name: "OpenAI",
     consoleUrl: "https://platform.openai.com/api-keys",
     keyHint: "sk-",
     Icon: OpenAIIcon,
+    signIn: true,
   },
   {
     slug: "gemini",

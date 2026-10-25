@@ -4,7 +4,6 @@ package main
 
 import (
 	"context"
-	_ "embed"
 	"errors"
 	"fmt"
 	"log"
@@ -18,9 +17,6 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy"
 	sdkconfig "github.com/router-for-me/CLIProxyAPI/v8/sdk/config"
 )
-
-//go:embed models.json
-var modelsJSON []byte
 
 // Settings are the process inputs, read from the environment.
 type Settings struct {
@@ -76,24 +72,11 @@ func Run(ctx context.Context, s Settings) error {
 	if err := os.MkdirAll(authDir, 0o700); err != nil {
 		return err
 	}
-	// The catalog must be an absolute file path. Writing the embedded copy
-	// keeps the binary self-contained (the Docker image has no source tree).
-	catalogPath := filepath.Join(dataDir, "models.json")
-	if err := os.WriteFile(catalogPath, modelsJSON, 0o600); err != nil {
-		return err
-	}
-	catalogModels, err := parseCatalogModels(modelsJSON)
-	if err != nil {
-		return err
-	}
 	configPath := filepath.Join(dataDir, "config.yaml")
 	syncer := &Syncer{
 		CredentialsDir: credDir,
 		ConfigPath:     configPath,
-		Options: Options{
-			Host: s.Host, Port: s.Port, AccessKey: s.AccessKey,
-			AuthDir: authDir, Catalog: catalogPath, CatalogModels: catalogModels,
-		},
+		Options:        Options{Host: s.Host, Port: s.Port, AccessKey: s.AccessKey, AuthDir: authDir},
 	}
 	if _, err := syncer.Sync(); err != nil {
 		return err

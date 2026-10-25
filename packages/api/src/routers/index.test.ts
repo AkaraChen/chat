@@ -16,6 +16,7 @@ import {
   userMessage,
 } from "../chat/testing";
 import type { Context } from "../context";
+import type { OpenAIDeviceAuth } from "../credentials/openai-device";
 import { createCredentialStore, type Credential } from "../credentials/store";
 import { createGithubStore } from "../github/store";
 import { createModelsDev } from "../models/models-dev";
@@ -28,6 +29,7 @@ const sample = await Bun.file(
 let t: Awaited<ReturnType<typeof createTestDb>>;
 let base: Omit<Context, "session">;
 let queued: string[];
+let deviceStep: "pending" | "done" = "pending";
 
 const cred = (type: Credential["type"], extra: Partial<Credential> = {}): Credential => ({
   type,
@@ -48,7 +50,8 @@ async function fakeProxyFetch(credentials: ReturnType<typeof createCredentialSto
     const data: { id: string }[] = [];
     for (const c of await credentials.list()) {
       const full = await credentials.get(c.id);
-      const names = c.type === "claude" ? ["claude-x"] : (full?.models ?? []).map((m) => m.alias);
+      // A sign-in's models come from the plan, as CLIProxyAPI lists them.
+      const names = c.method === "oauth" ? ["gpt-5.5"] : (full?.models ?? []).map((m) => m.alias);
       for (const n of names) data.push({ id: `${c.id}/${n}` });
     }
     return Response.json({ data });
@@ -84,6 +87,32 @@ beforeAll(async () => {
       cachePath: path.join(dir, "models-dev.json"),
       fetch: (async () => new Response(sample)) as unknown as typeof fetch,
     }),
+    openaiDevice: {
+      start: async () => ({
+        deviceAuthId: "dev-1",
+        userCode: "ABCD-1234",
+        verificationUrl: "https://auth.openai.com/codex/device",
+        intervalSeconds: 5,
+        expiresAt: "2026-10-25T00:15:00.000Z",
+      }),
+      poll: async () =>
+        deviceStep === "pending"
+          ? { status: "pending" }
+          : {
+              status: "done",
+              credential: {
+                ...cred("openai"),
+                method: "oauth",
+                api_key: "",
+                email: "me@example.com",
+                account_id: "acct-9",
+                access_token: "at",
+                refresh_token: "rt-secret",
+                id_token: "it",
+                plan_type: "plus",
+              },
+            },
+    } satisfies OpenAIDeviceAuth,
     proxy: { url: "http://proxy.test", apiKey: "k" },
     titleQueue: () => ({
       add: (async (_n: string, d: { threadId: string }) => void queued.push(d.threadId)) as never,
@@ -96,19 +125,56 @@ beforeAll(async () => {
 afterAll(() => t.cleanup());
 
 describe("models", () => {
-  test("create and delete only work on openrouter and custom", async () => {
-    const c = base.credentials;
-    const claude = await c.save(cred("claude"));
-    const openai = await c.save(cred("openai"));
-    const gemini = await c.save(cred("gemini"));
-    for (const id of [claude.id, openai.id, gemini.id]) {
-      await expect(
-        call(appRouter.models.create, { connectionId: id, modelId: "x" }, { context: as("u1") }),
-      ).rejects.toMatchObject({ code: "BAD_REQUEST" });
-      await expect(
-        call(appRouter.models.delete, { connectionId: id, modelId: "x" }, { context: as("u1") }),
-      ).rejects.toMatchObject({ code: "BAD_REQUEST" });
-    }
+  test("a saved key gets its provider's models from models.dev at once", async () => {
+    const ctx = as("u1");
+    const gemini = await call(
+      appRouter.connections.saveApiKey,
+      { type: "gemini", apiKey: "AIza-1" },
+      { context: ctx },
+    );
+    const openai = await call(
+      appRouter.connections.saveApiKey,
+      { type: "openai", apiKey: "sk-openai" },
+      { context: ctx },
+    );
+    const list = await call(appRouter.models.list, undefined, { context: ctx });
+    const models = (id: string) =>
+      list.connections.find((c) => c.connectionId === id)?.models.map((m) => m.id);
+    expect(models(gemini.id)).toEqual(["gemini-3.5-flash"]);
+    expect(models(openai.id)).toEqual(["gpt-5.5"]);
+    expect(list.connections.find((c) => c.connectionId === gemini.id)?.models[0]?.name).toBe(
+      "Gemini 3.5 Flash",
+    );
+  });
+
+  test("ChatGPT sign-in: pending until the code is entered, then a connection with no list", async () => {
+    const ctx = as("u1");
+    const started = await call(appRouter.connections.openaiSignIn.start, undefined, {
+      context: ctx,
+    });
+    expect(started.userCode).toBe("ABCD-1234");
+    const input = { deviceAuthId: started.deviceAuthId, userCode: started.userCode };
+    deviceStep = "pending";
+    expect(await call(appRouter.connections.openaiSignIn.poll, input, { context: ctx })).toEqual({
+      status: "pending",
+    });
+    deviceStep = "done";
+    const done = await call(appRouter.connections.openaiSignIn.poll, input, { context: ctx });
+    expect(done).toMatchObject({
+      status: "done",
+      connection: { type: "openai", method: "oauth", label: "me@example.com" },
+    });
+    expect(JSON.stringify(done)).not.toContain("rt-secret");
+    const id = done.status === "done" ? done.connection.id : "";
+    // Its models come from the plan, through the proxy, not from a list here.
+    const list = await call(appRouter.models.list, undefined, { context: ctx });
+    expect(list.connections.find((c) => c.connectionId === id)?.models.map((m) => m.id)).toEqual([
+      "gpt-5.5",
+    ]);
+    await expect(
+      call(appRouter.models.create, { connectionId: id, modelId: "x" }, { context: ctx }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await base.credentials.delete(id);
   });
 
   test("custom takes its base_url from models.dev and models carry the models.dev name", async () => {
@@ -132,29 +198,45 @@ describe("models", () => {
     const stored = await base.credentials.get(saved.id);
     expect(stored).toMatchObject({ provider: "deepseek", base_url: "https://api.deepseek.com" });
 
-    const models = await call(
+    // Synced from models.dev: tool-calling text models only.
+    const synced = (await base.credentials.get(saved.id))?.models?.map((m) => m.name);
+    expect(synced?.sort()).toEqual(["deepseek-flash", "deepseek-v4-pro"]);
+
+    // A model models.dev does not list can be added by hand, and removed;
+    // a synced one cannot be removed.
+    const added = await call(
       appRouter.models.create,
-      { connectionId: saved.id, modelId: "deepseek-flash" },
+      { connectionId: saved.id, modelId: "deepseek-preview", displayName: "Preview" },
       { context: ctx },
     );
-    expect(models).toEqual([
-      { name: "deepseek-flash", alias: "deepseek-flash", display_name: expect.any(String) },
-    ]);
+    expect(added.at(-1)).toEqual({
+      name: "deepseek-preview",
+      alias: "deepseek-preview",
+      display_name: "Preview",
+      manual: true,
+    });
     await expect(
       call(
-        appRouter.models.create,
-        { connectionId: saved.id, modelId: "no-tools" },
+        appRouter.models.delete,
+        { connectionId: saved.id, modelId: "deepseek-flash" },
         { context: ctx },
       ),
     ).rejects.toMatchObject({ code: "BAD_REQUEST" });
 
-    // Saving the same key again keeps the models.
+    // Saving the same key again, and a refresh, keep the hand-added model.
     await call(
       appRouter.connections.saveApiKey,
       { type: "custom", apiKey: "sk-1", provider: "deepseek" },
       { context: ctx },
     );
-    expect((await base.credentials.get(saved.id))?.models).toHaveLength(1);
+    const refreshed = await call(appRouter.models.refresh, undefined, { context: ctx });
+    expect(refreshed.find((r) => r.connectionId === saved.id)).toMatchObject({ models: 3 });
+    const removed = await call(
+      appRouter.models.delete,
+      { connectionId: saved.id, modelId: "deepseek-preview" },
+      { context: ctx },
+    );
+    expect(removed.map((m) => m.name)).not.toContain("deepseek-preview");
 
     // The response never carries the key.
     const list = await call(appRouter.models.list, undefined, { context: ctx });
@@ -166,6 +248,8 @@ describe("models", () => {
     const list = await call(appRouter.models.list, undefined, { context: ctx });
     expect(list.choice).toBeNull();
     const custom = list.connections.find((c) => c.type === "custom")!;
+    // It reads as its models.dev provider, not the id.
+    expect(custom).toMatchObject({ label: "deepseek", name: "DeepSeek" });
     await call(
       appRouter.models.select,
       { connectionId: custom.connectionId, modelId: "deepseek-flash" },
@@ -259,10 +343,10 @@ describe("threads and chat", () => {
 
   test("POST /api/chat streams the answer, and threads.get returns the stored UIMessages", async () => {
     const ctx = as("u1");
-    const claude = (await base.credentials.list()).find((c) => c.type === "claude")!;
+    const gemini = (await base.credentials.list()).find((c) => c.type === "gemini")!;
     await call(
       appRouter.models.select,
-      { connectionId: claude.id, modelId: "claude-x" },
+      { connectionId: gemini.id, modelId: "gemini-3.5-flash" },
       { context: ctx },
     );
     const thread = await call(
@@ -284,7 +368,7 @@ describe("threads and chat", () => {
     // Another user cannot send into this thread.
     await call(
       appRouter.models.select,
-      { connectionId: claude.id, modelId: "claude-x" },
+      { connectionId: gemini.id, modelId: "gemini-3.5-flash" },
       { context: as("u2") },
     );
     expect((await chat(as("u2"), { id: thread.id, message: userMessage("hi") })).status).toBe(404);
@@ -297,7 +381,7 @@ describe("threads and chat", () => {
       parts: [{ type: "text", text: "hi" }],
     });
     const answer = got.messages[1]!;
-    expect(answer.metadata).toEqual({ connectionId: claude.id, modelId: "claude-x" });
+    expect(answer.metadata).toEqual({ connectionId: gemini.id, modelId: "gemini-3.5-flash" });
     expect(answer.parts.find((p) => p.type === "text")).toMatchObject({ text: "Hi.\n\n" });
     expect(answer.parts.filter((p) => p.type === "data-spec")).toHaveLength(3);
     expect(queued).toEqual([thread.id]);

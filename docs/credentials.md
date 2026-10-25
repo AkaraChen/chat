@@ -25,8 +25,8 @@ does not need. The file is the only source of truth.
 ```
 .data/
   local.db          SQLite, for app data
-  auths/            credentials, mode 0700
-    claude-<identity>.json
+  credentials/      credentials, mode 0700
+    gemini-<identity>.json
     openai-<identity>.json
 ```
 
@@ -43,37 +43,43 @@ listing tells you what is connected without opening files.
 
 ## File contents
 
-One shape for every provider. API-key connections fill `api_key` and leave
-the token fields empty. Browser sign-in fills the token fields and leaves
-`api_key` empty.
+One shape for every provider. `type` is the provider slug (`openai`,
+`gemini`, `openrouter`, `custom`). `method` is `api_key` or `oauth`. Every
+provider takes an API key; only `openai` also signs in (a ChatGPT account,
+through Codex), and a file with `oauth` for any other type is ignored.
+Anything the client renders (provider name, method, account label, connected
+or not) is derived from these files. No second copy in SQLite.
+
+An API-key connection fills `api_key` and `models`, and leaves the token
+fields empty. `custom` also has `base_url` and `provider`, the
+[models.dev](https://models.dev) provider id.
+
+Each entry in `models` has `name`, the model id sent upstream; `alias`, the
+name callers use (it defaults to `name`); `display_name`, what the picker
+shows; and `manual: true` on a model added by hand. The rest come from
+models.dev: each connection gets every model its provider lists there that
+calls tools and writes text (models.dev's `openai`, `google` and `openrouter`
+entries, or the `custom` connection's `provider`). A sync replaces those and
+keeps the manual ones. It runs when a key is saved, from the settings' refresh
+button, and every 12 hours in the worker (`packages/api/src/jobs/models-sync.ts`).
+
+A ChatGPT sign-in fills the token fields, `id_token` and `plan_type`, and has
+no `models`: the proxy serves what CLIProxyAPI's catalog has for the plan.
 
 ```json
 {
-  "type": "claude",
+  "type": "openai",
   "method": "oauth",
   "email": "user@example.com",
-  "account_id": "...",
+  "account_id": "<chatgpt account id>",
   "api_key": "",
   "access_token": "...",
   "refresh_token": "...",
+  "id_token": "...",
+  "plan_type": "plus",
   "expires_at": "2026-10-23T00:00:00Z"
 }
 ```
-
-`type` is the provider slug (`claude`, `openai`, `gemini`, `openrouter`,
-`custom`). `method` is `oauth` or `api_key`. Anything the client renders
-(provider name, method, account label, connected or not) is derived from
-these files. No second copy in SQLite.
-
-Two types carry extra fields.
-
-- `openrouter` adds `models`.
-- `custom` adds `models`, `base_url` and `provider`, the
-  [models.dev](https://models.dev) provider id.
-
-Each entry in `models` has three fields: `name` is the model id sent upstream,
-`alias` is the name callers use (it defaults to `name`), and `display_name` is
-what the picker shows.
 
 ```json
 {
@@ -93,9 +99,8 @@ what the picker shows.
 }
 ```
 
-`claude`, `openai` and `gemini` files have the base fields only. A `custom`
-file's `<identity>` is derived from `base_url` as well as the key, so the same
-key against two endpoints is two files.
+A `custom` file's `<identity>` is derived from `base_url` as well as the key,
+so the same key against two endpoints is two files.
 
 ## Access
 
@@ -106,7 +111,8 @@ only; `setModels` rewrites the same file with a new `models` list. `save` create
 directory at mode `0700`, writes the file, and replaces the whole file on
 update, including after a token refresh.
 
-The web server is the only process that writes the directory. The phone app
+The web server writes the directory, and the worker rewrites `models` in the
+twice-daily sync, through the same module. The phone app
 sends a credential once, over the oRPC API, and keeps nothing. When the
 server calls a model it reads the file, decrypts nothing, and attaches the
 credential itself. The client only ever learns that a provider is connected.
@@ -114,11 +120,18 @@ credential itself. The client only ever learns that a provider is connected.
 ## The proxy
 
 The Go proxy (`apps/proxy`) only reads this directory. It never writes a
-credential. At start, and whenever `auths/` changes, it renders its own
+credential. At start, and whenever the directory changes, it renders its own
 configuration from these files into `.data/proxy/config.yaml` and reloads. That
 file is generated output; edit the credential files, not the config. The
 connection id (the file name without `.json`) is the prefix the proxy gives
 each connection's models, so a model is addressed as `<connectionId>/<model>`.
+
+A ChatGPT sign-in is not part of that config. The proxy writes it once as a
+Codex auth file, `.data/proxy/auths/chat-<connectionId>.json`, with the
+connection id as its `prefix`. From then on CLIProxyAPI refreshes the tokens
+and rewrites that file itself, so the credential's tokens are only the seed
+and go stale; the auth file holds the live ones. A new sign-in (another
+refresh token) replaces the file, and removing the connection removes it.
 
 ## Explicitly not doing
 

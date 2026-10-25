@@ -2,24 +2,33 @@ import { createHash } from "node:crypto";
 import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-export const providerSlugs = ["claude", "openai", "gemini", "openrouter", "custom"] as const;
+export const providerSlugs = ["openai", "gemini", "openrouter", "custom"] as const;
 
 export type ProviderSlug = (typeof providerSlugs)[number];
 
 export type CredentialMethod = "oauth" | "api_key";
 
+/** Every provider takes an API key. Only OpenAI also signs in (ChatGPT, through Codex). */
+export function methodsOf(type: ProviderSlug): readonly CredentialMethod[] {
+  return type === "openai" ? ["oauth", "api_key"] : ["api_key"];
+}
+
 // One file per connection. See docs/credentials.md. The file is the only
 // record of a connection, so nothing here is copied into the database.
 // A model a connection offers. `name` is the id sent upstream, `alias` the
 // name callers use (defaults to `name`), `display_name` what people read.
+// Models come from models.dev and are replaced on every sync; `manual` marks
+// one added by hand, which a sync keeps.
 export type CredentialModel = {
   name: string;
   alias: string;
   display_name: string;
+  manual?: boolean;
 };
 
-// `models` is for openrouter and custom; `base_url` and `provider` (the
-// models.dev provider id) are for custom. Other types leave them out.
+// `models` is for API-key connections. `base_url` and `provider` (the
+// models.dev provider id) are for custom. `id_token` and `plan_type` are for
+// a ChatGPT sign-in. Other connections leave them out.
 export type Credential = {
   type: ProviderSlug;
   method: CredentialMethod;
@@ -32,6 +41,8 @@ export type Credential = {
   provider?: string;
   base_url?: string;
   models?: CredentialModel[];
+  id_token?: string;
+  plan_type?: string;
 };
 
 export type CredentialSummary = {
@@ -39,6 +50,8 @@ export type CredentialSummary = {
   type: ProviderSlug;
   method: CredentialMethod;
   label: string;
+  /** The models.dev provider id, for a custom connection. */
+  provider?: string;
 };
 
 const FILE_MODE = 0o600;
@@ -86,15 +99,18 @@ function parseModels(value: unknown): CredentialModel[] {
       name,
       alias: typeof alias === "string" && alias ? alias : name,
       display_name: typeof display_name === "string" && display_name ? display_name : name,
+      ...((item as { manual?: unknown }).manual === true ? { manual: true } : {}),
     });
   }
   return models;
 }
 
-// Keep only the fields a type is allowed to carry.
+// Keep only the fields a connection is allowed to carry.
 function normalize(credential: Credential): Credential {
-  const { provider, base_url, models, ...base } = credential;
-  if (credential.type === "openrouter") return { ...base, models: parseModels(models) };
+  const { provider, base_url, models, id_token, plan_type, ...base } = credential;
+  if (credential.method === "oauth") {
+    return { ...base, id_token: id_token ?? "", plan_type: plan_type ?? "" };
+  }
   if (credential.type === "custom") {
     return {
       ...base,
@@ -103,7 +119,7 @@ function normalize(credential: Credential): Credential {
       models: parseModels(models),
     };
   }
-  return base;
+  return { ...base, models: parseModels(models) };
 }
 
 function parse(raw: string, fileName: string): Credential | null {
@@ -117,6 +133,7 @@ function parse(raw: string, fileName: string): Credential | null {
   const record = value as Record<string, unknown>;
   if (!isProviderSlug(record.type)) return null;
   if (record.method !== "oauth" && record.method !== "api_key") return null;
+  if (!methodsOf(record.type).includes(record.method)) return null;
   if (!fileName.startsWith(`${record.type}-`)) return null;
   return normalize({
     type: record.type,
@@ -130,6 +147,8 @@ function parse(raw: string, fileName: string): Credential | null {
     provider: typeof record.provider === "string" ? record.provider : undefined,
     base_url: typeof record.base_url === "string" ? record.base_url : undefined,
     models: parseModels(record.models),
+    id_token: typeof record.id_token === "string" ? record.id_token : undefined,
+    plan_type: typeof record.plan_type === "string" ? record.plan_type : undefined,
   });
 }
 
@@ -140,12 +159,20 @@ export type CredentialStore = {
   // Server-only: returns secrets. Never hand the result to the API layer.
   get(id: string): Promise<Credential | null>;
   // Rewrites the same file with a new model list. Null when `id` is unknown
-  // or the connection type has no models.
+  // or the connection has no model list of its own (a ChatGPT sign-in).
   setModels(id: string, models: CredentialModel[]): Promise<CredentialSummary | null>;
 };
 
 function summaryOf(id: string, credential: Credential): CredentialSummary {
-  return { id, type: credential.type, method: credential.method, label: labelOf(credential) };
+  return {
+    id,
+    type: credential.type,
+    method: credential.method,
+    label: labelOf(credential),
+    ...(credential.type === "custom" && credential.provider
+      ? { provider: credential.provider }
+      : {}),
+  };
 }
 
 export function createCredentialStore(dir: string): CredentialStore {
@@ -204,9 +231,7 @@ export function createCredentialStore(dir: string): CredentialStore {
 
     async setModels(id, models) {
       const credential = await read(id);
-      if (!credential || (credential.type !== "openrouter" && credential.type !== "custom")) {
-        return null;
-      }
+      if (!credential || credential.method !== "api_key") return null;
       await write(`${id}.json`, { ...credential, models: parseModels(models) });
       return summaryOf(id, credential);
     },
