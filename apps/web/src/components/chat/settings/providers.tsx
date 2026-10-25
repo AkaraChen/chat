@@ -772,7 +772,7 @@ function ModelsStep({
         <div
           role="dialog"
           aria-labelledby="add-model-title"
-          className="mt-4 rounded-2xl border border-[#E3E3E7] bg-white p-5 shadow-xl"
+          className="inline-dialog mt-4 rounded-2xl border border-[#E3E3E7] bg-white p-5 shadow-xl"
         >
           <h3 id="add-model-title" className="text-[17px] font-semibold text-[#1C1C1E]">
             Add a model

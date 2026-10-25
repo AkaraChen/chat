@@ -1,6 +1,6 @@
 import { EyeIcon, PlugsIcon, SlidersHorizontalIcon, XIcon } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, type ComponentType } from "react";
+import { useRef, useState, type ComponentType } from "react";
 
 import type { ProviderSlug } from "@my-better-t-app/api/credentials/store";
 
@@ -167,18 +167,24 @@ export function SettingsDialog({
   const saveToken = useMutation(orpc.github.save.mutationOptions({ onSuccess: refresh }));
   const clearToken = useMutation(orpc.github.clear.mutationOptions({ onSuccess: refresh }));
 
-  const title = tabs.find((item) => item.id === tab)?.label ?? "Settings";
+  // Closing plays the open in reverse, so the panel keeps showing the last
+  // tab until it is gone.
+  const lastTab = useRef(tab);
+  if (tab !== undefined) lastTab.current = tab;
+  const open = tab !== undefined;
+  const view = tab ?? lastTab.current;
+  const title = tabs.find((item) => item.id === view)?.label ?? "Settings";
 
   return (
     <div
       role="dialog"
       aria-label="Settings"
-      hidden={tab === undefined}
-      className={`fixed inset-0 z-50 items-center justify-center bg-black/25 ${
-        tab === undefined ? "hidden" : "flex"
-      }`}
+      aria-hidden={!open}
+      inert={!open}
+      data-open={open}
+      className="modal-backdrop fixed inset-0 z-50 flex items-center justify-center bg-black/25"
     >
-      <div className="flex h-[640px] max-h-[90svh] w-[820px] max-w-[94vw] overflow-hidden rounded-3xl bg-white shadow-xl">
+      <div className="modal-panel flex h-[640px] max-h-[90svh] w-[820px] max-w-[94vw] overflow-hidden rounded-3xl bg-white shadow-xl">
         <nav className="flex w-52 shrink-0 flex-col gap-0.5 border-r border-[#E3E3E7] bg-[#F7F7F9] px-3 pt-5">
           <p className="px-3 pb-2 text-[13px] text-[#6E6E73]">Settings</p>
           {tabs.map(({ id, label, Icon }) => (
@@ -187,7 +193,7 @@ export function SettingsDialog({
               type="button"
               onClick={() => onTab(id)}
               className={`flex h-10 items-center gap-2.5 rounded-xl px-3 text-left text-sm font-medium text-[#1C1C1E] ${
-                id === tab ? "bg-white" : "hover:bg-[#E8E8EC]"
+                id === view ? "bg-white" : "hover:bg-[#E8E8EC]"
               }`}
             >
               {Icon ? <Icon size={16} /> : <GitHubMark size={16} fill="#1C1C1E" />}
@@ -208,8 +214,8 @@ export function SettingsDialog({
             </button>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto px-8 py-6">
-            {tab === "general" ? <GeneralPanel name={name} email={email} /> : null}
-            {tab === "providers" ? (
+            {view === "general" ? <GeneralPanel name={name} email={email} /> : null}
+            {view === "providers" ? (
               <ProvidersPanel
                 connections={resolved.connections}
                 catalog={resolved.catalog}
@@ -253,8 +259,8 @@ export function SettingsDialog({
                 }}
               />
             ) : null}
-            {tab === "appearance" ? <div /> : null}
-            {tab === "github" ? (
+            {view === "appearance" ? <div /> : null}
+            {view === "github" ? (
               <GithubPanel
                 set={resolved.githubSet}
                 pending={saveToken.isPending || clearToken.isPending}

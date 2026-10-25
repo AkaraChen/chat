@@ -3,10 +3,9 @@ import {
   MicrophoneIcon,
   PaperclipIcon,
   SlidersHorizontalIcon,
-  SparkleIcon,
   WaveformIcon,
 } from "@phosphor-icons/react";
-import { useEffect, useRef, useState, type Ref } from "react";
+import { useEffect, useRef, type Ref } from "react";
 
 import { Spinner } from "../spinner";
 import { usePreferences } from "./preferences";
@@ -31,7 +30,6 @@ export function Composer({
 }) {
   const own = useRef<HTMLTextAreaElement | null>(null);
   const [prefs] = usePreferences();
-  const [deeper, setDeeper] = useState(false);
   const canSend = !disabled && !busy && value.trim() !== "";
 
   useEffect(() => {
@@ -71,15 +69,6 @@ export function Composer({
         className="max-h-[200px] min-h-12 flex-1 resize-none bg-transparent py-1 text-[15px] leading-6 text-[#1C1C1E] outline-none placeholder:text-[#9E9EA4]"
       />
       <div className="mt-2 flex items-center gap-1">
-        <button
-          type="button"
-          aria-pressed={deeper}
-          onClick={() => setDeeper((on) => !on)}
-          className="flex h-8 items-center gap-1.5 rounded-full border border-[#C9DDF8] bg-[#F3F8FE] px-3 text-[13px] font-medium text-[#1A73E8]"
-        >
-          <SparkleIcon size={14} weight="fill" />
-          Deeper Research
-        </button>
         <button
           type="button"
           aria-label="Attach"

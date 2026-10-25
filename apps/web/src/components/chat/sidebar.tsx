@@ -40,16 +40,7 @@ export function roleName(role: string) {
   return "Visitor";
 }
 
-export function Sidebar({
-  threads,
-  activeId,
-  name,
-  role,
-  onSettings,
-  onRename,
-  onDelete,
-  onPrefetch,
-}: {
+type SidebarProps = {
   threads: Thread[];
   activeId: string | undefined;
   name: string;
@@ -59,13 +50,88 @@ export function Sidebar({
   onDelete: (id: string) => Promise<void>;
   /** A thread is about to be opened: hovered or focused. */
   onPrefetch?: (id: string) => void;
-}) {
+};
+
+/**
+ * The sidebar folds to a rail of icons. The width moves (ease-in-out: it is
+ * on-screen movement), and the two layouts cross-fade inside it: the one
+ * leaving fades fast, the one arriving a beat later, so they never read as
+ * two things at once. Width is a layout property, but nothing else can make
+ * the chat beside it grow; it is short and runs only on a click. Reduced
+ * motion drops the movement and keeps the fade.
+ */
+export function Sidebar(props: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
-  const initial = name.trim().slice(0, 1).toUpperCase() || "A";
+  const toggles = useRef<Record<"open" | "rail", HTMLButtonElement | null>>({
+    open: null,
+    rail: null,
+  });
+  const moveFocus = useRef(false);
+
+  // The toggle that was clicked is now in the hidden layout; its twin takes focus.
+  useEffect(() => {
+    if (!moveFocus.current) return;
+    moveFocus.current = false;
+    toggles.current[collapsed ? "rail" : "open"]?.focus();
+  }, [collapsed]);
+
+  function toggle() {
+    moveFocus.current = document.activeElement === toggles.current[collapsed ? "rail" : "open"];
+    setCollapsed((value) => !value);
+  }
+
   return (
     <aside
-      className={`flex h-full shrink-0 flex-col py-3 ${collapsed ? "w-[72px] items-center px-2" : "w-60 px-3"}`}
+      className={`relative h-full shrink-0 overflow-hidden transition-[width] duration-[240ms] ease-in-out motion-reduce:transition-none ${
+        collapsed ? "w-[72px]" : "w-60"
+      }`}
     >
+      {([false, true] as const).map((rail) => {
+        const shown = rail === collapsed;
+        return (
+          <div
+            key={rail ? "rail" : "open"}
+            inert={!shown}
+            aria-hidden={!shown}
+            className={`absolute inset-y-0 left-0 transition-opacity ease-out ${
+              rail ? "w-[72px]" : "w-60"
+            } ${shown ? "opacity-100 delay-[60ms] duration-[160ms]" : "opacity-0 duration-[120ms]"}`}
+          >
+            <SidebarLayer
+              {...props}
+              collapsed={rail}
+              toggleRef={(el) => {
+                toggles.current[rail ? "rail" : "open"] = el;
+              }}
+              onToggle={toggle}
+            />
+          </div>
+        );
+      })}
+    </aside>
+  );
+}
+
+function SidebarLayer({
+  threads,
+  activeId,
+  name,
+  role,
+  onSettings,
+  onRename,
+  onDelete,
+  onPrefetch,
+  collapsed,
+  toggleRef,
+  onToggle,
+}: SidebarProps & {
+  collapsed: boolean;
+  toggleRef: (el: HTMLButtonElement | null) => void;
+  onToggle: () => void;
+}) {
+  const initial = name.trim().slice(0, 1).toUpperCase() || "A";
+  return (
+    <div className={`flex h-full flex-col py-3 ${collapsed ? "items-center px-2" : "px-3"}`}>
       <div className={`flex items-center ${collapsed ? "justify-center" : "justify-between px-1"}`}>
         {collapsed ? null : (
           <span
@@ -77,9 +143,10 @@ export function Sidebar({
           </span>
         )}
         <button
+          ref={toggleRef}
           type="button"
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          onClick={() => setCollapsed((value) => !value)}
+          onClick={onToggle}
           className="flex size-8 items-center justify-center rounded-lg text-[#6E6E73] hover:bg-white"
         >
           <SidebarSimpleIcon size={18} />
@@ -128,6 +195,7 @@ export function Sidebar({
         className={`mt-auto flex items-center gap-2 ${collapsed ? "flex-col pt-3" : "px-1 pt-3"}`}
       >
         <span
+          role="img"
           aria-label={name}
           className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[#E8E8EC] text-[13px] font-medium text-[#6E6E73]"
         >
@@ -148,7 +216,7 @@ export function Sidebar({
           <GearSixIcon size={18} />
         </button>
       </div>
-    </aside>
+    </div>
   );
 }
 

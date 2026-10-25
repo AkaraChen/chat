@@ -175,7 +175,7 @@ test("a thread shows the attachment, trace, answer cards, and composer tools", (
   expect(screen.queryByText("+214 -86")).toBeNull();
   expect(screen.queryByText("Read the diff")).toBeNull();
 
-  expect(screen.getByRole("button", { name: "Deeper Research" })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Deeper Research" })).toBeNull();
   expect(screen.getByRole("button", { name: "Attach" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "Tools" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "Microphone" })).toBeTruthy();

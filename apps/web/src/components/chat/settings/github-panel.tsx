@@ -24,7 +24,9 @@ export function GithubPanel({
           <GitHubMark size={16} />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block text-[15px] font-medium text-[#1C1C1E]">Personal access token</span>
+          <span className="block text-[15px] font-medium text-[#1C1C1E]">
+            Personal access token
+          </span>
           <span className="block text-[13px] text-[#6E6E73]">
             {set
               ? "Saved on this device. It is not shown again."
@@ -54,7 +56,7 @@ export function GithubPanel({
         <div
           role="dialog"
           aria-labelledby="github-token-title"
-          className="rounded-2xl border border-[#E3E3E7] bg-white p-5 shadow-xl"
+          className="inline-dialog rounded-2xl border border-[#E3E3E7] bg-white p-5 shadow-xl"
         >
           <h3 id="github-token-title" className="text-[17px] font-semibold text-[#1C1C1E]">
             Set a token

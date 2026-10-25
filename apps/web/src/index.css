@@ -1,1 +1,81 @@
 @import "@my-better-t-app/ui/globals.css";
+
+/*
+ * Motion. Tailwind's built-in curves are too weak for UI; these replace them,
+ * so `ease-out` and `ease-in-out` mean the strong versions everywhere.
+ * Entering and leaving use ease-out; moving on screen uses ease-in-out.
+ */
+@theme {
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+}
+
+/*
+ * A modal: the backdrop fades and the panel grows out of 96% from the centre
+ * (a modal is not anchored to a trigger). It stays mounted, so closing is
+ * the same path in reverse; `visibility` flips only once that has played.
+ * `@starting-style` gives the first open, when it mounts already open.
+ */
+.modal-backdrop {
+  transition:
+    opacity 250ms var(--ease-out),
+    visibility 0s;
+}
+
+.modal-panel {
+  transition:
+    opacity 250ms var(--ease-out),
+    transform 250ms var(--ease-out);
+}
+
+.modal-backdrop[data-open="false"] {
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 200ms var(--ease-out),
+    visibility 0s 200ms;
+}
+
+.modal-backdrop[data-open="false"] .modal-panel {
+  opacity: 0;
+  transform: scale(0.96);
+  transition-duration: 200ms;
+}
+
+@starting-style {
+  .modal-backdrop[data-open="true"] {
+    opacity: 0;
+  }
+
+  .modal-backdrop[data-open="true"] .modal-panel {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
+/* A small panel that opens inside another surface (add a model, set a token). */
+.inline-dialog {
+  transition:
+    opacity 200ms var(--ease-out),
+    transform 200ms var(--ease-out);
+
+  @starting-style {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+}
+
+/* Reduced motion keeps the fades and drops the movement. */
+@media (prefers-reduced-motion: reduce) {
+  .modal-backdrop[data-open="false"] .modal-panel,
+  .inline-dialog {
+    transform: none;
+  }
+
+  @starting-style {
+    .modal-backdrop[data-open="true"] .modal-panel,
+    .inline-dialog {
+      transform: none;
+    }
+  }
+}

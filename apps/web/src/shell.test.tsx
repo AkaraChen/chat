@@ -36,12 +36,12 @@ test("signed-in shell shows the empty state and collapses the thread list", asyn
   expect(screen.getByRole("link", { name: "New chat" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "Library" })).toBeTruthy();
   expect(screen.getByText("Admin")).toBeTruthy();
-  expect(screen.getByLabelText("Eric")).toBeTruthy();
+  expect(screen.getByRole("img", { name: "Eric" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "Settings" })).toBeTruthy();
-  expect(screen.getByRole("button", { name: "More" })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "More" })).toBeNull();
   expect(screen.getByRole("button", { name: "Export chat" })).toBeTruthy();
   expect(screen.getByText("Morning notes")).toBeTruthy();
-  expect(screen.getByRole("button", { name: "Deeper Research" })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Deeper Research" })).toBeNull();
   expect(screen.getByRole("button", { name: "Attach" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "Tools" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "Microphone" })).toBeTruthy();
@@ -54,12 +54,18 @@ test("signed-in shell shows the empty state and collapses the thread list", asyn
   expect(screen.getByText(/Review AkaraChen\/chat#128/)).toBeTruthy();
   expect(screen.getByText(/Real GDP 1.8, 1.6, 1.8/)).toBeTruthy();
 
-  fireEvent.click(screen.getByRole("button", { name: "Collapse sidebar" }));
+  expect(screen.getByRole("link", { name: "Morning notes" })).toBeTruthy();
+  const collapse = screen.getByRole("button", { name: "Collapse sidebar" });
+  collapse.focus();
+  fireEvent.click(collapse);
 
-  expect(screen.queryByText("Morning notes")).toBeNull();
+  // The list stays mounted to fade out, but is out of reach; focus moves to
+  // the toggle that is now shown.
+  expect(screen.queryByRole("link", { name: "Morning notes" })).toBeNull();
+  expect(document.activeElement).toBe(screen.getByRole("button", { name: "Expand sidebar" }));
   expect(screen.getByRole("link", { name: "New chat" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "Library" })).toBeTruthy();
-  expect(screen.getByLabelText("Eric")).toBeTruthy();
+  expect(screen.getByRole("img", { name: "Eric" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "Settings" })).toBeTruthy();
 });
 

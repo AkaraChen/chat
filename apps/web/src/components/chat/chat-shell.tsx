@@ -1,4 +1,4 @@
-import { DotsThreeIcon, ExportIcon } from "@phosphor-icons/react";
+import { ExportIcon } from "@phosphor-icons/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { Suspense, useEffect, useRef } from "react";
@@ -170,13 +170,6 @@ export function ChatShell({
         <header className="flex h-14 shrink-0 items-center justify-between px-4">
           <ModelPicker onConnect={() => openSettings("providers")} />
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              aria-label="More"
-              className="flex size-9 items-center justify-center rounded-full text-[#6E6E73] hover:bg-[#F7F7F9]"
-            >
-              <DotsThreeIcon size={18} weight="bold" />
-            </button>
             <button
               type="button"
               className="flex h-9 items-center gap-1.5 rounded-full border border-[#DCDCE0] px-3 text-sm font-medium text-[#1C1C1E] hover:bg-[#F7F7F9]"
