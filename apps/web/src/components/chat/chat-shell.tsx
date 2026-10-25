@@ -31,9 +31,14 @@ const preloadPanes = () => {
 
 type ThreadList = { id: string; title: string; updatedAt: Date | string }[];
 
+// A title is usually ready a few seconds after the first answer is saved
+// (which also moves the thread's updatedAt), so ask often at first, then
+// rarely, then stop, in case the worker is down.
 const TITLE_POLL_MS = 2000;
-// Give up waiting for a title after this long, in case the worker is down.
+const TITLE_FAST_MS = 30 * 1000;
+const TITLE_SLOW_POLL_MS = 15 * 1000;
 const TITLE_WAIT_MS = 5 * 60 * 1000;
+const PREFETCH_FRESH_MS = 30 * 1000;
 
 export function ChatShell({
   name,
@@ -61,15 +66,15 @@ export function ChatShell({
   if (settings) settingsOpened.current = true;
 
   // The newest thread keeps its cut-off title until the background task has
-  // summarised it, so ask again every 2 seconds until it has.
+  // summarised it, so ask again until it has.
   const threads = useQuery({
     ...orpc.threads.list.queryOptions({
       refetchInterval: (query) => {
         const newest = query.state.data?.[0];
         if (!newest || newest.titledAt) return false;
-        return Date.now() - new Date(newest.createdAt).getTime() < TITLE_WAIT_MS
-          ? TITLE_POLL_MS
-          : false;
+        const waited = Date.now() - new Date(newest.updatedAt).getTime();
+        if (waited < TITLE_FAST_MS) return TITLE_POLL_MS;
+        return waited < TITLE_WAIT_MS ? TITLE_SLOW_POLL_MS : false;
       },
     }),
     enabled: threadList === undefined,
@@ -156,7 +161,9 @@ export function ChatShell({
         onDelete={deleteThread}
         onPrefetch={(id) => {
           void loadThreadPane();
-          void queryClient.prefetchQuery(historyQuery(id));
+          // A read ahead holds for a while, so hovering the same rows again
+          // does not ask again; opening one still refreshes it as usual.
+          void queryClient.prefetchQuery({ ...historyQuery(id), staleTime: PREFETCH_FRESH_MS });
         }}
       />
       <main className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-[20px] border border-[#E3E3E7] bg-white">

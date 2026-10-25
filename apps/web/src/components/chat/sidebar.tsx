@@ -17,6 +17,8 @@ import { useEffect, useRef, useState } from "react";
 type Thread = { id: string; title: string; updatedAt: Date | string };
 
 const DAY = 24 * 60 * 60 * 1000;
+// Read a thread ahead only when the pointer rests on it, not when it passes over.
+const HOVER_INTENT_MS = 100;
 
 function group(threads: Thread[], now = new Date()) {
   const start = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
@@ -168,6 +170,8 @@ function ThreadRow({
   const [draft, setDraft] = useState(thread.title);
   const inputRef = useRef<HTMLInputElement>(null);
   const skipCommit = useRef(false);
+  const hover = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => () => clearTimeout(hover.current), []);
   const filled = active || menuOpen || editing;
 
   useEffect(() => {
@@ -233,7 +237,11 @@ function ThreadRow({
         <Link
           to="/chat"
           search={{ thread: thread.id }}
-          onMouseEnter={() => onPrefetch?.(thread.id)}
+          onMouseEnter={() => {
+            clearTimeout(hover.current);
+            hover.current = setTimeout(() => onPrefetch?.(thread.id), HOVER_INTENT_MS);
+          }}
+          onMouseLeave={() => clearTimeout(hover.current)}
           onFocus={() => onPrefetch?.(thread.id)}
           className="flex h-full min-w-0 flex-1 items-center"
         >
