@@ -11,7 +11,7 @@ import { render } from "@testing-library/react";
 import { act, type ReactNode } from "react";
 
 /** Mount a signed-in screen on /chat without the app's server router. */
-export async function renderApp(ui: ReactNode) {
+export async function renderApp(ui: ReactNode, prepare?: (queryClient: QueryClient) => void) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
@@ -41,6 +41,7 @@ export async function renderApp(ui: ReactNode) {
     history: createMemoryHistory({ initialEntries: ["/chat"] }),
   });
   await router.load();
+  prepare?.(queryClient);
   let view!: ReturnType<typeof render>;
   await act(async () => {
     view = render(
