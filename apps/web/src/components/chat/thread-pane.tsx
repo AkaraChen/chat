@@ -1,6 +1,7 @@
 import { useChat } from "@ai-sdk/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { orpc } from "@/utils/orpc";
 
@@ -30,6 +31,7 @@ function Conversation({
   initial: ChatMessage[];
   pending: React.RefObject<Pending | null>;
 }) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { ready } = useModelChoice();
   const [draft, setDraft] = useState("");
@@ -89,7 +91,7 @@ function Conversation({
     <ThreadView
       turns={turns}
       streaming={busy}
-      error={chat.status === "error" ? (chat.error?.message ?? "Something went wrong.") : null}
+      error={chat.status === "error" ? (chat.error?.message ?? t("thread.failed")) : null}
       draft={draft}
       onDraft={setDraft}
       onSend={send}

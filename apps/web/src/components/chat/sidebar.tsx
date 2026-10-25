@@ -13,6 +13,7 @@ import {
 } from "@my-better-t-app/ui/components/dropdown-menu";
 import { Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 type Thread = { id: string; title: string; updatedAt: Date | string };
 
@@ -22,10 +23,10 @@ const HOVER_INTENT_MS = 100;
 
 function group(threads: Thread[], now = new Date()) {
   const start = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  const groups: { label: string; threads: Thread[] }[] = [
-    { label: "Today", threads: [] },
-    { label: "Yesterday", threads: [] },
-    { label: "Earlier", threads: [] },
+  const groups: { label: "today" | "yesterday" | "earlier"; threads: Thread[] }[] = [
+    { label: "today", threads: [] },
+    { label: "yesterday", threads: [] },
+    { label: "earlier", threads: [] },
   ];
   for (const thread of threads) {
     const at = new Date(thread.updatedAt).getTime();
@@ -34,10 +35,10 @@ function group(threads: Thread[], now = new Date()) {
   return groups.filter((g) => g.threads.length > 0);
 }
 
-export function roleName(role: string) {
-  if (role === "admin") return "Admin";
-  if (role === "user") return "User";
-  return "Visitor";
+export function roleKey(role: string) {
+  if (role === "admin") return "role.admin";
+  if (role === "user") return "role.user";
+  return "role.visitor";
 }
 
 type SidebarProps = {
@@ -129,6 +130,7 @@ function SidebarLayer({
   toggleRef: (el: HTMLButtonElement | null) => void;
   onToggle: () => void;
 }) {
+  const { t } = useTranslation();
   const initial = name.trim().slice(0, 1).toUpperCase() || "A";
   return (
     <div className={`flex h-full flex-col py-3 ${collapsed ? "items-center px-2" : "px-3"}`}>
@@ -145,7 +147,7 @@ function SidebarLayer({
         <button
           ref={toggleRef}
           type="button"
-          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          aria-label={collapsed ? t("sidebar.expand") : t("sidebar.collapse")}
           onClick={onToggle}
           className="flex size-8 items-center justify-center rounded-lg text-ink-secondary hover:bg-paper"
         >
@@ -155,13 +157,13 @@ function SidebarLayer({
       <Link
         to="/chat"
         search={{}}
-        aria-label="New chat"
+        aria-label={t("sidebar.newChat")}
         className={`mt-4 flex items-center justify-center bg-accent font-medium text-on-accent ${
           collapsed ? "size-10 rounded-xl" : "h-10 gap-2 rounded-xl px-3 text-sm"
         }`}
       >
         <PlusIcon size={16} weight="bold" />
-        {collapsed ? null : "New chat"}
+        {collapsed ? null : t("sidebar.newChat")}
       </Link>
       <button
         type="button"
@@ -170,13 +172,15 @@ function SidebarLayer({
         }`}
       >
         <BooksIcon size={18} className="shrink-0 text-ink-secondary" />
-        {collapsed ? <span className="sr-only">Library</span> : "Library"}
+        {collapsed ? <span className="sr-only">{t("sidebar.library")}</span> : t("sidebar.library")}
       </button>
       {collapsed ? null : (
         <nav className="mt-4 flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto">
           {group(threads).map(({ label, threads }) => (
             <section key={label} className="flex flex-col gap-0.5">
-              <h2 className="px-3 pb-1 text-xs font-medium text-ink-tertiary">{label}</h2>
+              <h2 className="px-3 pb-1 text-xs font-medium text-ink-tertiary">
+                {t(`sidebar.${label}`)}
+              </h2>
               {threads.map((thread) => (
                 <ThreadRow
                   key={thread.id}
@@ -204,12 +208,12 @@ function SidebarLayer({
         {collapsed ? null : (
           <span className="min-w-0 flex-1">
             <span className="block truncate text-[13px] font-medium text-ink">{name}</span>
-            <span className="block text-xs text-ink-secondary">{roleName(role)}</span>
+            <span className="block text-xs text-ink-secondary">{t(roleKey(role))}</span>
           </span>
         )}
         <button
           type="button"
-          aria-label="Settings"
+          aria-label={t("sidebar.settings")}
           onClick={onSettings}
           className="flex size-8 items-center justify-center rounded-lg text-ink-secondary hover:bg-paper"
         >
@@ -233,6 +237,7 @@ function ThreadRow({
   onDelete: (id: string) => Promise<void>;
   onPrefetch?: (id: string) => void;
 }) {
+  const { t } = useTranslation();
   const [menuOpen, setMenuOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(thread.title);
@@ -285,7 +290,7 @@ function ThreadRow({
       {editing ? (
         <input
           ref={inputRef}
-          aria-label="Chat name"
+          aria-label={t("sidebar.chatName")}
           value={draft}
           maxLength={80}
           onChange={(event) => setDraft(event.target.value)}
@@ -321,7 +326,7 @@ function ThreadRow({
       {editing ? null : (
         <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
           <DropdownMenuTrigger
-            aria-label={`Actions for ${thread.title}`}
+            aria-label={t("sidebar.actions", { title: thread.title })}
             className={`ml-2 flex size-5 shrink-0 items-center justify-center rounded-[6px] text-ink-secondary outline-none ${
               menuOpen
                 ? "bg-paper"
@@ -343,13 +348,13 @@ function ThreadRow({
               }}
               className="h-8 rounded-[8px] px-2.5 text-[13px] font-medium text-ink focus:bg-recessed focus:text-ink"
             >
-              Rename
+              {t("sidebar.rename")}
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => void onDelete(thread.id)}
               className="h-8 rounded-[8px] px-2.5 text-[13px] font-medium text-remove focus:bg-recessed focus:text-remove"
             >
-              Delete
+              {t("sidebar.delete")}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

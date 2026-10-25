@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { GitHubMark } from "../../github-mark";
 
@@ -14,6 +15,7 @@ export function GithubPanel({
   onSave: (token: string) => Promise<void> | void;
   onClear: () => Promise<void> | void;
 }) {
+  const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
   const [token, setToken] = useState("");
 
@@ -24,11 +26,9 @@ export function GithubPanel({
           <GitHubMark size={16} fill="currentColor" />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block text-[15px] font-medium text-ink">Personal access token</span>
+          <span className="block text-[15px] font-medium text-ink">{t("githubPanel.token")}</span>
           <span className="block text-[13px] text-ink-secondary">
-            {set
-              ? "Saved on this device. It is not shown again."
-              : "Not set. Used only to read pull requests."}
+            {set ? t("githubPanel.saved") : t("githubPanel.notSet")}
           </span>
         </span>
         {set ? (
@@ -38,7 +38,7 @@ export function GithubPanel({
             disabled={pending}
             className="text-sm font-medium text-accent disabled:opacity-60"
           >
-            Clear
+            {t("githubPanel.clear")}
           </button>
         ) : (
           <button
@@ -46,7 +46,7 @@ export function GithubPanel({
             onClick={() => setEditing(true)}
             className="text-sm font-medium text-accent"
           >
-            Set token
+            {t("githubPanel.set")}
           </button>
         )}
       </div>
@@ -57,14 +57,13 @@ export function GithubPanel({
           className="inline-dialog rounded-2xl border border-line-quiet bg-paper p-5 shadow-[var(--elevation-modal)]"
         >
           <h3 id="github-token-title" className="text-[17px] font-semibold text-ink">
-            Set a token
+            {t("githubPanel.setTitle")}
           </h3>
           <p className="mt-1 text-[13px] leading-5 text-ink-secondary">
-            Paste a GitHub personal access token. It is used only to read pull requests, then saved
-            on this device and not shown again.
+            {t("githubPanel.setDetail")}
           </p>
           <label className="mt-4 flex flex-col gap-1.5">
-            <span className="text-[13px] font-medium text-ink">Personal access token</span>
+            <span className="text-[13px] font-medium text-ink">{t("githubPanel.token")}</span>
             <input
               value={token}
               onChange={(event) => setToken(event.target.value)}
@@ -80,7 +79,7 @@ export function GithubPanel({
               onClick={() => setEditing(false)}
               className="h-9 rounded-lg border border-line-quiet px-3 text-sm text-ink"
             >
-              Cancel
+              {t("common.cancel")}
             </button>
             <button
               type="button"
@@ -92,7 +91,7 @@ export function GithubPanel({
               }}
               className="h-9 rounded-lg bg-accent px-3 text-sm font-medium text-on-accent disabled:opacity-40"
             >
-              Save token
+              {t("githubPanel.save")}
             </button>
           </div>
         </div>

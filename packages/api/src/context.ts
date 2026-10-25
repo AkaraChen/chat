@@ -22,4 +22,6 @@ export type Context = {
   // Replaces `fetch` for the proxy and GitHub. Tests only.
   fetch?: typeof fetch;
   session: { userId: string; role: Role } | null;
+  // Better Auth's secret. It also signs stateless export links.
+  authSecret: string;
 };

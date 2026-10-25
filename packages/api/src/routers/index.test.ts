@@ -119,6 +119,7 @@ beforeAll(async () => {
     }),
     createModel: () => scriptedModel([say(inline("Hi.", notesSpec()))]),
     fetch: await fakeProxyFetch(credentials),
+    authSecret: "test-secret",
   };
 });
 

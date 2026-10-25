@@ -1,13 +1,15 @@
 import { ExportIcon } from "@phosphor-icons/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { Suspense, useEffect, useRef } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { client, orpc } from "@/utils/orpc";
 
 import { preloadable } from "../preloadable";
 import { EmptyPane } from "./empty-pane";
+import { ExportDialog } from "./export-dialog";
 import { ModelPicker } from "./model-picker";
 import type { SettingsData } from "./settings/settings-dialog";
 import type { SettingsTab } from "./settings/tabs";
@@ -58,12 +60,16 @@ export function ChatShell({
   threadList?: ThreadList;
   settingsData?: SettingsData;
 }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const pending = useRef<Pending | null>(null);
   // Mounted on first open and kept, so closing it keeps what it holds.
   const settingsOpened = useRef(false);
   if (settings) settingsOpened.current = true;
+  const exportOpened = useRef(false);
+  const [exportOpen, setExportOpen] = useState(false);
+  if (exportOpen) exportOpened.current = true;
 
   // The newest thread keeps its cut-off title until the background task has
   // summarised it, so ask again until it has.
@@ -114,7 +120,7 @@ export function ChatShell({
       ]);
       await navigate({ to: "/chat", search: { thread: created.id } });
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Couldn't start the conversation.");
+      toast.error(error instanceof Error ? error.message : t("shell.startFailed"));
       throw error;
     }
   }
@@ -127,7 +133,7 @@ export function ChatShell({
         current?.map((item) => (item.id === id ? { ...item, ...updated } : item)),
       );
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Couldn't rename the chat.");
+      toast.error(error instanceof Error ? error.message : t("shell.renameFailed"));
       throw error;
     }
   }
@@ -142,7 +148,7 @@ export function ChatShell({
         await navigate({ to: "/chat", search: (prev) => ({ settings: prev.settings }) });
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Couldn't delete the chat.");
+      toast.error(error instanceof Error ? error.message : t("shell.deleteFailed"));
     }
   }
 
@@ -169,15 +175,20 @@ export function ChatShell({
       <main className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-[20px] border border-line-quiet bg-paper">
         <header className="flex h-14 shrink-0 items-center justify-between px-4">
           <ModelPicker onConnect={() => openSettings("providers")} />
-          <div className="flex items-center gap-2">
+          {/* Only a chat that exists can be exported; the empty state has none. */}
+          {thread ? (
             <button
               type="button"
-              className="flex h-9 items-center gap-1.5 rounded-full border border-line px-3 text-sm font-medium text-ink hover:bg-recessed"
+              aria-expanded={exportOpen}
+              onClick={() => setExportOpen(true)}
+              className={`flex h-8 items-center gap-1.5 rounded-full border pr-3 pl-2.5 text-[13px] leading-4 font-medium text-ink ${
+                exportOpen ? "border-accent bg-accent-soft" : "border-line hover:bg-recessed"
+              }`}
             >
               <ExportIcon size={14} />
-              Export chat
+              {t("shell.exportChat")}
             </button>
-          </div>
+          ) : null}
         </header>
         {thread ? (
           <Suspense fallback={<div className="flex-1" />}>
@@ -192,6 +203,14 @@ export function ChatShell({
           <EmptyPane name={name} onStart={start} />
         )}
       </main>
+      {exportOpened.current ? (
+        <ExportDialog
+          open={exportOpen}
+          threadId={thread}
+          title={shown.find((item) => item.id === thread)?.title ?? ""}
+          onClose={() => setExportOpen(false)}
+        />
+      ) : null}
       {settingsOpened.current ? (
         <Suspense fallback={null}>
           <SettingsDialog

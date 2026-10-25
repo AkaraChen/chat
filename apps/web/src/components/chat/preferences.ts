@@ -5,7 +5,6 @@ export type Theme = "system" | "light" | "dark";
 export type Preferences = {
   enterToSend: boolean;
   spellCheck: boolean;
-  language: "English";
   theme: Theme;
 };
 
@@ -14,12 +13,7 @@ export const PREFERENCES_KEY = "the-chat-preferences";
 const KEY = PREFERENCES_KEY;
 const EVENT = "the-chat-preferences";
 
-const defaults: Preferences = {
-  enterToSend: true,
-  spellCheck: false,
-  language: "English",
-  theme: "system",
-};
+const defaults: Preferences = { enterToSend: true, spellCheck: false, theme: "system" };
 
 function themeOf(value: unknown): Theme {
   return value === "light" || value === "dark" ? value : "system";
@@ -34,7 +28,6 @@ export function readPreferences(): Preferences {
     return {
       enterToSend: parsed.enterToSend !== false,
       spellCheck: parsed.spellCheck === true,
-      language: "English",
       theme: themeOf(parsed.theme),
     };
   } catch {

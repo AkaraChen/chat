@@ -1,6 +1,8 @@
 import { afterEach, expect, test } from "bun:test";
 import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 
+import "@/i18n";
+
 import { orpc } from "./utils/orpc";
 import { ChatShell } from "./components/chat/chat-shell";
 import { renderApp } from "./test-harness";
@@ -39,7 +41,7 @@ test("signed-in shell shows the empty state and collapses the thread list", asyn
   expect(screen.getByRole("img", { name: "Eric" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "Settings" })).toBeTruthy();
   expect(screen.queryByRole("button", { name: "More" })).toBeNull();
-  expect(screen.getByRole("button", { name: "Export chat" })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Export chat" })).toBeNull();
   expect(screen.getByText("Morning notes")).toBeTruthy();
   expect(screen.queryByRole("button", { name: "Deeper Research" })).toBeNull();
   expect(screen.getByRole("button", { name: "Attach" })).toBeTruthy();

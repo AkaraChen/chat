@@ -4,6 +4,8 @@ import { z } from "zod";
 
 import type { ChatMessage } from "../chat/message";
 import { loadMessages } from "../chat/run";
+import { exportAccess, exportDurations } from "../export/duration";
+import { ExportDenied, ExportMissing, mintThreadExport } from "../export/share";
 import { DeviceAuthError } from "../credentials/openai-device";
 import {
   fileNameFor,
@@ -281,6 +283,37 @@ export const appRouter = {
         });
         if (deleted.count !== 1) throw new ORPCError("NOT_FOUND");
         return { id: input.id };
+      }),
+
+    // A stateless link. The token is the whole record.
+    export: memberProcedure
+      .input(
+        z.object({
+          id: z.string().min(1),
+          access: z.enum(exportAccess),
+          duration: z.enum(exportDurations),
+        }),
+      )
+      .handler(async ({ context, input }) => {
+        try {
+          const minted = await mintThreadExport({
+            db: context.db,
+            secret: context.authSecret,
+            actor: context.session,
+            threadId: input.id,
+            access: input.access,
+            duration: input.duration,
+          });
+          return {
+            token: minted.token,
+            access: minted.access,
+            expiresAt: minted.expiresAt.toISOString(),
+          };
+        } catch (error) {
+          if (error instanceof ExportDenied) throw new ORPCError("FORBIDDEN");
+          if (error instanceof ExportMissing) throw new ORPCError("NOT_FOUND");
+          throw error;
+        }
       }),
   },
 
