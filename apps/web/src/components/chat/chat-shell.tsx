@@ -68,10 +68,18 @@ export function ChatShell({
     }
   }
 
+  // The sidebar reads threads.list.queryKey(). key() is only the prefix, and
+  // setQueryData matches exactly, so writing there never reaches this query.
+  function threadListKey() {
+    return orpc.threads.list.queryKey();
+  }
+
   async function renameThread(id: string, title: string) {
+    const listKey = threadListKey();
     try {
       const updated = await client.threads.rename({ id, title });
-      queryClient.setQueryData(orpc.threads.list.key(), (current: ThreadList | undefined) =>
+      await queryClient.cancelQueries({ queryKey: listKey });
+      queryClient.setQueryData(listKey, (current) =>
         current?.map((item) => (item.id === id ? { ...item, ...updated } : item)),
       );
     } catch (error) {
@@ -81,13 +89,14 @@ export function ChatShell({
   }
 
   async function deleteThread(id: string) {
+    const listKey = threadListKey();
     try {
       await client.threads.delete({ id });
-      queryClient.setQueryData(orpc.threads.list.key(), (current: ThreadList | undefined) =>
-        current?.filter((item) => item.id !== id),
-      );
+      await queryClient.cancelQueries({ queryKey: listKey });
+      queryClient.setQueryData(listKey, (current) => current?.filter((item) => item.id !== id));
+      queryClient.removeQueries({ queryKey: orpc.threads.get.queryKey({ input: { id } }) });
       if (thread === id) {
-        await navigate({ to: "/chat", search: (prev) => ({ ...prev, thread: undefined }) });
+        await navigate({ to: "/chat", search: (prev) => ({ settings: prev.settings }) });
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Couldn't delete the chat.");

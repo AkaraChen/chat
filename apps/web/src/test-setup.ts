@@ -80,8 +80,19 @@ window.matchMedia = (query: string) =>
     },
   }) as MediaQueryList;
 
-globalThis.fetch = (async () => {
+// RPCLink binds this function when the client module loads, so tests swap the
+// body instead of replacing global fetch afterwards.
+type TestFetch = typeof fetch;
+const networkDisabled: TestFetch = async () => {
   throw new Error("network disabled in tests");
-}) as unknown as typeof fetch;
+};
+let testFetch: TestFetch = networkDisabled;
+
+export function setTestFetch(next: TestFetch | null) {
+  testFetch = next ?? networkDisabled;
+}
+
+globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) =>
+  testFetch(input, init)) as typeof fetch;
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
