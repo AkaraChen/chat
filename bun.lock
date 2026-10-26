@@ -60,22 +60,11 @@
         "typescript": "~6.0.3",
       },
     },
-    "apps/proxy": {
-      "name": "proxy",
-      "dependencies": {
-        "@cpajs/cpa": "0.1.0-rc.3",
-        "@my-better-t-app/api": "workspace:*",
-      },
-      "devDependencies": {
-        "@my-better-t-app/config": "workspace:*",
-        "@types/bun": "^1.4.4",
-        "typescript": "^6.0.3",
-      },
-    },
     "apps/web": {
       "name": "web",
       "dependencies": {
         "@ai-sdk/react": "^4.0.156",
+        "@cpajs/cpa": "0.1.0-rc.3",
         "@json-render/core": "^0.21.3",
         "@json-render/react": "^0.21.3",
         "@my-better-t-app/api": "workspace:*",
@@ -142,6 +131,7 @@
       "name": "@my-better-t-app/api",
       "dependencies": {
         "@ai-sdk/openai": "^4.0.101",
+        "@cpajs/cpa": "0.1.0-rc.3",
         "@json-render/core": "^0.21.3",
         "@my-better-t-app/db": "workspace:*",
         "@orpc/client": "catalog:",
@@ -2329,8 +2319,6 @@
     "proper-lockfile": ["proper-lockfile@4.1.2", "", { "dependencies": { "graceful-fs": "^4.2.4", "retry": "^0.12.0", "signal-exit": "^3.0.2" } }, "sha512-TjNPblN4BwAWMXU8s9AEz4JmQxnD1NNL7bNOY/AKUzyamc379FWASUhc/K1pL2noVb+XmZKLL68cjzLsiOAMaA=="],
 
     "property-information": ["property-information@7.2.0", "", {}, "sha512-IAtzIB6sUiWaJYrX9smp3V46pBGbBeLFRGdh25kg1334VcBlD8HzhPeNIWQH9zhGmo2itIe25EHt9dQP7G5hmg=="],
-
-    "proxy": ["proxy@workspace:apps/proxy"],
 
     "proxy-addr": ["proxy-addr@2.0.8", "", { "dependencies": { "forwarded": "0.2.0", "ipaddr.js": "1.9.1" } }, "sha512-5nnx0yGyVUcY6t9RnWcARWtwT9F1D8O9rt08htPvnd49W1IgZtmLkhu9WfMzQj1cFxjHIO6connUNVW5k7AVyQ=="],
 

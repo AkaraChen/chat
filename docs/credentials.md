@@ -119,14 +119,15 @@ credential itself. The client only ever learns that a provider is connected.
 
 ## The proxy
 
-The proxy (`apps/proxy`) runs CLIProxyAPI through
-[cpajs](https://github.com/AkaraChen/cpajs) and only reads this directory. It
+The web server runs CLIProxyAPI through
+[cpajs](https://github.com/AkaraChen/cpajs) (`packages/api/src/proxy`), and the
+proxy only reads this directory. It
 never writes a credential. At start it renders CLIProxyAPI's configuration from
 these files into `.data/proxy/config.yaml`, replacing what was there; that file
 is generated output, so edit the credential files, not the config. Whenever the
 directory changes it pushes the API-key groups to CLIProxyAPI through the
 management API, which reloads them. The management key is generated per start
-and never leaves the proxy process. The connection id (the file name without
+and never leaves the web server. The connection id (the file name without
 `.json`) is the prefix the proxy gives each connection's models, so a model is
 addressed as `<connectionId>/<model>`.
 

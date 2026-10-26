@@ -6,7 +6,7 @@ import path from "node:path";
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 
 import { authFileName } from "./auths";
-import { type Proxy, start } from "./index";
+import { type Proxy, start } from "./server";
 
 type Hit = { path: string; auth: string | null; model: string };
 

@@ -1,5 +1,5 @@
 import type { CpaConfig } from "@cpajs/cpa/client";
-import type { Credential, CredentialModel } from "@my-better-t-app/api/credentials/store";
+import type { Credential, CredentialModel } from "../credentials/store";
 
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 // CLIProxyAPI drops codex groups that have no base-url.

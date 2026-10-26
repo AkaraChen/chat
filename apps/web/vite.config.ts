@@ -1,3 +1,5 @@
+import { createRequire } from "node:module";
+
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import { varlockVitePlugin } from "@varlock/vite-integration";
@@ -57,6 +59,26 @@ const vendorChunks = GROUPS.map(([name, priority, test]) => ({
   test: (id: string) => test(id, packageOf(id)),
 }));
 
+// cpajs finds the CLIProxyAPI binary in a platform package it names at run
+// time, which tracing cannot follow. So the server output gets cpajs and every
+// platform package installed here, whole. The image builds and runs on the
+// same platform, so those are the ones it needs.
+function cpajsPackages(): string[] {
+  const cpa = createRequire(createRequire(import.meta.url).resolve("@cpajs/cpa/package.json"));
+  const { optionalDependencies = {} } = cpa("./package.json") as {
+    optionalDependencies?: Record<string, string>;
+  };
+  const installed = Object.keys(optionalDependencies).filter((name) => {
+    try {
+      cpa.resolve(`${name}/package.json`);
+      return true;
+    } catch {
+      return false;
+    }
+  });
+  return ["@cpajs/cpa*", ...installed.map((name) => `${name}*`)];
+}
+
 export default defineConfig({
   server: {
     port: 3001,
@@ -82,7 +104,11 @@ export default defineConfig({
     // Base UI reaches React through use-sync-external-store, a CommonJS
     // package whose require("react") stays a runtime require. Tracing React
     // keeps it external everywhere, so the server has one React instance.
-    nitro({ preset: "node-server", traceDeps: ["react", "react-dom"] }),
+    nitro({
+      preset: "node-server",
+      traceDeps: ["react", "react-dom", ...cpajsPackages()],
+      plugins: ["./src/proxy.plugin.ts"],
+    }),
     viteReact(),
   ],
 });

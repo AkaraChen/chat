@@ -18,10 +18,13 @@ services:
       CREDENTIALS_DIR: /data/credentials
       GITHUB_TOKEN_FILE: /data/github.json
       MODELS_DEV_CACHE_FILE: /data/models-dev.json
-      PROXY_URL: http://proxy:8317
+      # The web server runs the model proxy. It listens on all interfaces so
+      # the worker container can reach it.
+      PROXY_DATA_DIR: /data/proxy
+      PROXY_HOST: 0.0.0.0
+      PROXY_URL: http://127.0.0.1:8317
       REDIS_URL: redis://redis:6379
     depends_on:
-      - proxy
       - redis
     volumes:
       - type: bind
@@ -43,28 +46,6 @@ services:
       start_period: 10s
     restart: unless-stopped
 
-  # Model proxy. Reads /data/credentials and renders its own config under
-  # /data/proxy. Reachable only from the other services.
-  proxy:
-    build:
-      context: .
-      dockerfile: apps/proxy/Dockerfile
-    init: true
-    env_file:
-      - path: apps/web/.env
-        required: false
-    environment:
-      CREDENTIALS_DIR: /data/credentials
-      PROXY_DATA_DIR: /data/proxy
-      PROXY_HOST: 0.0.0.0
-    volumes:
-      - type: bind
-        source: ./.data
-        target: /data
-        bind:
-          create_host_path: false
-    restart: unless-stopped
-
   # Titles threads, and syncs connection models from models.dev twice a day.
   worker:
     build:
@@ -78,7 +59,7 @@ services:
       DATABASE_URL: file:/data/local.db
       CREDENTIALS_DIR: /data/credentials
       MODELS_DEV_CACHE_FILE: /data/models-dev.json
-      PROXY_URL: http://proxy:8317
+      PROXY_URL: http://web:8317
       REDIS_URL: redis://redis:6379
     volumes:
       - type: bind
@@ -87,7 +68,7 @@ services:
         bind:
           create_host_path: false
     depends_on:
-      - proxy
+      - web
       - redis
     restart: unless-stopped
 

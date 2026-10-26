@@ -10,6 +10,9 @@ RUN --mount=type=secret,id=web_env,target=/app/apps/web/.env.local --mount=type=
 ENV DATABASE_URL=
 
 FROM node:24-slim AS runner
+# CLIProxyAPI, which the web server runs, needs the system CA bundle.
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=builder /app /app

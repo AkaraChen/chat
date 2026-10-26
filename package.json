@@ -33,7 +33,6 @@
     "hooks:setup": "vp config",
     "dev:native": "vp run --filter native dev",
     "dev:web": "vp run --filter web dev",
-    "dev:proxy": "vp run --filter proxy dev",
     "dev:worker": "vp run --filter worker dev",
     "db:push": "vp run --filter @my-better-t-app/db db:push",
     "db:studio": "vp run --filter @my-better-t-app/db db:studio",

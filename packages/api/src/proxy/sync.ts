@@ -2,7 +2,7 @@ import { watch } from "node:fs";
 import { mkdir } from "node:fs/promises";
 
 import type { CpaClient } from "@cpajs/cpa/client";
-import { createCredentialStore } from "@my-better-t-app/api/credentials/store";
+import { createCredentialStore } from "../credentials/store";
 
 import { syncAuths } from "./auths";
 import { type Connection, apiKeysOf } from "./config";

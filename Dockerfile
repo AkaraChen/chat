@@ -1,7 +1,7 @@
-# One image for the whole app: the web server, the model proxy and the
-# thread-title worker. deploy/start.sh runs all three. Kamal builds this file.
-# The proxy's CLIProxyAPI binary comes from @cpajs/cpa's platform package,
-# which bun install picks for this image's OS and libc.
+# One image for the whole app: the web server, which runs the model proxy, and
+# the thread-title worker. deploy/start.sh runs both. Kamal builds this file.
+# CLIProxyAPI comes from @cpajs/cpa's platform package, which bun install
+# picks for this image's OS and the web build copies into .output.
 
 FROM node:24 AS app
 COPY --from=oven/bun:1 /usr/local/bin/bun /usr/local/bin/bun
@@ -14,7 +14,7 @@ RUN --mount=type=cache,target=/root/.bun/install/cache bun install --frozen-lock
 # when the container starts.
 RUN export NODE_ENV=production DATABASE_URL=file:/tmp/build.db CREDENTIALS_DIR=/tmp \
       GITHUB_TOKEN_FILE=/tmp/github.json MODELS_DEV_CACHE_FILE=/tmp/models-dev.json \
-      PROXY_API_KEY=build BETTER_AUTH_SECRET=build \
+      PROXY_API_KEY=build PROXY_DATA_DIR=/tmp/proxy BETTER_AUTH_SECRET=build \
       GITHUB_CLIENT_ID=build GITHUB_CLIENT_SECRET=build && \
     bun run db:generate && \
     cd apps/web && bun run build

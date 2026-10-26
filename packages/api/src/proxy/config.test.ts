@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import type { Credential } from "@my-better-t-app/api/credentials/store";
+import type { Credential } from "../credentials/store";
 
 import { authFileName, codexAuth, planAuths, seedOf } from "./auths";
 import { type Connection, apiKeysOf, configOf } from "./config";

@@ -10,7 +10,10 @@ import { toRole } from "@my-better-t-app/db/auth";
 
 import { auth } from "./auth";
 import { ENV } from "./env.server";
+import { ensureProxy } from "./proxy.server";
 import { db } from "./services";
+
+void ensureProxy();
 
 const credentials = createCredentialStore(ENV.CREDENTIALS_DIR);
 const openaiDevice = createOpenAIDeviceAuth();

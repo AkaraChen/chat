@@ -1,8 +1,0 @@
-{
-  "extends": "@my-better-t-app/config/tsconfig.base.json",
-  "compilerOptions": {
-    "noEmit": true,
-    "types": ["node", "bun"]
-  },
-  "include": ["src/**/*.ts"]
-}
