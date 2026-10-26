@@ -11,9 +11,23 @@ export function useModelChoice() {
   const queryClient = useQueryClient();
   // The proxy can be down; the picker says so inline instead of a toast.
   const models = useQuery(orpc.models.list.queryOptions({ retry: false, meta: { quiet: true } }));
+  // The pick shows at once; the server catches up behind it, and a refusal
+  // puts the previous pick back.
+  const listKey = orpc.models.list.queryKey();
   const select = useMutation(
     orpc.models.select.mutationOptions({
-      onSuccess: () => queryClient.invalidateQueries({ queryKey: orpc.models.list.key() }),
+      onMutate: async (input) => {
+        await queryClient.cancelQueries({ queryKey: listKey });
+        const previous = queryClient.getQueryData(listKey);
+        queryClient.setQueryData(listKey, (current) =>
+          current ? { ...current, choice: { ...input, available: true } } : current,
+        );
+        return { previous };
+      },
+      onError: (_error, _input, context) => {
+        if (context?.previous) queryClient.setQueryData(listKey, context.previous);
+      },
+      onSettled: () => queryClient.invalidateQueries({ queryKey: orpc.models.list.key() }),
     }),
   );
 

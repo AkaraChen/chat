@@ -33,7 +33,8 @@ function Conversation({
 }) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
-  const { ready } = useModelChoice();
+  const { ready, choice } = useModelChoice();
+  const model = choice ? { connectionId: choice.connectionId, modelId: choice.modelId } : undefined;
   const [draft, setDraft] = useState("");
   const chat = useChat<ChatMessage>({
     id: threadId,
@@ -73,7 +74,7 @@ function Conversation({
     const first = pending.current;
     if (first && first.threadId === threadId) {
       pending.current = null;
-      void chat.sendMessage({ text: first.text });
+      void chat.sendMessage({ text: first.text }, { body: { model } });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [threadId]);
@@ -84,7 +85,7 @@ function Conversation({
     const text = draft.trim();
     if (!text) return;
     setDraft("");
-    void chat.sendMessage({ text });
+    void chat.sendMessage({ text }, { body: { model } });
   }
 
   return (

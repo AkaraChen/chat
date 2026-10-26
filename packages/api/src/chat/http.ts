@@ -4,8 +4,13 @@ import type { Context } from "../context";
 import { InvalidMessageError, streamChat, ThreadNotFoundError } from "./run";
 
 // What `useChat` sends: the thread id and only its newest message. The
-// server already holds the rest of the conversation.
-const body = z.object({ id: z.string().min(1), message: z.unknown() });
+// server already holds the rest of the conversation. `model` is the pick on
+// screen, which can be ahead of the saved one while it is being saved.
+const body = z.object({
+  id: z.string().min(1),
+  message: z.unknown(),
+  model: z.object({ connectionId: z.string().min(1), modelId: z.string().min(1) }).optional(),
+});
 
 // `DefaultChatTransport` shows the body of a failed response as the error.
 const fail = (status: number, message: string) => new Response(message, { status });
@@ -22,7 +27,9 @@ export async function handleChatRequest(context: Context, request: Request): Pro
   const parsed = body.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return fail(400, "Send a thread id and a message.");
 
-  const choice = await context.db.modelChoice.findUnique({ where: { userId: session.userId } });
+  const choice =
+    parsed.data.model ??
+    (await context.db.modelChoice.findUnique({ where: { userId: session.userId } }));
   if (!choice) return fail(400, "Choose a model first.");
   const connections = await context.credentials.list();
   if (!connections.some((c) => c.id === choice.connectionId)) {
