@@ -6,7 +6,7 @@ Kamal puts the whole app on any Linux server you can reach over SSH. Config is
 ## What runs
 
 - `chat-web`: one container from the root `Dockerfile`. `deploy/start.sh`
-  runs the web server, the Go model proxy (on 127.0.0.1 inside the container)
+  runs the web server, the model proxy (CLIProxyAPI through cpajs) (on 127.0.0.1 inside the container)
   and the thread-title worker. It brings the SQLite schema up to date first.
 - `chat-redis`: Redis for the title queue, as a Kamal accessory.
 - kamal-proxy in front, on ports 80 and 443.

@@ -119,14 +119,18 @@ credential itself. The client only ever learns that a provider is connected.
 
 ## The proxy
 
-The Go proxy (`apps/proxy`) only reads this directory. It never writes a
-credential. At start, and whenever the directory changes, it renders its own
-configuration from these files into `.data/proxy/config.yaml` and reloads. That
-file is generated output; edit the credential files, not the config. The
-connection id (the file name without `.json`) is the prefix the proxy gives
-each connection's models, so a model is addressed as `<connectionId>/<model>`.
+The proxy (`apps/proxy`) runs CLIProxyAPI through
+[cpajs](https://github.com/AkaraChen/cpajs) and only reads this directory. It
+never writes a credential. At start it renders CLIProxyAPI's configuration from
+these files into `.data/proxy/config.yaml`, replacing what was there; that file
+is generated output, so edit the credential files, not the config. Whenever the
+directory changes it pushes the API-key groups to CLIProxyAPI through the
+management API, which reloads them. The management key is generated per start
+and never leaves the proxy process. The connection id (the file name without
+`.json`) is the prefix the proxy gives each connection's models, so a model is
+addressed as `<connectionId>/<model>`.
 
-A ChatGPT sign-in is not part of that config. The proxy writes it once as a
+A ChatGPT sign-in is not part of that config. The proxy uploads it once as a
 Codex auth file, `.data/proxy/auths/chat-<connectionId>.json`, with the
 connection id as its `prefix`. From then on CLIProxyAPI refreshes the tokens
 and rewrites that file itself, so the credential's tokens are only the seed

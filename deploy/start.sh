@@ -11,7 +11,7 @@ chmod 700 "$CREDENTIALS_DIR" "$PROXY_DATA_DIR"
 
 trap 'kill 0' EXIT
 
-proxy &
+(cd /app/apps/proxy && bun src/index.ts) &
 (cd /app/apps/worker && bun src/index.ts) &
 (cd /app/apps/web && node .output/server/index.mjs) &
 

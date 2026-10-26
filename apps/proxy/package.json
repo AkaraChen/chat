@@ -1,8 +1,20 @@
 {
   "name": "proxy",
   "private": true,
+  "type": "module",
   "scripts": {
-    "dev": "go run .",
-    "check-types": "go vet ./... && go test ./..."
+    "dev": "bun --watch src/index.ts",
+    "start": "bun src/index.ts",
+    "test": "bun test",
+    "check-types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@cpajs/cpa": "0.1.0-rc.3",
+    "@my-better-t-app/api": "workspace:*"
+  },
+  "devDependencies": {
+    "@my-better-t-app/config": "workspace:*",
+    "@types/bun": "^1.4.4",
+    "typescript": "^6.0.3"
   }
 }
