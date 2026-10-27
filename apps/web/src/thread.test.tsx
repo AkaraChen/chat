@@ -325,3 +325,33 @@ test("tool_search stays out of the trace, and a view that fails the catalog is n
   render(<ThreadView turns={turns} streaming draft="" onDraft={() => {}} onSend={() => {}} />);
   expect(screen.getByText("Broken notes")).toBeTruthy();
 });
+
+test("the view sits where its first patch arrived, between the prose around it", () => {
+  const notes: Spec = {
+    root: "answer",
+    elements: {
+      answer: { type: "Answer", props: {}, children: ["notes"] },
+      notes: { type: "Notes", props: { title: "Placed notes", items: ["One."] }, children: [] },
+    },
+  };
+  const turns: Turn[] = [
+    {
+      id: "assistant",
+      role: "assistant",
+      steps: [],
+      parts: [
+        { type: "text", text: "Before the view." },
+        ...specParts(notes),
+        { type: "text", text: "After the view." },
+      ],
+    },
+  ];
+  render(<ThreadView turns={turns} draft="" onDraft={() => {}} onSend={() => {}} />);
+  const before = screen.getByText("Before the view.");
+  const view = screen.getByText("Placed notes");
+  const after = screen.getByText("After the view.");
+  const follows = (a: Node, b: Node) =>
+    Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+  expect(follows(before, view)).toBe(true);
+  expect(follows(view, after)).toBe(true);
+});

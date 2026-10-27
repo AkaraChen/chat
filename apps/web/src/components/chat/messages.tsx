@@ -1,3 +1,4 @@
+import { SPEC_DATA_PART_TYPE } from "@json-render/core";
 import { useJsonRenderMessage } from "@json-render/react";
 import { validateSpec } from "@my-better-t-app/api/templates/catalog";
 import { PaperclipIcon } from "@phosphor-icons/react";
@@ -52,20 +53,39 @@ function UserBubbleView({ turn }: { turn: UserTurn }) {
   );
 }
 
+// Text parts joined the way useJsonRenderMessage joins them.
+function textOf(parts: AssistantTurnData["parts"]): string {
+  return parts
+    .map((part) => (part.type === "text" ? part.text.trim() : ""))
+    .filter(Boolean)
+    .join("\n\n");
+}
+
 function AssistantTurnView({ turn, live }: { turn: AssistantTurnData; live: boolean }) {
-  const { spec, text, hasSpec } = useJsonRenderMessage(turn.parts);
+  const { spec, hasSpec } = useJsonRenderMessage(turn.parts);
   // While streaming the view builds up as json-render draws it. Once the turn
   // is over, a view that fails the catalog is left out, as the server does.
   const view = useMemo(
     () => (hasSpec && (live || validateSpec(spec).length === 0) ? spec : null),
     [hasSpec, live, spec],
   );
-  const waiting = live && turn.steps.length === 0 && !text && !view;
+  // The view is drawn where its first patch arrived, between the prose
+  // written before it and after it. Later patches update that one view.
+  const { before, after, placed } = useMemo(() => {
+    const first = turn.parts.findIndex((part) => part.type === SPEC_DATA_PART_TYPE);
+    return {
+      before: textOf(first === -1 ? turn.parts : turn.parts.slice(0, first)),
+      after: first === -1 ? "" : textOf(turn.parts.slice(first)),
+      placed: first !== -1,
+    };
+  }, [turn.parts]);
+  const waiting = live && turn.steps.length === 0 && !before && !after && !view;
   return (
     <div className="flex flex-col gap-4">
       <Trace steps={turn.steps} />
-      {text ? <RichText text={text} streaming={live} className="text-ink" /> : null}
+      {before ? <RichText text={before} streaming={live && !placed} className="text-ink" /> : null}
       <AnswerView spec={view} loading={live} />
+      {after ? <RichText text={after} streaming={live} className="text-ink" /> : null}
       {waiting && <Spinner size={16} />}
     </div>
   );
