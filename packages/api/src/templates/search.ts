@@ -81,7 +81,7 @@ export function createSearchTemplatesTool(
 ): Tool<{ query: string }, SearchOutput> {
   return tool({
     description:
-      "Find the view template for an answer that needs one: meeting notes (decisions, owners, open items), a pull request review, figures to chart, a technology choice (X versus Y), or a capability check (does X support Y). Returns what the prose says, the allowed components, how to use each, an example spec and the spec rules.",
+      "Call this first, before you answer, unless the message is only a greeting or small talk. It finds a view template that lays the answer out better than prose alone. Returns what the prose says, the allowed components, how to use each, an example spec and the spec rules. If nothing fits, answer in prose.",
     inputSchema: z.object({
       query: z.string().describe("The user's request, in their own words."),
     }),
