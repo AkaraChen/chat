@@ -1,7 +1,9 @@
 import type { AnswerSpec, ComponentName } from "./catalog";
 
+export type TemplateId = "meeting" | "review" | "economy" | "tech-choice" | "capability-check";
+
 export interface Template {
-  id: "meeting" | "review" | "economy";
+  id: TemplateId;
   /** When to pick this template. Always says the example numbers are placeholders. */
   when: string;
   /** Suggested accompanying prose. */

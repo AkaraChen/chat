@@ -1,12 +1,20 @@
 import { tool, type Tool } from "ai";
 import { z } from "zod";
 import { specPrompt } from "./catalog";
+import { capabilityCheck } from "./capability-check";
 import { economy } from "./economy";
 import { meeting } from "./meeting";
 import { review } from "./review";
+import { techChoice } from "./tech-choice";
 import type { Template } from "./types";
 
-export const templates: readonly Template[] = [meeting, review, economy];
+export const templates: readonly Template[] = [
+  meeting,
+  review,
+  economy,
+  techChoice,
+  capabilityCheck,
+];
 
 export interface SearchOptions {
   /** Set false when no GitHub token is available: removes the review template. */
@@ -73,7 +81,7 @@ export function createSearchTemplatesTool(
 ): Tool<{ query: string }, SearchOutput> {
   return tool({
     description:
-      "Find the view template for an answer that needs one: meeting notes (decisions, owners, open items), a pull request review, or figures to chart. Returns what the prose says, the allowed components, how to use each, an example spec and the spec rules.",
+      "Find the view template for an answer that needs one: meeting notes (decisions, owners, open items), a pull request review, figures to chart, a technology choice (X versus Y), or a capability check (does X support Y). Returns what the prose says, the allowed components, how to use each, an example spec and the spec rules.",
     inputSchema: z.object({
       query: z.string().describe("The user's request, in their own words."),
     }),

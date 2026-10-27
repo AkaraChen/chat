@@ -1,13 +1,20 @@
 import type { ComponentProps } from "@my-better-t-app/api/templates/catalog";
+import { cn } from "@my-better-t-app/ui/lib/utils";
+import { FileTextIcon, GlobeIcon } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import { RichText } from "./rich-text";
 
-function Card({ title, children }: { title?: string; children: ReactNode }) {
+function Card({ title, meta, children }: { title?: string; meta?: string; children: ReactNode }) {
   return (
     <section data-answer-card className="rounded-[12px] border border-line-quiet px-4 py-4">
-      {title ? <h3 className="mb-3 text-[13px] text-ink-secondary">{title}</h3> : null}
+      {title ? (
+        <div className="mb-3 flex items-baseline justify-between gap-3">
+          <h3 className="text-[13px] text-ink-secondary">{title}</h3>
+          {meta ? <span className="shrink-0 text-xs text-ink-secondary">{meta}</span> : null}
+        </div>
+      ) : null}
       {children}
     </section>
   );
@@ -201,6 +208,186 @@ export function Notes({ title, items }: ComponentProps["Notes"]) {
               •
             </span>
             <RichText text={item} className="min-w-0 flex-1 text-sm text-ink-secondary" />
+          </li>
+        ))}
+      </ul>
+    </Card>
+  );
+}
+
+function CheckMark() {
+  return (
+    <svg width="10" height="10" viewBox="0 0 12 12" aria-hidden="true" className="shrink-0">
+      <path
+        d="M2.4 6.2 4.7 8.5 9.6 3.6"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+export function Options({ title, options }: ComponentProps["Options"]) {
+  const { t } = useTranslation();
+  return (
+    <Card title={title} meta={t("answer.optionCount", { count: options.length })}>
+      <div className={cn("grid gap-2", options.length === 3 ? "sm:grid-cols-3" : "sm:grid-cols-2")}>
+        {options.map((option) => (
+          <div
+            key={option.name}
+            className={cn(
+              "flex flex-col gap-1 rounded-[10px] border p-2.5",
+              option.recommended
+                ? "border-accent-line bg-accent-soft"
+                : "border-transparent bg-recessed",
+            )}
+          >
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="text-sm font-medium text-ink">{option.name}</span>
+              {option.recommended ? (
+                <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-accent">
+                  <CheckMark />
+                  {t("answer.recommended")}
+                </span>
+              ) : null}
+            </div>
+            <RichText text={option.summary} className="text-xs text-ink-secondary" />
+            <span className="mt-auto pt-0.5 text-xs font-medium text-ink">{option.meta}</span>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+export function Comparison({ title, columns, rows }: ComponentProps["Comparison"]) {
+  const { t } = useTranslation();
+  return (
+    <Card title={title} meta={t("answer.criteriaCount", { count: rows.length })}>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[480px] table-fixed border-collapse text-left text-sm">
+          <colgroup>
+            <col />
+            {columns.map((_, index) => (
+              <col key={index} className={columns.length === 3 ? "w-[26%]" : "w-[32%]"} />
+            ))}
+          </colgroup>
+          <thead>
+            <tr>
+              <th />
+              {columns.map((column, index) => (
+                <th key={index} className="pb-2 pl-3 text-left align-bottom font-medium">
+                  <span className="flex items-center gap-1.5">
+                    {column.recommended ? (
+                      <span
+                        aria-hidden="true"
+                        className="size-1.5 shrink-0 rounded-full bg-accent"
+                      />
+                    ) : null}
+                    <span
+                      className={cn(
+                        "text-xs",
+                        column.recommended ? "text-ink" : "text-ink-secondary",
+                      )}
+                    >
+                      {column.name}
+                    </span>
+                  </span>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, index) => (
+              <tr key={`${row.criterion}-${index}`} className="border-t border-line-quiet">
+                <th
+                  scope="row"
+                  className="py-2 pr-3 text-left align-top text-sm font-normal text-ink-secondary"
+                >
+                  <RichText text={row.criterion} />
+                </th>
+                {row.values.map((value, valueIndex) => (
+                  <td
+                    key={valueIndex}
+                    className="py-2 pl-3 align-top text-sm text-ink tabular-nums"
+                  >
+                    <RichText text={value} />
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Card>
+  );
+}
+
+const STATUS_TEXT = {
+  negative: "text-remove",
+  neutral: "text-ink-secondary",
+  positive: "text-add",
+} as const;
+
+const STATUS_DOT = {
+  negative: "bg-remove",
+  neutral: "bg-ink-tertiary",
+  positive: "bg-add",
+} as const;
+
+export function Rows({ title, meta, rows }: ComponentProps["Rows"]) {
+  return (
+    <Card title={title} meta={meta}>
+      <dl className="flex flex-col text-sm">
+        {rows.map((row, index) => (
+          <div
+            key={`${row.label}-${index}`}
+            className="flex items-center gap-3 border-t border-line-quiet py-2"
+          >
+            <dt className="min-w-0 flex-1 text-ink">
+              <RichText text={row.label} />
+            </dt>
+            <dd
+              className={cn(
+                "flex w-[45%] max-w-[220px] shrink-0 items-center justify-end gap-1.5 text-right text-xs font-medium",
+                row.status ? STATUS_TEXT[row.status] : "text-ink-secondary",
+              )}
+            >
+              {row.status ? (
+                <span
+                  aria-hidden="true"
+                  className={cn("size-1.5 shrink-0 rounded-full", STATUS_DOT[row.status])}
+                />
+              ) : null}
+              <RichText text={row.value} className="min-w-0" />
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </Card>
+  );
+}
+
+export function Sources({ title, items }: ComponentProps["Sources"]) {
+  const { t } = useTranslation();
+  return (
+    <Card title={title} meta={t("answer.checkedCount", { count: items.length })}>
+      <ul className="flex flex-col">
+        {items.map((item, index) => (
+          <li
+            key={`${item.title}-${index}`}
+            className="flex items-center gap-2.5 border-t border-line-quiet py-2"
+          >
+            {item.kind === "file" ? (
+              <FileTextIcon aria-hidden="true" size={14} className="shrink-0 text-ink-tertiary" />
+            ) : (
+              <GlobeIcon aria-hidden="true" size={14} className="shrink-0 text-ink-tertiary" />
+            )}
+            <span className="min-w-0 flex-1 truncate text-sm text-ink">{item.title}</span>
+            <span className="shrink-0 font-mono text-xs text-ink-secondary">{item.source}</span>
           </li>
         ))}
       </ul>

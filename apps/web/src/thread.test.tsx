@@ -27,6 +27,10 @@ const spec = {
         "open",
         "todo",
         "notes",
+        "options",
+        "comparison",
+        "rows",
+        "sources",
       ],
     },
     chart: {
@@ -108,6 +112,51 @@ const spec = {
       props: { title: "Notes", items: ["The patch is small."] },
       children: [],
     },
+    options: {
+      type: "Options",
+      props: {
+        title: "The call",
+        options: [
+          { name: "Electron", summary: "HTML chrome.", meta: "4 weeks", recommended: true },
+          {
+            name: "Chromium fork",
+            summary: "Own the chrome.",
+            meta: "9 months",
+            recommended: false,
+          },
+        ],
+      },
+      children: [],
+    },
+    comparison: {
+      type: "Comparison",
+      props: {
+        title: "Side by side",
+        columns: [
+          { name: "Electron", recommended: true },
+          { name: "Chromium fork", recommended: false },
+        ],
+        rows: [{ criterion: "Tab strip", values: ["Web UI", "Native"] }],
+      },
+      children: [],
+    },
+    rows: {
+      type: "Rows",
+      props: {
+        title: "What would flip it",
+        meta: "1 trigger",
+        rows: [{ label: "Extension APIs beyond Chrome's", value: "Fork", status: "neutral" }],
+      },
+      children: [],
+    },
+    sources: {
+      type: "Sources",
+      props: {
+        title: "Sources",
+        items: [{ title: "Electron 38", source: "electronjs.org", kind: "web" }],
+      },
+      children: [],
+    },
   },
 } as Spec;
 
@@ -168,6 +217,12 @@ test("a thread shows the attachment, trace, answer cards, and composer tools", (
   expect(screen.getByText("1.8%")).toBeTruthy();
   expect(screen.getByText("Year")).toBeTruthy();
   expect(screen.getByText("Notes")).toBeTruthy();
+  expect(screen.getByText("The call")).toBeTruthy();
+  expect(screen.getByText("Recommended")).toBeTruthy();
+  expect(screen.getByText("Side by side")).toBeTruthy();
+  expect(screen.getByText("Tab strip")).toBeTruthy();
+  expect(screen.getByText("What would flip it")).toBeTruthy();
+  expect(screen.getByText("electronjs.org")).toBeTruthy();
   expect(document.querySelectorAll("[data-answer-card]").length).toBeGreaterThan(0);
   for (const card of document.querySelectorAll("[data-answer-card]")) {
     expect(card.className).toContain("border-line-quiet");

@@ -3,7 +3,7 @@ import { validateSpec } from "./catalog";
 import { searchTemplates, templates } from "./search";
 
 describe("search_templates", () => {
-  test("lands on the three templates", () => {
+  test("lands on the core templates", () => {
     expect(
       searchTemplates("Summarize the decisions and owners from today's meeting notes").template?.id,
     ).toBe("meeting");
@@ -14,6 +14,19 @@ describe("search_templates", () => {
       searchTemplates("Chart the inflation and interest rate figures below: 3.9, 3.4, 3.0").template
         ?.id,
     ).toBe("economy");
+  });
+
+  test("lands on the technical templates", () => {
+    expect(
+      searchTemplates("Should we use Electron or fork Chromium for our browser?").template?.id,
+    ).toBe("tech-choice");
+    expect(searchTemplates("定制浏览器走 electron 还是走 fork chromium").template?.id).toBe(
+      "tech-choice",
+    );
+    expect(searchTemplates("WPE 支持 safari extension 吗").template?.id).toBe("capability-check");
+    expect(searchTemplates("Does WPE support Safari WebExtensions?").template?.id).toBe(
+      "capability-check",
+    );
   });
 
   test("works in Chinese", () => {
@@ -45,6 +58,47 @@ describe("search_templates", () => {
       }
       expect(t.when).toContain("placeholders");
     }
+  });
+
+  test("technical components check their shape", () => {
+    const specWith = (elements: Record<string, unknown>) => ({
+      root: "a",
+      elements: {
+        a: { type: "Answer", props: {}, children: Object.keys(elements) },
+        ...elements,
+      },
+    });
+    const options = (recommended: boolean[]) => ({
+      type: "Options",
+      props: {
+        title: "The call",
+        options: recommended.map((value, index) => ({
+          name: `Option ${index}`,
+          summary: "One sentence.",
+          meta: "not estimated",
+          recommended: value,
+        })),
+      },
+      children: [],
+    });
+    const comparison = (values: string[][]) => ({
+      type: "Comparison",
+      props: {
+        title: "Side by side",
+        columns: [
+          { name: "A", recommended: true },
+          { name: "B", recommended: false },
+        ],
+        rows: values.map((row, index) => ({ criterion: `Criterion ${index}`, values: row })),
+      },
+      children: [],
+    });
+
+    expect(validateSpec(specWith({ options: options([true, true]) })).length).toBeGreaterThan(0);
+    expect(validateSpec(specWith({ options: options([false, false]) }))).toEqual([]);
+    expect(validateSpec(specWith({ options: options([true, false]) }))).toEqual([]);
+    expect(validateSpec(specWith({ comparison: comparison([["one"]]) })).length).toBeGreaterThan(0);
+    expect(validateSpec(specWith({ comparison: comparison([["one", "two"]]) }))).toEqual([]);
   });
 
   test("validateSpec reports bad props and wrong root", () => {

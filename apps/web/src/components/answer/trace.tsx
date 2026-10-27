@@ -46,6 +46,8 @@ const GROUP = {
   meeting: "trace.sortedMeeting",
   review: "trace.reviewedDiff",
   economy: "trace.chartedFigures",
+  "tech-choice": "trace.weighedOptions",
+  "capability-check": "trace.checkedDocs",
 } as const;
 
 function Mark({ status }: { status: TraceStep["status"] }) {
@@ -130,12 +132,21 @@ function prettyTemplate(value: string) {
   return value.slice(0, 1).toUpperCase() + value.slice(1);
 }
 
+const TEMPLATE_NAME: Record<string, string> = {
+  "tech-choice": "Tech choice",
+  "capability-check": "Capability check",
+};
+
+function templateNameOf(value: string) {
+  return TEMPLATE_NAME[value] ?? prettyTemplate(value);
+}
+
 /** Collapsible step list. The template row starts closed; the work group starts open. */
 export function Trace({ steps }: { steps: TraceStep[] }) {
   const { t } = useTranslation();
   const template = steps.find((step) => step.tool === "search_templates");
   const rest = steps.filter((step) => step !== template);
-  const templateName = prettyTemplate(String(template?.detail?.template ?? ""));
+  const templateName = templateNameOf(String(template?.detail?.template ?? ""));
   const group = GROUP[String(template?.detail?.template ?? "") as keyof typeof GROUP];
   const groupTitle = group ? t(group) : t("trace.steps");
   const [templateOpen, setTemplateOpen] = useState(false);
