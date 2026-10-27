@@ -12,6 +12,7 @@ import {
 
 import { ConnectionMark } from "../brand-mark";
 import { findProvider } from "../providers";
+import { Spinner } from "../spinner";
 import { useModelChoice } from "./use-model-choice";
 
 function connectionName(c: { type: string; label: string; name?: string }) {
@@ -41,8 +42,12 @@ export function ModelPicker({ onConnect }: { onConnect: () => void }) {
   }
   if (models.isPending) {
     return (
-      <span className="flex h-9 items-center rounded-full bg-recessed px-3 text-sm text-ink-secondary">
-        {t("picker.choose")}
+      <span
+        role="status"
+        className="flex h-9 items-center gap-2 rounded-full bg-recessed px-3 text-sm text-ink-secondary"
+      >
+        <Spinner size={16} />
+        {t("picker.loading")}
       </span>
     );
   }

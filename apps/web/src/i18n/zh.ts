@@ -73,9 +73,11 @@ export const zh: Resource = {
   },
   thread: {
     failed: "出了点问题。",
+    loading: "正在加载对话",
   },
   picker: {
     unavailableAll: "暂时无法获取模型",
+    loading: "正在加载模型",
     choose: "选择模型",
     connect: "连接服务商",
     unavailable: "模型不可用",
@@ -86,6 +88,7 @@ export const zh: Resource = {
   sidebar: {
     expand: "展开侧边栏",
     collapse: "收起侧边栏",
+    loading: "正在加载对话列表",
     newChat: "新对话",
     library: "资料库",
     settings: "设置",

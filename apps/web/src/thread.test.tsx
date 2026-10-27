@@ -5,11 +5,20 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import "@/i18n";
 
 import { Trace } from "./components/answer/trace";
+import { PaneLoading } from "./components/chat/pane-loading";
 import { ThreadView } from "./components/chat/thread-view";
 import type { ChatMessage } from "./components/chat/transport";
 import { toTurns, type Turn } from "./components/chat/turns";
 
 afterEach(() => cleanup());
+
+test("a thread that has not loaded yet shows one spinner and one line", () => {
+  render(<PaneLoading />);
+
+  const status = screen.getByRole("status");
+  expect(status.textContent).toBe("Loading conversation");
+  expect(status.querySelector("svg")).toBeTruthy();
+});
 
 const spec = {
   root: "answer",

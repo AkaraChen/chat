@@ -11,6 +11,7 @@ import { preloadable } from "../preloadable";
 import { EmptyPane } from "./empty-pane";
 import { ExportDialog } from "./export-dialog";
 import { ModelPicker } from "./model-picker";
+import { PaneLoading } from "./pane-loading";
 import type { SettingsData } from "./settings/settings-dialog";
 import type { SettingsTab } from "./settings/tabs";
 import { Sidebar } from "./sidebar";
@@ -86,6 +87,9 @@ export function ChatShell({
     enabled: threadList === undefined,
   });
   const shown = threadList ?? threads.data ?? [];
+  // A list handed in by the caller is already read. Otherwise the sidebar
+  // shows its skeleton until the first read lands.
+  const threadsLoading = threadList === undefined && threads.isPending;
   // The sidebar reads threads.list.queryKey(). key() is only the prefix, and
   // setQueryData matches exactly, so writing there never reaches this query.
   const listKey = orpc.threads.list.queryKey();
@@ -159,6 +163,7 @@ export function ChatShell({
     <div className="flex h-svh bg-fill p-2">
       <Sidebar
         threads={shown}
+        loading={threadsLoading}
         activeId={thread}
         name={name}
         role={role}
@@ -191,7 +196,7 @@ export function ChatShell({
           ) : null}
         </header>
         {thread ? (
-          <Suspense fallback={<div className="flex-1" />}>
+          <Suspense fallback={<PaneLoading />}>
             <ThreadPane
               key={thread}
               threadId={thread}

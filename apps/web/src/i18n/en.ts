@@ -73,9 +73,11 @@ export const en = {
   },
   thread: {
     failed: "Something went wrong.",
+    loading: "Loading conversation",
   },
   picker: {
     unavailableAll: "Models are unavailable right now",
+    loading: "Loading models",
     choose: "Choose a model",
     connect: "Connect a provider",
     unavailable: "Model unavailable",
@@ -86,6 +88,7 @@ export const en = {
   sidebar: {
     expand: "Expand sidebar",
     collapse: "Collapse sidebar",
+    loading: "Loading conversations",
     newChat: "New chat",
     library: "Library",
     settings: "Settings",
