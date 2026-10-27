@@ -17,48 +17,78 @@ export type ProxySettings = {
   accessKey: string;
 };
 
+export type Proxy = { readonly server: CpaServer; stop(): Promise<void> };
+
 type Log = (line: string) => void;
 
 /**
- * Starts CLIProxyAPI, or returns the one this process already runs for the
- * same data directory. Every launch renders `<dataDir>/config.yaml` from the
- * credentials (it is generated output), and after each one the credentials
- * directory is watched and pushed to CLIProxyAPI. A CLIProxyAPI that exits on
- * its own, or fails to start, is started again a second later, on the same
- * handle and port.
+ * Starts CLIProxyAPI with a config rendered from the credentials, then keeps
+ * it in sync. `<dataDir>/config.yaml` is generated output and is rewritten on
+ * every start; the management key is generated per start and never leaves
+ * this process.
  */
-export async function startProxy(
-  settings: ProxySettings,
-  onLog: Log = console.log,
-): Promise<CpaServer> {
+export async function start(settings: ProxySettings, onLog: Log = console.log): Promise<Proxy> {
   const authDir = path.join(settings.dataDir, "auths");
-  return startServer({
+  const config = configOf(await loadConnections(settings.credentialsDir), { ...settings, authDir });
+  const server = await startServer({
     stateDir: settings.dataDir,
-    singleton: true,
-    config: async () =>
-      configOf(await loadConnections(settings.credentialsDir), { ...settings, authDir }),
+    config,
+    overwriteConfig: true,
     host: settings.host,
     port: settings.port,
-    restart: { onUnexpectedExit: true, onStartFailure: true, backoffMs: [1000] },
     redact: [settings.accessKey],
     suppressWarnings: { noManagementKey: true },
     onLog: ({ line }) => onLog(line),
-    on: {
-      exit: ({ code, signal, willRestart }) => {
-        if (willRestart)
-          console.error("proxy: CLIProxyAPI exited, starting it again", { code, signal });
-      },
-      "restart-failed": ({ error }) => console.error("proxy: start failed, trying again", error),
-    },
-    hooks: {
-      // Runs for each CLIProxyAPI process; cpajs calls the returned cleanup
-      // when that process exits.
-      async afterStart({ server, client, reason }) {
-        if (reason === "start") console.log(`proxy: listening on port ${server.port}`);
-        const syncer = createSyncer(client, settings.credentialsDir);
-        await syncer.sync();
-        return syncer.watch();
-      },
-    },
   });
+  const syncer = createSyncer(server.client(), settings.credentialsDir, config["api-keys"]);
+  await syncer.sync();
+  const unwatch = await syncer.watch();
+  void server.exited.then(unwatch);
+  return {
+    server,
+    async stop() {
+      unwatch();
+      await server.stop();
+    },
+  };
+}
+
+const RESTART_DELAY_MS = 1000;
+
+/**
+ * Like `start`, but starts CLIProxyAPI again whenever it exits on its own,
+ * so a crash costs a second of model calls instead of the host process.
+ */
+export async function supervise(settings: ProxySettings, onLog: Log = console.log): Promise<Proxy> {
+  let current = await start(settings, onLog);
+  let stopped = false;
+
+  const keepAlive = (proxy: Proxy) => {
+    void proxy.server.exited.then(async (result) => {
+      if (stopped) return;
+      console.error("proxy: CLIProxyAPI exited, starting it again", result);
+      for (;;) {
+        await new Promise((resolve) => setTimeout(resolve, RESTART_DELAY_MS));
+        if (stopped) return;
+        try {
+          current = await start(settings, onLog);
+          keepAlive(current);
+          return;
+        } catch (error) {
+          console.error("proxy: restart failed", error);
+        }
+      }
+    });
+  };
+  keepAlive(current);
+
+  return {
+    get server() {
+      return current.server;
+    },
+    async stop() {
+      stopped = true;
+      await current.stop();
+    },
+  };
 }

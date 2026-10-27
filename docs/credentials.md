@@ -122,12 +122,11 @@ credential itself. The client only ever learns that a provider is connected.
 The web server runs CLIProxyAPI through
 [cpajs](https://github.com/AkaraChen/cpajs) (`packages/api/src/proxy`), and the
 proxy only reads this directory. It
-never writes a credential. Every time CLIProxyAPI starts, including when cpajs
-restarts it after a crash, the proxy renders its configuration from these files
-into `.data/proxy/config.yaml`, replacing what was there; that file is
-generated output, so edit the credential files, not the config. Whenever the
+never writes a credential. At start it renders CLIProxyAPI's configuration from
+these files into `.data/proxy/config.yaml`, replacing what was there; that file
+is generated output, so edit the credential files, not the config. Whenever the
 directory changes it pushes the API-key groups to CLIProxyAPI through the
-management API, which reloads them; an unchanged section is not written. The management key is generated per start
+management API, which reloads them. The management key is generated per start
 and never leaves the web server. The connection id (the file name without
 `.json`) is the prefix the proxy gives each connection's models, so a model is
 addressed as `<connectionId>/<model>`.
@@ -138,10 +137,10 @@ connection id as its `prefix`. From then on CLIProxyAPI refreshes the tokens
 and rewrites that file itself, so the credential's tokens are only the seed
 and go stale; the auth file holds the live ones. A new sign-in (another
 refresh token) replaces the file, and removing the connection removes it.
-cpajs tracks which sign-in a file came from in the file's `x-cpajs` field
-(owner `chat`, revision a hash of the sign-in's first refresh token). Files
-from before that carry the same hash as `chat_seed`; the proxy converts them in
-place on start, keeping their tokens.
+The file records which sign-in it came from as `chat_seed` (a hash of the
+sign-in's first refresh token), and only files named `chat-*.json` are the
+proxy's. If CLIProxyAPI exits on its own the proxy starts it again a second
+later.
 
 ## Explicitly not doing
 

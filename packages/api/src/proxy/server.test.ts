@@ -5,11 +5,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 
-import { authFileName } from "./auths";
-import type { CpaServer } from "@cpajs/cpa/server";
-
-import { seedOf } from "./auths";
-import { startProxy } from "./server";
+import { authFileName, seedOf } from "./auths";
+import { type Proxy, start, supervise } from "./server";
 
 type Hit = { path: string; auth: string | null; model: string };
 
@@ -64,17 +61,26 @@ const signIn = {
   plan_type: "plus",
 };
 
-const legacySignIn = { ...signIn, account_id: "acct-legacy", refresh_token: "rt-legacy-seed" };
-const resignedIn = { ...signIn, account_id: "acct-again", refresh_token: "rt-new-sign-in" };
-
 const ACCESS_KEY = "internal-key";
 let credDir: string;
 let dataDir: string;
 let base: string;
-let proxy: CpaServer;
-let settings: Parameters<typeof startProxy>[0];
+let proxy: Proxy;
 const upA = fakeUpstream();
 const upB = fakeUpstream();
+
+const refreshedSignIn = { ...signIn, account_id: "acct-refreshed", refresh_token: "rt-first" };
+const resignedIn = { ...signIn, account_id: "acct-again", refresh_token: "rt-new-sign-in" };
+
+const asConnection = (id: string, credential: object) => ({ id, credential }) as never;
+
+// An auth file the proxy wrote earlier, as CLIProxyAPI leaves it.
+async function writeAuth(id: string, refreshToken: string, seed: string) {
+  await Bun.write(
+    path.join(dataDir, "auths", authFileName(id)),
+    JSON.stringify({ type: "codex", refresh_token: refreshToken, prefix: id, chat_seed: seed }),
+  );
+}
 
 async function writeCred(id: string, body: object) {
   await writeFile(path.join(credDir, `${id}.json`), JSON.stringify(body), { mode: 0o600 });
@@ -139,46 +145,34 @@ beforeAll(async () => {
   await writeCred("openai-ffff0006", signIn);
   // Someone else's auth file in CLIProxyAPI's directory is never touched.
   await Bun.write(path.join(dataDir, "auths", "codex-other.json"), "{}");
-  // Files the proxy wrote before cpajs tracked them: one whose tokens
-  // CLIProxyAPI has refreshed since, and one whose sign-in is gone.
-  await writeCred("openai-1e9a0007", legacySignIn);
-  await Bun.write(
-    path.join(dataDir, "auths", authFileName("openai-1e9a0007")),
-    JSON.stringify({
-      type: "codex",
-      refresh_token: "rt-refreshed-by-cpa",
-      prefix: "openai-1e9a0007",
-      chat_seed: seedOf({ id: "openai-1e9a0007", credential: legacySignIn as never }),
-    }),
+  // Auth files already on disk, as in production: one whose tokens CLIProxyAPI
+  // has refreshed since it was written, one from an earlier sign-in to an
+  // account that signed in again, and one whose sign-in is gone.
+  await writeCred("openai-1e9a0007", refreshedSignIn);
+  await writeAuth(
+    "openai-1e9a0007",
+    "rt-refreshed-by-cpa",
+    seedOf(asConnection("openai-1e9a0007", refreshedSignIn)),
   );
-  await Bun.write(
-    path.join(dataDir, "auths", authFileName("openai-90ne0008")),
-    JSON.stringify({ type: "codex", refresh_token: "rt-old", chat_seed: "0123456789abcdef" }),
-  );
-  // And one from an earlier sign-in to an account that has signed in again.
   await writeCred("openai-5eed0009", resignedIn);
-  await Bun.write(
-    path.join(dataDir, "auths", authFileName("openai-5eed0009")),
-    JSON.stringify({
-      type: "codex",
-      refresh_token: "rt-earlier-sign-in",
-      prefix: "openai-5eed0009",
-      chat_seed: seedOf({
-        id: "openai-5eed0009",
-        credential: { ...resignedIn, refresh_token: "rt-earlier" } as never,
-      }),
-    }),
+  await writeAuth(
+    "openai-5eed0009",
+    "rt-earlier",
+    seedOf(asConnection("openai-5eed0009", { ...resignedIn, refresh_token: "rt-earlier" })),
   );
+  await writeAuth("openai-90ne0008", "rt-old", "0123456789abcdef");
 
-  settings = {
-    credentialsDir: credDir,
-    dataDir,
-    host: "127.0.0.1",
-    port: await freePort(),
-    accessKey: ACCESS_KEY,
-  };
-  proxy = await startProxy(settings, () => {});
-  base = proxy.origin;
+  proxy = await start(
+    {
+      credentialsDir: credDir,
+      dataDir,
+      host: "127.0.0.1",
+      port: await freePort(),
+      accessKey: ACCESS_KEY,
+    },
+    () => {},
+  );
+  base = proxy.server.origin;
 }, 60_000);
 
 afterAll(async () => {
@@ -211,36 +205,6 @@ describe("proxy", () => {
     ]);
   }, 40_000);
 
-  test("a second start in the process returns the running proxy", async () => {
-    expect(await startProxy(settings, () => {})).toBe(proxy);
-  });
-
-  test("files from before cpajs are adopted, not overwritten, and pruned when gone", async () => {
-    const client = proxy.client();
-    const kept = JSON.parse(
-      await (await client.credentials.download(authFileName("openai-1e9a0007"))).text(),
-    );
-    expect(kept.refresh_token).toBe("rt-refreshed-by-cpa");
-    expect(kept["x-cpajs"]).toEqual({
-      owner: "chat",
-      revision: seedOf({ id: "openai-1e9a0007", credential: legacySignIn as never }),
-    });
-    const { files } = await client.credentials.list();
-    expect(files.map((f) => f.name)).not.toContain(authFileName("openai-90ne0008"));
-  });
-
-  test("a file from an earlier sign-in is replaced by the new one", async () => {
-    const client = proxy.client();
-    const replaced = JSON.parse(
-      await (await client.credentials.download(authFileName("openai-5eed0009"))).text(),
-    );
-    expect(replaced.refresh_token).toBe("rt-new-sign-in");
-    expect(replaced["x-cpajs"]).toEqual({
-      owner: "chat",
-      revision: seedOf({ id: "openai-5eed0009", credential: resignedIn as never }),
-    });
-  });
-
   test("routes to the named connection", async () => {
     expect((await chat("custom-aaaa0001/shared-model")).status).toBe(200);
     expect((await chat("custom-bbbb0002/shared-model")).status).toBe(200);
@@ -263,7 +227,7 @@ describe("proxy", () => {
   });
 
   test("the sign-in's auth file is kept once refreshed, replaced on a new sign-in", async () => {
-    const client = proxy.client();
+    const client = proxy.server.client();
     const name = authFileName("openai-ffff0006");
     const read = async () => JSON.parse(await (await client.credentials.download(name)).text());
 
@@ -286,27 +250,21 @@ describe("proxy", () => {
   test("signing out removes the account's models and only its auth file", async () => {
     await rm(path.join(credDir, "openai-ffff0006.json"));
     await waitModel("openai-ffff0006/gpt-6-sol", false);
-    const { files } = await proxy.client().credentials.list();
+    const { files } = await proxy.server.client().credentials.list();
     const names = files.map((f) => f.name);
     expect(names).not.toContain(authFileName("openai-ffff0006"));
     expect(names).toContain("codex-other.json");
   }, 40_000);
 
-  test("a crashed CLIProxyAPI comes back on the same handle and client", async () => {
-    const client = proxy.client();
-    const before = proxy.pid;
-    const restarted = new Promise((resolve) => {
-      const off = proxy.on("restarted", (event) => {
-        off();
-        resolve(event);
-      });
-    });
-    process.kill(before, "SIGKILL");
-    expect(await restarted).toMatchObject({ reason: "unexpected-exit" });
-    expect(proxy.pid).not.toBe(before);
-    expect((await client.credentials.list()).files.length).toBeGreaterThan(0);
-    await waitModel("custom-bbbb0002/shared-model", true);
-  }, 30_000);
+  test("auth files on disk keep CLIProxyAPI's tokens unless the sign-in changed", async () => {
+    const client = proxy.server.client();
+    const read = async (id: string) =>
+      JSON.parse(await (await client.credentials.download(authFileName(id))).text());
+    expect((await read("openai-1e9a0007")).refresh_token).toBe("rt-refreshed-by-cpa");
+    expect((await read("openai-5eed0009")).refresh_token).toBe("rt-new-sign-in");
+    const { files } = await client.credentials.list();
+    expect(files.map((f) => f.name)).not.toContain(authFileName("openai-90ne0008"));
+  });
 
   test("hot reload on add and delete", async () => {
     const upD = fakeUpstream();
@@ -323,27 +281,35 @@ describe("proxy", () => {
   }, 70_000);
 });
 
-test("a first start that fails is tried again until it succeeds", async () => {
+test("a crashed CLIProxyAPI is started again", async () => {
   const cred = await mkdtemp(path.join(tmpdir(), "proxy-cred-"));
   const data = await mkdtemp(path.join(tmpdir(), "proxy-data-"));
-  const port = await freePort();
-  // Something else holds the port, then lets it go.
-  const holder = createServer().listen(port, "127.0.0.1");
-  setTimeout(() => holder.close(), 1500);
-  const errors: unknown[] = [];
+  const settings = {
+    credentialsDir: cred,
+    dataDir: data,
+    host: "127.0.0.1",
+    port: await freePort(),
+    accessKey: ACCESS_KEY,
+  };
   const original = console.error;
-  console.error = (...args: unknown[]) => errors.push(args[0]);
+  console.error = () => {};
+  const supervised = await supervise(settings, () => {});
   try {
-    const server = await startProxy(
-      { credentialsDir: cred, dataDir: data, host: "127.0.0.1", port, accessKey: ACCESS_KEY },
-      () => {},
-    );
-    expect(server.port).toBe(port);
-    expect(errors).toContain("proxy: start failed, trying again");
-    await server.stop();
+    const before = supervised.server.pid;
+    process.kill(before, "SIGKILL");
+    const deadline = Date.now() + 20_000;
+    while (supervised.server.pid === before) {
+      if (Date.now() > deadline) throw new Error("not restarted");
+      await Bun.sleep(200);
+    }
+    const models = await fetch(`http://127.0.0.1:${settings.port}/v1/models`, {
+      headers: { authorization: `Bearer ${ACCESS_KEY}` },
+    });
+    expect(models.status).toBe(200);
   } finally {
     console.error = original;
+    await supervised.stop();
     await rm(cred, { recursive: true, force: true });
     await rm(data, { recursive: true, force: true });
   }
-}, 30_000);
+}, 40_000);
