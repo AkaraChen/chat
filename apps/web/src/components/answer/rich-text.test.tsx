@@ -29,6 +29,12 @@ test("markdown cut off mid-stream does not show raw markers", () => {
   expect(document.querySelector(".typeset-chat")?.textContent).not.toContain("**");
 });
 
+test("emphasis that closes on CJK punctuation still renders", () => {
+  render(<RichText text={"这是**“重点”**的内容。"} />);
+  expect(document.querySelector(".typeset-chat strong")?.textContent).toBe("“重点”");
+  expect(document.querySelector(".typeset-chat")?.textContent).not.toContain("**");
+});
+
 test("prose drops unsafe links", () => {
   render(<Notes title="Notes" items={["Click [here](javascript:alert(1))"]} />);
   expect(document.querySelector("a")).toBeNull();

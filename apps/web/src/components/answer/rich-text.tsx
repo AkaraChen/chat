@@ -1,4 +1,5 @@
 import { cn } from "@my-better-t-app/ui/lib/utils";
+import { cjk } from "@streamdown/cjk";
 import { createElement, type ComponentProps } from "react";
 import { Streamdown, type Components } from "streamdown";
 
@@ -53,6 +54,10 @@ function urlTransform(url: string) {
   return "";
 }
 
+// Emphasis next to CJK punctuation (`**“好”**的`) and autolinks that run into
+// CJK text both parse the way a reader expects.
+const plugins = { cjk };
+
 /**
  * Assistant prose. Streamdown parses it, so markdown cut off mid-stream (an
  * open `**`, link or fence) still renders cleanly; shadcn/typeset styles it.
@@ -71,6 +76,7 @@ export function RichText({
     <Streamdown
       className={cn("typeset typeset-chat", className)}
       components={components}
+      plugins={plugins}
       urlTransform={urlTransform}
       linkSafety={{ enabled: false }}
       controls={false}

@@ -15,7 +15,7 @@ function packageOf(id: string): string | null {
 
 // The rest of unified, remark and rehype goes with Streamdown.
 const MARKDOWN =
-  /^(streamdown|marked|remend|unified|bail|trough|vfile.*|unist-.*|mdast-.*|micromark.*|hast-.*|hastscript|remark-.*|rehype-.*|parse5|entities|property-information|space-separated-tokens|comma-separated-tokens|html-url-attributes|html-void-elements|web-namespaces|zwitch|devlop|ccount|character-entities.*|decode-named-character-reference|markdown-table|longest-streak|estree-util-.*|style-to-.*|inline-style-parser|trim-lines|is-plain-obj|extend)$/;
+  /^(streamdown|@streamdown\/.*|marked|remend|unified|bail|trough|vfile.*|unist-.*|mdast-.*|micromark.*|hast-.*|hastscript|remark-.*|rehype-.*|parse5|entities|property-information|space-separated-tokens|comma-separated-tokens|html-url-attributes|html-void-elements|web-namespaces|zwitch|devlop|ccount|character-entities.*|decode-named-character-reference|markdown-table|longest-streak|estree-util-.*|style-to-.*|inline-style-parser|trim-lines|is-plain-obj|extend)$/;
 
 // A group takes the dependencies of what it matches along with it, unless a
 // group of higher priority claims them first. So the groups that reach the
