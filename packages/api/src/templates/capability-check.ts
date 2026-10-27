@@ -12,7 +12,7 @@ export const prose =
 
 export const usage = {
   Answer: "Root container with empty props. List the other elements in reading order.",
-  Rows: "One card for the verdict, one row per capability. status is negative when unsupported, neutral when partial or requiring work, and positive when supported. A second Rows card may list the effort; leave status off those rows.",
+  Rows: "One card for the verdict, one row per capability. status is negative when unsupported, neutral when partial or requiring work, and positive when supported. Each value is a word or a short phrase; why goes in the prose. A second Rows card may list the effort; leave status off those rows.",
   Sources:
     "Only sources actually read in tool results or sent by the user, one per row. Omit the element when there are none. Never invent a source.",
 } as const;

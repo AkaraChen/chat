@@ -221,7 +221,11 @@ export const rowsProps = z.object({
     .array(
       z.object({
         label: z.string(),
-        value: z.string(),
+        value: z
+          .string()
+          .describe(
+            "A word or a short phrase, such as No, Partial or 2–3 weeks. The reasons go in the prose.",
+          ),
         status: z
           .enum(["negative", "neutral", "positive"])
           .optional()

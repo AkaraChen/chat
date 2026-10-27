@@ -338,6 +338,8 @@ const STATUS_DOT = {
   positive: "bg-add",
 } as const;
 
+// A short value sits at the right of its label. One too long to fit there
+// wraps onto a line of its own and reads left to right.
 export function Rows({ title, meta, rows }: ComponentProps["Rows"]) {
   return (
     <Card title={title} meta={meta}>
@@ -345,14 +347,14 @@ export function Rows({ title, meta, rows }: ComponentProps["Rows"]) {
         {rows.map((row, index) => (
           <div
             key={`${row.label}-${index}`}
-            className="flex items-center gap-3 border-t border-line-quiet py-2"
+            className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-t border-line-quiet py-2"
           >
-            <dt className="min-w-0 flex-1 text-ink">
+            <dt className="min-w-0 flex-[1_0_10rem] text-ink">
               <RichText text={row.label} />
             </dt>
             <dd
               className={cn(
-                "flex w-[45%] max-w-[220px] shrink-0 items-center justify-end gap-1.5 text-right text-xs font-medium",
+                "ml-auto flex max-w-full min-w-0 items-center gap-1.5 text-xs font-medium",
                 row.status ? STATUS_TEXT[row.status] : "text-ink-secondary",
               )}
             >

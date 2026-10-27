@@ -16,7 +16,7 @@ export const usage = {
     "Two or three options. Mark the recommended option when the prose recommends one; otherwise mark none. summary is one sentence; meta is a time, size or cost the answer can support, otherwise 'not estimated'.",
   Comparison:
     "The same criteria for every option, one short value per column in the same order. Mark the recommended column if Options marked one. Use only figures the user or a tool gave.",
-  Rows: "Use once for what would change the answer (label = condition, value = outcome) or the next steps (label = step, value = estimate). Status only when the value is a verdict.",
+  Rows: "Use once for what would change the answer (label = condition, value = outcome) or the next steps (label = step, value = estimate). Each value is a word or a short phrase; why goes in the prose. Status only when the value is a verdict.",
   Sources:
     "Only sources actually read in tool results or sent by the user, one per row. Omit the element when there are none. Never invent a source.",
 } as const;
