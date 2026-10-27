@@ -1,5 +1,4 @@
-import { createRequire } from "node:module";
-
+import { resolveBinary } from "@cpajs/cpa/server";
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import { varlockVitePlugin } from "@varlock/vite-integration";
@@ -59,25 +58,10 @@ const vendorChunks = GROUPS.map(([name, priority, test]) => ({
   test: (id: string) => test(id, packageOf(id)),
 }));
 
-// cpajs finds the CLIProxyAPI binary in a platform package it names at run
-// time, which tracing cannot follow. So the server output gets cpajs and every
-// platform package installed here, whole. The image builds and runs on the
-// same platform, so those are the ones it needs.
-function cpajsPackages(): string[] {
-  const cpa = createRequire(createRequire(import.meta.url).resolve("@cpajs/cpa/package.json"));
-  const { optionalDependencies = {} } = cpa("./package.json") as {
-    optionalDependencies?: Record<string, string>;
-  };
-  const installed = Object.keys(optionalDependencies).filter((name) => {
-    try {
-      cpa.resolve(`${name}/package.json`);
-      return true;
-    } catch {
-      return false;
-    }
-  });
-  return ["@cpajs/cpa*", ...installed.map((name) => `${name}*`)];
-}
+// The server imports @cpajs/cpa/binary, which names every platform package,
+// but tracing copies only their package.json. The one cpajs runs here (the
+// image builds and runs on the same platform) is copied whole, for its binary.
+const cpajsBinary = resolveBinary().packageName;
 
 export default defineConfig({
   server: {
@@ -106,7 +90,7 @@ export default defineConfig({
     // keeps it external everywhere, so the server has one React instance.
     nitro({
       preset: "node-server",
-      traceDeps: ["react", "react-dom", ...cpajsPackages()],
+      traceDeps: ["react", "react-dom", "@cpajs/cpa", `${cpajsBinary}*`],
       plugins: ["./src/proxy.plugin.ts"],
     }),
     viteReact(),

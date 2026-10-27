@@ -19,23 +19,14 @@ export async function loadConnections(credentialsDir: string): Promise<Connectio
 
 /**
  * Keeps CLIProxyAPI in line with the credentials directory: the API-key
- * groups through the config, the sign-ins as auth files. `applied` is the
- * api-keys section CLIProxyAPI already has, so an unchanged one is not
- * written again (every write is a hot reload).
+ * groups through the config, the sign-ins as auth files. Neither is written
+ * when it already matches, since every config write is a hot reload.
  */
-export function createSyncer(client: CpaClient, credentialsDir: string, applied: unknown) {
-  let last = JSON.stringify(applied);
-
+export function createSyncer(client: CpaClient, credentialsDir: string) {
   async function sync(): Promise<void> {
     const connections = await loadConnections(credentialsDir);
-    const apiKeys = apiKeysOf(connections);
-    const next = JSON.stringify(apiKeys);
-    if (next !== last) {
-      // Arrays replace on a patch, and every section we use is always sent.
-      await client.config.patch({ "api-keys": apiKeys });
-      last = next;
-      console.log(`config: wrote ${connections.length} connection(s)`);
-    }
+    const { changed } = await client.config.reconcile({ "api-keys": apiKeysOf(connections) });
+    if (changed.length > 0) console.log(`config: wrote ${connections.length} connection(s)`);
     if (await syncAuths(client, connections)) console.log("auths: synced sign-ins");
   }
 

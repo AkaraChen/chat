@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import type { Credential } from "../credentials/store";
 
-import { authFileName, codexAuth, planAuths, seedOf } from "./auths";
+import { codexAuth, seedOf } from "./auths";
 import { type Connection, apiKeysOf, configOf } from "./config";
 
 function connection(id: string, overrides: Partial<Credential>): Connection {
@@ -112,7 +112,8 @@ test("configOf forces the prefix and accepts only the access key", () => {
   expect(config.access).toEqual({ "api-keys": ["internal"] });
   expect(config.oauth).toEqual({ "auth-dir": "/data/proxy/auths" });
   expect(config.routing).toEqual({ "force-model-prefix": true });
-  expect(config.management).toEqual({ "disable-control-panel": true });
+  // cpajs fills in the management section (generated key, panel off).
+  expect(config.management).toBeUndefined();
 });
 
 describe("auth files", () => {
@@ -129,27 +130,12 @@ describe("auth files", () => {
       last_refresh: "2026-10-25T00:00:00Z",
       plan_type: "plus",
     });
-    // Same seed the Go proxy wrote, so files from before the switch are kept.
-    expect(auth.chat_seed).toBe("a33d8c625833429d");
+    // The revision lives in cpajs's marker, not in the file's own fields.
+    expect(auth).not.toHaveProperty("chat_seed");
   });
 
-  test("plan: upload missing or stale, keep current, remove gone, ignore foreign", () => {
-    const name = authFileName(signIn.id);
-    expect(planAuths(new Map(), [signIn])).toEqual({ upload: [signIn], remove: [] });
-    expect(planAuths(new Map([[name, seedOf(signIn)]]), [signIn])).toEqual({
-      upload: [],
-      remove: [],
-    });
-    expect(planAuths(new Map([[name, "earlier"]]), [signIn]).upload).toEqual([signIn]);
-    expect(planAuths(new Map([[name, undefined]]), [signIn]).upload).toEqual([signIn]);
-    expect(
-      planAuths(
-        new Map([
-          [name, seedOf(signIn)],
-          ["codex-other.json", undefined],
-        ]),
-        [],
-      ),
-    ).toEqual({ upload: [], remove: [name] });
+  test("the revision is the seed files from before cpajs carry", () => {
+    // sha256("rt-1"), first 8 bytes: what the Go proxy wrote as `chat_seed`.
+    expect(seedOf(signIn)).toBe("a33d8c625833429d");
   });
 });

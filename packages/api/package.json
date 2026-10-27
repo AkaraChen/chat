@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@ai-sdk/openai": "^4.0.101",
-    "@cpajs/cpa": "0.1.0-rc.3",
+    "@cpajs/cpa": "0.1.0-rc.5",
     "@json-render/core": "^0.21.3",
     "@my-better-t-app/db": "workspace:*",
     "@orpc/client": "catalog:",
