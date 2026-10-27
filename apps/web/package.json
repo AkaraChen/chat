@@ -6,7 +6,7 @@
     "build": "tsc -b ../../packages/api && vp build",
     "serve": "vp preview",
     "dev": "vp dev",
-    "check-types": "tsc -b ../../packages/api && vp build && tsc --noEmit",
+    "check-types": "tsc -b ../../packages/api && tsc --noEmit",
     "env:generate": "varlock codegen"
   },
   "dependencies": {
