@@ -24,17 +24,14 @@ type Log = (line: string) => void;
  * same data directory. Every launch renders `<dataDir>/config.yaml` from the
  * credentials (it is generated output), and after each one the credentials
  * directory is watched and pushed to CLIProxyAPI. A CLIProxyAPI that exits on
- * its own is started again a second later, on the same handle and port.
+ * its own, or fails to start, is started again a second later, on the same
+ * handle and port.
  */
 export async function startProxy(
   settings: ProxySettings,
   onLog: Log = console.log,
 ): Promise<CpaServer> {
   const authDir = path.join(settings.dataDir, "auths");
-  // With `singleton`, only the first call's hooks run, so this state belongs
-  // to the process that owns the server and outlives its restarts.
-  let unwatch: (() => void) | undefined;
-  let listening = false;
   return startServer({
     stateDir: settings.dataDir,
     singleton: true,
@@ -42,27 +39,25 @@ export async function startProxy(
       configOf(await loadConnections(settings.credentialsDir), { ...settings, authDir }),
     host: settings.host,
     port: settings.port,
-    restart: { onUnexpectedExit: true, backoffMs: [1000] },
+    restart: { onUnexpectedExit: true, onStartFailure: true, backoffMs: [1000] },
     redact: [settings.accessKey],
     suppressWarnings: { noManagementKey: true },
     onLog: ({ line }) => onLog(line),
+    on: {
+      exit: ({ code, signal, willRestart }) => {
+        if (willRestart)
+          console.error("proxy: CLIProxyAPI exited, starting it again", { code, signal });
+      },
+      "restart-failed": ({ error }) => console.error("proxy: start failed, trying again", error),
+    },
     hooks: {
-      async afterStart({ server, client }) {
-        if (!listening) {
-          listening = true;
-          server.on("exit", ({ code, signal, willRestart }) => {
-            unwatch?.();
-            unwatch = undefined;
-            if (willRestart)
-              console.error("proxy: CLIProxyAPI exited, starting it again", { code, signal });
-          });
-          server.on("restart-failed", ({ error }) => console.error("proxy: restart failed", error));
-          console.log(`proxy: listening on port ${server.port}`);
-        }
-        // A generated key, so cpajs always has a client.
-        const syncer = createSyncer(client!, settings.credentialsDir);
+      // Runs for each CLIProxyAPI process; cpajs calls the returned cleanup
+      // when that process exits.
+      async afterStart({ server, client, reason }) {
+        if (reason === "start") console.log(`proxy: listening on port ${server.port}`);
+        const syncer = createSyncer(client, settings.credentialsDir);
         await syncer.sync();
-        unwatch = await syncer.watch();
+        return syncer.watch();
       },
     },
   });

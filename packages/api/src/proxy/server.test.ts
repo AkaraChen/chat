@@ -65,6 +65,7 @@ const signIn = {
 };
 
 const legacySignIn = { ...signIn, account_id: "acct-legacy", refresh_token: "rt-legacy-seed" };
+const resignedIn = { ...signIn, account_id: "acct-again", refresh_token: "rt-new-sign-in" };
 
 const ACCESS_KEY = "internal-key";
 let credDir: string;
@@ -154,6 +155,20 @@ beforeAll(async () => {
     path.join(dataDir, "auths", authFileName("openai-90ne0008")),
     JSON.stringify({ type: "codex", refresh_token: "rt-old", chat_seed: "0123456789abcdef" }),
   );
+  // And one from an earlier sign-in to an account that has signed in again.
+  await writeCred("openai-5eed0009", resignedIn);
+  await Bun.write(
+    path.join(dataDir, "auths", authFileName("openai-5eed0009")),
+    JSON.stringify({
+      type: "codex",
+      refresh_token: "rt-earlier-sign-in",
+      prefix: "openai-5eed0009",
+      chat_seed: seedOf({
+        id: "openai-5eed0009",
+        credential: { ...resignedIn, refresh_token: "rt-earlier" } as never,
+      }),
+    }),
+  );
 
   settings = {
     credentialsDir: credDir,
@@ -210,9 +225,20 @@ describe("proxy", () => {
       owner: "chat",
       revision: seedOf({ id: "openai-1e9a0007", credential: legacySignIn as never }),
     });
-    expect(kept).not.toHaveProperty("chat_seed");
     const { files } = await client.credentials.list();
     expect(files.map((f) => f.name)).not.toContain(authFileName("openai-90ne0008"));
+  });
+
+  test("a file from an earlier sign-in is replaced by the new one", async () => {
+    const client = proxy.client();
+    const replaced = JSON.parse(
+      await (await client.credentials.download(authFileName("openai-5eed0009"))).text(),
+    );
+    expect(replaced.refresh_token).toBe("rt-new-sign-in");
+    expect(replaced["x-cpajs"]).toEqual({
+      owner: "chat",
+      revision: seedOf({ id: "openai-5eed0009", credential: resignedIn as never }),
+    });
   });
 
   test("routes to the named connection", async () => {
@@ -296,3 +322,28 @@ describe("proxy", () => {
     }
   }, 70_000);
 });
+
+test("a first start that fails is tried again until it succeeds", async () => {
+  const cred = await mkdtemp(path.join(tmpdir(), "proxy-cred-"));
+  const data = await mkdtemp(path.join(tmpdir(), "proxy-data-"));
+  const port = await freePort();
+  // Something else holds the port, then lets it go.
+  const holder = createServer().listen(port, "127.0.0.1");
+  setTimeout(() => holder.close(), 1500);
+  const errors: unknown[] = [];
+  const original = console.error;
+  console.error = (...args: unknown[]) => errors.push(args[0]);
+  try {
+    const server = await startProxy(
+      { credentialsDir: cred, dataDir: data, host: "127.0.0.1", port, accessKey: ACCESS_KEY },
+      () => {},
+    );
+    expect(server.port).toBe(port);
+    expect(errors).toContain("proxy: start failed, trying again");
+    await server.stop();
+  } finally {
+    console.error = original;
+    await rm(cred, { recursive: true, force: true });
+    await rm(data, { recursive: true, force: true });
+  }
+}, 30_000);

@@ -41,44 +41,26 @@ export function codexAuth(connection: Connection, now: Date): Record<string, str
   };
 }
 
-const adopted = new WeakSet<CpaClient>();
-
-/**
- * Hands files from before cpajs tracked them to cpajs, keeping the tokens
- * CLIProxyAPI has refreshed since. Their `chat_seed` is the revision a
- * reconcile would compare, so a current one is left alone instead of being
- * overwritten with the credential's stale tokens. Once per client.
- */
-async function adoptLegacy(client: CpaClient): Promise<void> {
-  if (adopted.has(client)) return;
-  const { files } = await client.credentials.list();
-  for (const { name } of files) {
-    if (!name.startsWith(AUTH_FILE_PREFIX) || !name.endsWith(".json")) continue;
-    const body = JSON.parse(await (await client.credentials.download(name)).text());
-    if (body["x-cpajs"] || typeof body[LEGACY_SEED_KEY] !== "string") continue;
-    const { [LEGACY_SEED_KEY]: seed, ...rest } = body;
-    await client.credentials.upload({
-      name,
-      content: JSON.stringify({ ...rest, "x-cpajs": { owner: OWNER, revision: seed } }, null, 2),
-    });
-  }
-  adopted.add(client);
-}
-
 /** Brings CLIProxyAPI's auth files in line with the sign-ins. Reports whether it changed any. */
 export async function syncAuths(
   client: CpaClient,
   connections: Connection[],
   now = new Date(),
 ): Promise<boolean> {
-  await adoptLegacy(client);
-  const { uploaded, deleted } = await client.credentials.reconcile({
+  const { uploaded, deleted, adopted } = await client.credentials.reconcile({
     owner: OWNER,
     files: connections.filter(isSignIn).map((connection) => ({
       name: authFileName(connection.id),
       content: codexAuth(connection, now),
       revision: seedOf(connection),
     })),
+    // Files from before cpajs tracked them carry the revision as `chat_seed`.
+    // Claiming them in place keeps the tokens CLIProxyAPI has refreshed since,
+    // instead of overwriting them with the credential's stale ones.
+    adopt: (name, body) =>
+      name.startsWith(AUTH_FILE_PREFIX) && typeof body[LEGACY_SEED_KEY] === "string"
+        ? body[LEGACY_SEED_KEY]
+        : undefined,
   });
-  return uploaded.length + deleted.length > 0;
+  return uploaded.length + deleted.length + adopted.length > 0;
 }

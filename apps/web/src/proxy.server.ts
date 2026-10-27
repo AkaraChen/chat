@@ -15,9 +15,9 @@ export function ensureProxy(): Promise<CpaServer> {
     port: Number(new URL(ENV.PROXY_URL).port || 80),
     accessKey: ENV.PROXY_API_KEY,
   }).catch((error) => {
-    // Without the proxy no model call can work, and cpajs only restarts a
-    // proxy that started once. Fail loudly and let the supervisor (start.sh,
-    // then Docker) restart the whole server.
+    // cpajs retries a start that fails, so this is what it cannot recover
+    // from (no binary, bad options). Without the proxy no model call can
+    // work: fail loudly and let start.sh, then Docker, restart the server.
     console.error("proxy: failed to start", error);
     process.exit(1);
   });
