@@ -64,7 +64,8 @@ proxy:
 # is this same machine (the port is already taken by the registry), so then the
 # server pulls from the registry directly. It has no auth; the login is a no-op.
 <% registry = ENV["KAMAL_REGISTRY"].to_s.strip %>
-<% sex_lite_ref = "4017f2fe3e50" # keep in step with deploy/sex-lite.sh %>
+<%# The sex-lite image tag; keep in step with deploy/sex-lite.sh. %>
+<% sex_lite_ref = "4017f2fe3e50" %>
 registry:
 <% if registry.empty? %>
   server: localhost:5555
