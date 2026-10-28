@@ -170,6 +170,55 @@ describe("chat loop", () => {
     });
   });
 
+  test("with a web server the web tools are offered up front, and a turn closes its connection", async () => {
+    const model = scriptedModel([
+      callTool("c1", "web_fetch", { url: "https://example.com/" }),
+      say("It says hello."),
+    ]);
+    const { deps } = harness(model);
+    const closed: number[] = [];
+    deps.web = async () => ({
+      call: async () => "Title: Example\nURL: https://example.com/\n\nHello.",
+      close: async () => void closed.push(1),
+    });
+    const thread = await newThread();
+    await send(deps, thread.id, "what is on example.com?");
+
+    expect(toolNames(model)).toEqual([
+      "search_templates",
+      "tool_search",
+      "web_fetch",
+      "web_search",
+    ]);
+    const assistant = (await saved(thread.id))[1]!;
+    expect(assistant.parts.find((p) => p.type === "tool-web_fetch")).toMatchObject({
+      state: "output-available",
+      output: { detail: { host: "example.com" }, title: "Example", content: "Hello." },
+    });
+    expect(closed).toHaveLength(1);
+
+    // Without the server the tools are gone, and the earlier call still loads.
+    const next = scriptedModel([say("Done.")]);
+    const { deps: plain } = harness(next);
+    await send(plain, thread.id, "thanks");
+    expect(toolNames(next)).toEqual(["search_templates", "tool_search"]);
+  });
+
+  test("an unreachable web server fails the tool call, not the turn", async () => {
+    const model = scriptedModel([
+      callTool("c1", "web_search", { query: "news" }),
+      say("Search is down."),
+    ]);
+    const { deps } = harness(model);
+    deps.web = () => Promise.reject(new Error("connect ECONNREFUSED"));
+    const thread = await newThread();
+    const chunks = await send(deps, thread.id);
+
+    expect(chunks.map((c) => c.type)).toContain("tool-output-error");
+    expect(chunks.at(-1)!.type).toBe("finish");
+    expect(model.doStreamCalls).toHaveLength(2);
+  });
+
   test("a view that fails the catalog is dropped and the prose stays, without a retry", async () => {
     const bad = {
       root: "answer",

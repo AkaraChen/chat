@@ -7,6 +7,7 @@ import type { CredentialStore } from "./credentials/store";
 import type { GithubStore } from "./github/store";
 import type { ThreadTitleQueue } from "./jobs/thread-title";
 import type { ModelsDev } from "./models/models-dev";
+import type { WebConnect } from "./web/mcp";
 
 export type Context = {
   db: Database;
@@ -19,6 +20,8 @@ export type Context = {
   // Created on first use, so the web app starts without Redis.
   titleQueue: () => ThreadTitleQueue;
   createModel: ModelFactory;
+  // Web search and fetch over MCP. Unset when no server is configured.
+  web?: WebConnect;
   // Replaces `fetch` for the proxy and GitHub. Tests only.
   fetch?: typeof fetch;
   session: { userId: string; role: Role } | null;

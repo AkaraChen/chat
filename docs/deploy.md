@@ -9,6 +9,8 @@ Kamal puts the whole app on any Linux server you can reach over SSH. Config is
   runs the web server, which starts the model proxy (CLIProxyAPI through cpajs, on 127.0.0.1 inside the container),
   and the thread-title worker. It brings the SQLite schema up to date first.
 - `chat-redis`: Redis for the title queue, as a Kamal accessory.
+- `chat-sex`: [sex-lite](https://github.com/AkaraChen/sex), the web search and
+  page fetch tools, served over MCP. A Kamal accessory with its own SearXNG.
 - kamal-proxy in front, on ports 80 and 443.
 
 Everything the app keeps sits in `/var/lib/chat` on the server: `local.db`,
@@ -56,6 +58,17 @@ There is no registry account to set up. Kamal runs a registry on your machine
 and pushes to the server through the SSH connection. Set `KAMAL_ARCH=arm64`
 for an ARM server.
 
+Web search runs from an image you build once, before `kamal setup` (or before
+`kamal accessory boot sex` on a server that is already set up):
+
+```sh
+deploy/sex-lite.sh
+```
+
+To move to a newer sex-lite, change the commit in that script and in
+`config/deploy.yml`, run it again, then `kamal accessory reboot sex`. Without
+the accessory the app still runs; web tool calls fail and the model says so.
+
 The first account to sign up becomes the admin. Connect a provider in
 Settings → Providers.
 
@@ -77,5 +90,6 @@ address, set `KAMAL_HTTP_PORT` and `KAMAL_BIND_IP` too.
 ```sh
 kamal app logs -f            # web, proxy and worker logs together
 kamal accessory logs redis
+kamal accessory logs sex     # web search and fetch
 kamal app exec -i bash       # a shell in the app container
 ```

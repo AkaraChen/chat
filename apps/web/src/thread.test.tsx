@@ -286,6 +286,31 @@ test("trace marks follow a running step and an error step", () => {
   expect(screen.getAllByRole("img", { name: "Failed" }).length).toBeGreaterThanOrEqual(2);
 });
 
+test("web steps say what was searched and which site was read", () => {
+  const { rerender } = render(
+    <Trace
+      steps={[
+        { tool: "web_search", status: "running" },
+        { tool: "web_fetch", status: "running" },
+      ]}
+    />,
+  );
+  expect(screen.getByText("Searching the web")).toBeTruthy();
+  expect(screen.getByText("Reading a page")).toBeTruthy();
+
+  rerender(
+    <Trace
+      steps={[
+        { tool: "web_search", status: "done", detail: { query: "bun runtime", results: 5 } },
+        { tool: "web_fetch", status: "done", detail: { host: "bun.com" } },
+      ]}
+    />,
+  );
+  expect(screen.getByText("Searched “bun runtime”")).toBeTruthy();
+  expect(screen.getByText("5 results")).toBeTruthy();
+  expect(screen.getByText("Read bun.com")).toBeTruthy();
+});
+
 test("tool_search stays out of the trace, and a view that fails the catalog is not drawn", () => {
   const broken = {
     root: "answer",

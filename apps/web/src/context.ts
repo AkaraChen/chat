@@ -6,6 +6,7 @@ import { createGithubStore } from "@my-better-t-app/api/github/store";
 import { createThreadTitleQueue } from "@my-better-t-app/api/jobs/queue";
 import type { ThreadTitleQueue } from "@my-better-t-app/api/jobs/thread-title";
 import { createModelsDev } from "@my-better-t-app/api/models/models-dev";
+import { createMcpConnect } from "@my-better-t-app/api/web/mcp";
 import { toRole } from "@my-better-t-app/db/auth";
 
 import { auth } from "./auth";
@@ -21,6 +22,7 @@ const github = createGithubStore(ENV.GITHUB_TOKEN_FILE);
 const modelsDev = createModelsDev({ cachePath: ENV.MODELS_DEV_CACHE_FILE });
 const proxy = { url: ENV.PROXY_URL, apiKey: ENV.PROXY_API_KEY };
 const createModel = createProxyModelFactory(proxy);
+const web = ENV.WEB_MCP_URL ? createMcpConnect(ENV.WEB_MCP_URL) : undefined;
 
 let queue: ThreadTitleQueue | undefined;
 const titleQueue = () => (queue ??= createThreadTitleQueue(ENV.REDIS_URL));
@@ -36,6 +38,7 @@ export async function createContext({ req }: { req: Request }): Promise<ApiConte
     proxy,
     titleQueue,
     createModel,
+    web,
     session: result ? { userId: result.user.id, role: toRole(result.user.role) } : null,
     authSecret: ENV.BETTER_AUTH_SECRET,
   };

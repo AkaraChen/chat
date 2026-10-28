@@ -17,6 +17,8 @@ import type { GithubStore } from "../github/store";
 import { githubTools, githubToolsFor } from "../github/tools";
 import { enqueueThreadTitle, type ThreadTitleQueue } from "../jobs/thread-title";
 import { createSearchTemplatesTool } from "../templates/search";
+import type { WebConnect } from "../web/mcp";
+import { webTools, webToolSchemas } from "../web/tools";
 import { coalesceTextDeltas } from "./coalesce";
 import { forModel } from "./history";
 import { paceText } from "./pace";
@@ -38,6 +40,8 @@ export type ChatDeps = {
   createModel: ModelFactory;
   titleQueue: () => ThreadTitleQueue;
   fetch?: (input: string, init?: RequestInit) => Promise<Response>;
+  /** Reaches the web search and fetch MCP server. Without it, a turn has no web tools. */
+  web?: WebConnect;
 };
 
 export type ChatInput = {
@@ -63,22 +67,28 @@ function messageOf(error: unknown): string {
 
 /**
  * The tools a turn starts with. The GitHub tools are deferred: the model
- * sees `tool_search` and `search_templates`, and a search loads the GitHub
- * tools for the next step and the rest of the turn.
+ * sees `tool_search`, `search_templates` and the web tools, and a search
+ * loads the GitHub tools for the next step and the rest of the turn.
  */
-function toolsFor(token: string | null, fetchImpl: ChatDeps["fetch"]): ToolSet {
+function toolsFor(
+  token: string | null,
+  fetchImpl: ChatDeps["fetch"],
+  web: ReturnType<typeof webTools> | null,
+): ToolSet {
   return {
     tool_search: toolSearch(),
     search_templates: createSearchTemplatesTool({ github: token !== null }),
+    ...web?.tools,
     ...githubToolsFor(token, fetchImpl),
   } as ToolSet;
 }
 
-// History can hold GitHub tool calls from when a token was set, so every
-// tool's schema is checked whether or not the token is there now.
+// History can hold GitHub and web tool calls from when they were set up, so
+// every tool's schema is checked whether or not it is there now.
 const historyTools = {
   tool_search: toolSearch(),
   search_templates: createSearchTemplatesTool(),
+  ...webToolSchemas,
   ...githubTools({ token: "" }),
 } as ToolSet;
 
@@ -167,7 +177,8 @@ export async function streamChat(deps: ChatDeps, input: ChatInput): Promise<Resp
   await saveMessage(db, threadId, message);
 
   const token = await deps.github.read();
-  const tools = toolsFor(token, deps.fetch);
+  const web = deps.web ? webTools(deps.web) : null;
+  const tools = toolsFor(token, deps.fetch, web);
   const model = deps.createModel(input.connectionId, input.modelId);
   const metadata: ChatMetadata = { connectionId: input.connectionId, modelId: input.modelId };
   const modelMessages = await convertToModelMessages(forModel(messages), {
@@ -200,6 +211,7 @@ export async function streamChat(deps: ChatDeps, input: ChatInput): Promise<Resp
       writer.merge(pipeJsonRender(chunks).pipeThrough(coalesceTextDeltas()));
     },
     async onEnd({ responseMessage }) {
+      void web?.close();
       try {
         await finish(responseMessage);
       } catch (error) {
