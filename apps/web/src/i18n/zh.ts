@@ -205,6 +205,8 @@ export const zh: Resource = {
     failedCount: "{{count}} 个失败",
     collectedComments: "收集了评论",
     unresolved: "{{count}} 个未解决",
+    checkingTime: "正在查看时间",
+    checkedTime: "查看了时间",
     searchingWeb: "正在搜索网页",
     searchedWeb: "搜索了“{{query}}”",
     result_one: "{{count}} 条结果",

@@ -40,6 +40,10 @@ const COPY: Record<string, Copy> = {
     right: (t, d) =>
       d.unresolved == null ? "" : t("trace.unresolved", { count: Number(d.unresolved) }),
   },
+  get_current_time: {
+    label: (t, d) => (d.time ? t("trace.checkedTime") : t("trace.checkingTime")),
+    right: (_, d) => String(d.time ?? ""),
+  },
   // The detail arrives with the result, so a running step has none yet.
   web_search: {
     label: (t, d) =>

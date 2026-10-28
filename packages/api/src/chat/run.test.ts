@@ -8,6 +8,7 @@ import { MockLanguageModelV4 } from "ai/test";
 import { createGithubStore } from "../github/store";
 import type { ChatMessage } from "./message";
 import { InvalidMessageError, loadMessages, MAX_STEPS, streamChat, type ChatDeps } from "./run";
+import { timePrompt } from "./time";
 import {
   callTool,
   chunksOf,
@@ -87,7 +88,7 @@ describe("chat loop", () => {
 
     expect(model.doStreamCalls).toHaveLength(1);
     // The GitHub tools are deferred: only the search tools are offered at first.
-    expect(toolNames(model)).toEqual(["search_templates", "tool_search"]);
+    expect(toolNames(model)).toEqual(["get_current_time", "search_templates", "tool_search"]);
     expect(chunks.map((c) => c.type)).not.toContain("data-spec");
     expect(chunks.at(-1)!.type).toBe("finish");
 
@@ -142,7 +143,7 @@ describe("chat loop", () => {
     const { deps } = harness(model);
     const thread = await newThread();
     await send(deps, thread.id);
-    expect(toolNames(model)).toEqual(["search_templates", "tool_search"]);
+    expect(toolNames(model)).toEqual(["get_current_time", "search_templates", "tool_search"]);
     const search = (await saved(thread.id))[1]!.parts.find(
       (p) => p.type === "tool-search_templates",
     ) as { output: { detail: { template: string }; guide: string } };
@@ -185,6 +186,7 @@ describe("chat loop", () => {
     await send(deps, thread.id, "what is on example.com?");
 
     expect(toolNames(model)).toEqual([
+      "get_current_time",
       "search_templates",
       "tool_search",
       "web_fetch",
@@ -201,7 +203,7 @@ describe("chat loop", () => {
     const next = scriptedModel([say("Done.")]);
     const { deps: plain } = harness(next);
     await send(plain, thread.id, "thanks");
-    expect(toolNames(next)).toEqual(["search_templates", "tool_search"]);
+    expect(toolNames(next)).toEqual(["get_current_time", "search_templates", "tool_search"]);
   });
 
   test("an unreachable web server fails the tool call, not the turn", async () => {
@@ -268,6 +270,17 @@ describe("chat loop", () => {
     await send(deps, thread.id, "one");
     await send(deps, thread.id, "two");
     expect(queued).toEqual([thread.id]);
+  });
+
+  test("the conversation opens with when the thread started, the same every turn", async () => {
+    const model = scriptedModel([say("One."), say("Two.")]);
+    const { deps } = harness(model);
+    const thread = await newThread();
+    await send(deps, thread.id, "one");
+    await send(deps, thread.id, "two");
+    const system = { role: "system" as const, content: timePrompt(thread.createdAt) };
+    expect(model.doStreamCalls[0]!.prompt[0]).toEqual(system);
+    expect(model.doStreamCalls[1]!.prompt[0]).toEqual(system);
   });
 
   test("history sends the prose and a component summary, not the spec", async () => {

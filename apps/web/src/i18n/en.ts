@@ -208,6 +208,8 @@ export const en = {
     failedCount: "{{count}} failed",
     collectedComments: "Collected comments",
     unresolved: "{{count}} unresolved",
+    checkingTime: "Checking the time",
+    checkedTime: "Checked the time",
     searchingWeb: "Searching the web",
     searchedWeb: "Searched “{{query}}”",
     result_one: "{{count}} result",

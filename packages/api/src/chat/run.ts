@@ -22,6 +22,7 @@ import { webTools, webToolSchemas } from "../web/tools";
 import { coalesceTextDeltas } from "./coalesce";
 import { forModel } from "./history";
 import { paceText } from "./pace";
+import { timePrompt, timeTool } from "./time";
 import {
   dataSchemas,
   metadataSchema,
@@ -67,7 +68,8 @@ function messageOf(error: unknown): string {
 
 /**
  * The tools a turn starts with. The GitHub tools are deferred: the model
- * sees `tool_search`, `search_templates` and the web tools, and a search
+ * sees `tool_search`, `search_templates`, `get_current_time` and the web
+ * tools, and a search
  * loads the GitHub tools for the next step and the rest of the turn.
  */
 function toolsFor(
@@ -78,6 +80,7 @@ function toolsFor(
   return {
     tool_search: toolSearch(),
     search_templates: createSearchTemplatesTool({ github: token !== null }),
+    get_current_time: timeTool(),
     ...web?.tools,
     ...githubToolsFor(token, fetchImpl),
   } as ToolSet;
@@ -88,6 +91,7 @@ function toolsFor(
 const historyTools = {
   tool_search: toolSearch(),
   search_templates: createSearchTemplatesTool(),
+  get_current_time: timeTool(),
   ...webToolSchemas,
   ...githubTools({ token: "" }),
 } as ToolSet;
@@ -150,7 +154,7 @@ export async function streamChat(deps: ChatDeps, input: ChatInput): Promise<Resp
   const { db } = deps;
   const thread = await db.thread.findFirst({
     where: { id: input.threadId, userId: input.userId },
-    select: { id: true },
+    select: { id: true, createdAt: true },
   });
   if (!thread) throw new ThreadNotFoundError();
   const threadId = thread.id;
@@ -192,6 +196,7 @@ export async function streamChat(deps: ChatDeps, input: ChatInput): Promise<Resp
     execute({ writer }) {
       const result = streamText({
         model,
+        system: timePrompt(thread.createdAt),
         messages: modelMessages,
         tools,
         stopWhen: isStepCount(MAX_STEPS),
