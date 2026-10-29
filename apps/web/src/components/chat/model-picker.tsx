@@ -35,7 +35,7 @@ export function ModelPicker({ onConnect }: { onConnect: () => void }) {
 
   if (models.isError) {
     return (
-      <span className="flex h-9 items-center rounded-full bg-recessed px-3 text-sm text-ink-secondary">
+      <span className="flex h-9 items-center rounded-full bg-recessed px-3 text-sm text-ink-secondary shadow-[var(--elevation-chip)]">
         {t("picker.unavailableAll")}
       </span>
     );
@@ -44,7 +44,7 @@ export function ModelPicker({ onConnect }: { onConnect: () => void }) {
     return (
       <span
         role="status"
-        className="flex h-9 items-center gap-2 rounded-full bg-recessed px-3 text-sm text-ink-secondary"
+        className="flex h-9 items-center gap-2 rounded-full bg-recessed px-3 text-sm text-ink-secondary shadow-[var(--elevation-chip)]"
       >
         <Spinner size={16} />
         {t("picker.loading")}
@@ -56,7 +56,7 @@ export function ModelPicker({ onConnect }: { onConnect: () => void }) {
       <button
         type="button"
         onClick={onConnect}
-        className="flex h-9 items-center rounded-full bg-recessed px-3 text-sm font-medium text-accent"
+        className="flex h-9 items-center rounded-full bg-recessed px-3 text-sm font-medium text-accent shadow-[var(--elevation-chip)]"
       >
         {t("picker.connect")}
       </button>
@@ -75,7 +75,7 @@ export function ModelPicker({ onConnect }: { onConnect: () => void }) {
   return (
     <DropdownMenu onOpenChange={(open) => !open && setQuery("")}>
       <DropdownMenuTrigger
-        className={`flex h-9 items-center gap-2 rounded-full bg-recessed px-3 text-sm font-medium outline-none hover:bg-raised ${
+        className={`flex h-9 items-center gap-2 rounded-full bg-recessed px-3 text-sm font-medium shadow-[var(--elevation-chip)] outline-none hover:bg-raised ${
           unavailable ? "text-warn" : "text-ink"
         }`}
       >

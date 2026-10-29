@@ -161,7 +161,7 @@ function SidebarLayer({
         to="/chat"
         search={{}}
         aria-label={t("sidebar.newChat")}
-        className={`mt-4 flex items-center justify-center bg-accent font-medium text-on-accent ${
+        className={`mt-4 flex items-center justify-center bg-accent font-medium text-on-accent shadow-[var(--elevation-primary)] ${
           collapsed ? "size-10 rounded-xl" : "h-10 gap-2 rounded-xl px-3 text-sm"
         }`}
       >

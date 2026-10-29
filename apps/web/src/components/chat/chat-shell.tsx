@@ -177,7 +177,7 @@ export function ChatShell({
           void queryClient.prefetchQuery({ ...historyQuery(id), staleTime: PREFETCH_FRESH_MS });
         }}
       />
-      <main className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-[20px] border border-line-quiet bg-paper">
+      <main className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-[20px] border border-line-quiet bg-paper shadow-[var(--elevation-panel)]">
         <header className="flex h-14 shrink-0 items-center justify-between px-4">
           <ModelPicker onConnect={() => openSettings("providers")} />
           {/* Only a chat that exists can be exported; the empty state has none. */}

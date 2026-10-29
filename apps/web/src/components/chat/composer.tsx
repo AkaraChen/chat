@@ -47,7 +47,7 @@ export function Composer({
         event.preventDefault();
         if (canSend) onSend();
       }}
-      className="flex flex-col rounded-2xl border border-line bg-paper px-4 pt-3 pb-3"
+      className="flex flex-col rounded-2xl border border-line bg-paper px-4 pt-3 pb-3 shadow-[var(--elevation-card)]"
     >
       <textarea
         ref={(el) => {

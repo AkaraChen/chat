@@ -49,6 +49,21 @@
   --scrim: rgb(0 0 0 / 0.25);
   --elevation-menu: 0 12px 32px rgb(16 24 40 / 0.14);
   --elevation-modal: 0 12px 28px rgb(0 0 0 / 0.18);
+  /*
+   * Light falls from above: a white edge catches it, the bottom edge falls
+   * into shadow, and the surface itself casts a soft one. In dark the lamp is
+   * off, so only the depth is left: the same surface, a quieter shadow.
+   */
+  --elevation-panel:
+    inset 0 1px 0 rgb(255 255 255 / 0.8), inset 0 -1px 0 rgb(16 24 40 / 0.08),
+    0 1px 2px rgb(16 24 40 / 0.12), 0 8px 20px rgb(16 24 40 / 0.06);
+  --elevation-card: var(--elevation-panel);
+  --elevation-chip:
+    inset 0 1px 0 rgb(255 255 255 / 0.8), inset 0 -1px 0 rgb(16 24 40 / 0.08),
+    0 1px 2px rgb(16 24 40 / 0.08);
+  --elevation-primary:
+    inset 0 1px 0 rgb(255 255 255 / 0.5), inset 0 -2px 0 rgb(0 0 0 / 0.22),
+    0 1px 2px rgb(16 24 40 / 0.24), 0 6px 14px rgb(26 115 232 / 0.28);
 
   --background: var(--paper);
   --foreground: var(--ink);
@@ -114,6 +129,11 @@
   --scrim: rgb(0 0 0 / 0.32);
   --elevation-menu: 0 12px 32px rgb(0 0 0 / 0.45);
   --elevation-modal: 0 12px 28px rgb(0 0 0 / 0.55);
+  --elevation-panel: 0 6px 16px rgb(0 0 0 / 0.2);
+  --elevation-card: 0 2px 8px rgb(0 0 0 / 0.13);
+  /* A chip is flush with the sidebar in the dark; nothing to lift it. */
+  --elevation-chip: 0 0 0 rgb(0 0 0 / 0);
+  --elevation-primary: 0 1px 2px rgb(0 0 0 / 0.16);
 }
 
 @theme inline {
