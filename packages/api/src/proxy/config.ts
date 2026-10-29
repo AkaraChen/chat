@@ -80,9 +80,6 @@ export function configOf(connections: Connection[], options: Options): CpaConfig
   return {
     "config-version": 8,
     server: { host: options.host, port: options.port },
-    // cpajs adds the generated key. Only this process uses the management API,
-    // so CLIProxyAPI need not fetch and serve its web panel.
-    management: { "disable-control-panel": true },
     access: { "api-keys": [options.accessKey] },
     oauth: { "auth-dir": options.authDir },
     routing: { "force-model-prefix": true },

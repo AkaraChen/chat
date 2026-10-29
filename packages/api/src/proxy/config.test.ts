@@ -112,7 +112,8 @@ test("configOf forces the prefix and accepts only the access key", () => {
   expect(config.access).toEqual({ "api-keys": ["internal"] });
   expect(config.oauth).toEqual({ "auth-dir": "/data/proxy/auths" });
   expect(config.routing).toEqual({ "force-model-prefix": true });
-  expect(config.management).toEqual({ "disable-control-panel": true });
+  // cpajs fills in the management section (generated key, panel off).
+  expect(config.management).toBeUndefined();
 });
 
 describe("auth files", () => {

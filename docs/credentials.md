@@ -137,6 +137,10 @@ connection id as its `prefix`. From then on CLIProxyAPI refreshes the tokens
 and rewrites that file itself, so the credential's tokens are only the seed
 and go stale; the auth file holds the live ones. A new sign-in (another
 refresh token) replaces the file, and removing the connection removes it.
+The file records which sign-in it came from as `chat_seed` (a hash of the
+sign-in's first refresh token), and only files named `chat-*.json` are the
+proxy's. If CLIProxyAPI exits on its own the proxy starts it again a second
+later.
 
 ## Explicitly not doing
 

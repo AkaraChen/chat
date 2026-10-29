@@ -5,8 +5,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 
-import { authFileName } from "./auths";
-import { type Proxy, start } from "./server";
+import { authFileName, seedOf } from "./auths";
+import { type Proxy, start, supervise } from "./server";
 
 type Hit = { path: string; auth: string | null; model: string };
 
@@ -68,6 +68,19 @@ let base: string;
 let proxy: Proxy;
 const upA = fakeUpstream();
 const upB = fakeUpstream();
+
+const refreshedSignIn = { ...signIn, account_id: "acct-refreshed", refresh_token: "rt-first" };
+const resignedIn = { ...signIn, account_id: "acct-again", refresh_token: "rt-new-sign-in" };
+
+const asConnection = (id: string, credential: object) => ({ id, credential }) as never;
+
+// An auth file the proxy wrote earlier, as CLIProxyAPI leaves it.
+async function writeAuth(id: string, refreshToken: string, seed: string) {
+  await Bun.write(
+    path.join(dataDir, "auths", authFileName(id)),
+    JSON.stringify({ type: "codex", refresh_token: refreshToken, prefix: id, chat_seed: seed }),
+  );
+}
 
 async function writeCred(id: string, body: object) {
   await writeFile(path.join(credDir, `${id}.json`), JSON.stringify(body), { mode: 0o600 });
@@ -132,6 +145,22 @@ beforeAll(async () => {
   await writeCred("openai-ffff0006", signIn);
   // Someone else's auth file in CLIProxyAPI's directory is never touched.
   await Bun.write(path.join(dataDir, "auths", "codex-other.json"), "{}");
+  // Auth files already on disk, as in production: one whose tokens CLIProxyAPI
+  // has refreshed since it was written, one from an earlier sign-in to an
+  // account that signed in again, and one whose sign-in is gone.
+  await writeCred("openai-1e9a0007", refreshedSignIn);
+  await writeAuth(
+    "openai-1e9a0007",
+    "rt-refreshed-by-cpa",
+    seedOf(asConnection("openai-1e9a0007", refreshedSignIn)),
+  );
+  await writeCred("openai-5eed0009", resignedIn);
+  await writeAuth(
+    "openai-5eed0009",
+    "rt-earlier",
+    seedOf(asConnection("openai-5eed0009", { ...resignedIn, refresh_token: "rt-earlier" })),
+  );
+  await writeAuth("openai-90ne0008", "rt-old", "0123456789abcdef");
 
   proxy = await start(
     {
@@ -227,6 +256,16 @@ describe("proxy", () => {
     expect(names).toContain("codex-other.json");
   }, 40_000);
 
+  test("auth files on disk keep CLIProxyAPI's tokens unless the sign-in changed", async () => {
+    const client = proxy.server.client();
+    const read = async (id: string) =>
+      JSON.parse(await (await client.credentials.download(authFileName(id))).text());
+    expect((await read("openai-1e9a0007")).refresh_token).toBe("rt-refreshed-by-cpa");
+    expect((await read("openai-5eed0009")).refresh_token).toBe("rt-new-sign-in");
+    const { files } = await client.credentials.list();
+    expect(files.map((f) => f.name)).not.toContain(authFileName("openai-90ne0008"));
+  });
+
   test("hot reload on add and delete", async () => {
     const upD = fakeUpstream();
     try {
@@ -241,3 +280,36 @@ describe("proxy", () => {
     }
   }, 70_000);
 });
+
+test("a crashed CLIProxyAPI is started again", async () => {
+  const cred = await mkdtemp(path.join(tmpdir(), "proxy-cred-"));
+  const data = await mkdtemp(path.join(tmpdir(), "proxy-data-"));
+  const settings = {
+    credentialsDir: cred,
+    dataDir: data,
+    host: "127.0.0.1",
+    port: await freePort(),
+    accessKey: ACCESS_KEY,
+  };
+  const original = console.error;
+  console.error = () => {};
+  const supervised = await supervise(settings, () => {});
+  try {
+    const before = supervised.server.pid;
+    process.kill(before, "SIGKILL");
+    const deadline = Date.now() + 20_000;
+    while (supervised.server.pid === before) {
+      if (Date.now() > deadline) throw new Error("not restarted");
+      await Bun.sleep(200);
+    }
+    const models = await fetch(`http://127.0.0.1:${settings.port}/v1/models`, {
+      headers: { authorization: `Bearer ${ACCESS_KEY}` },
+    });
+    expect(models.status).toBe(200);
+  } finally {
+    console.error = original;
+    await supervised.stop();
+    await rm(cred, { recursive: true, force: true });
+    await rm(data, { recursive: true, force: true });
+  }
+}, 40_000);

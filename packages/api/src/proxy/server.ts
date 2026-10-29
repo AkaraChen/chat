@@ -1,6 +1,7 @@
 // Runs CLIProxyAPI through cpajs and keeps it configured from the credential
 // files. See docs/credentials.md. The web server starts it; everything else
 // reaches it over HTTP on a fixed port.
+import "@cpajs/cpa/binary";
 import path from "node:path";
 
 import { type CpaServer, startServer } from "@cpajs/cpa/server";
