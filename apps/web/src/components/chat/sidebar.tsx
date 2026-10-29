@@ -43,6 +43,8 @@ export function roleKey(role: string) {
 
 type SidebarProps = {
   threads: Thread[];
+  /** The list is still being read; draw its shape, not an empty list. */
+  loading?: boolean;
   activeId: string | undefined;
   name: string;
   role: string;
@@ -115,6 +117,7 @@ export function Sidebar(props: SidebarProps) {
 
 function SidebarLayer({
   threads,
+  loading,
   activeId,
   name,
   role,
@@ -175,24 +178,31 @@ function SidebarLayer({
         {collapsed ? <span className="sr-only">{t("sidebar.library")}</span> : t("sidebar.library")}
       </button>
       {collapsed ? null : (
-        <nav className="mt-4 flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto">
-          {group(threads).map(({ label, threads }) => (
-            <section key={label} className="flex flex-col gap-0.5">
-              <h2 className="px-3 pb-1 text-xs font-medium text-ink-tertiary">
-                {t(`sidebar.${label}`)}
-              </h2>
-              {threads.map((thread) => (
-                <ThreadRow
-                  key={thread.id}
-                  thread={thread}
-                  active={thread.id === activeId}
-                  onRename={onRename}
-                  onDelete={onDelete}
-                  onPrefetch={onPrefetch}
-                />
-              ))}
-            </section>
-          ))}
+        <nav
+          aria-busy={loading || undefined}
+          className="mt-4 flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto"
+        >
+          {loading ? (
+            <ThreadListSkeleton />
+          ) : (
+            group(threads).map(({ label, threads }) => (
+              <section key={label} className="flex flex-col gap-0.5">
+                <h2 className="px-3 pb-1 text-xs font-medium text-ink-tertiary">
+                  {t(`sidebar.${label}`)}
+                </h2>
+                {threads.map((thread) => (
+                  <ThreadRow
+                    key={thread.id}
+                    thread={thread}
+                    active={thread.id === activeId}
+                    onRename={onRename}
+                    onDelete={onDelete}
+                    onPrefetch={onPrefetch}
+                  />
+                ))}
+              </section>
+            ))
+          )}
         </nav>
       )}
       <div
@@ -221,6 +231,38 @@ function SidebarLayer({
         </button>
       </div>
     </div>
+  );
+}
+
+/** The list's shape while it is first read: two groups, no titles yet. */
+function ThreadListSkeleton() {
+  const { t } = useTranslation();
+  return (
+    <>
+      <span role="status" className="sr-only">
+        {t("sidebar.loading")}
+      </span>
+      <div
+        aria-hidden="true"
+        className="flex animate-pulse flex-col gap-5 [animation-duration:2.4s] motion-reduce:animate-none"
+      >
+        {[
+          { label: 44, rows: [148, 176, 120] },
+          { label: 52, rows: [140, 156, 110] },
+        ].map((group) => (
+          <section key={group.label} className="flex flex-col gap-0.5">
+            <h2 className="px-3 pb-1">
+              <span className="block h-2 rounded-[4px] bg-line" style={{ width: group.label }} />
+            </h2>
+            {group.rows.map((width) => (
+              <div key={width} className="flex h-8 items-center px-2.5">
+                <span className="block h-2 rounded-[4px] bg-line-quiet" style={{ width }} />
+              </div>
+            ))}
+          </section>
+        ))}
+      </div>
+    </>
   );
 }
 

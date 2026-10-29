@@ -1,7 +1,8 @@
 # Kamal deploy for the whole app. See docs/deploy.md.
 #
 # One image runs the web server, the Go model proxy and the worker (thread titles,
-# model sync; deploy/start.sh). Redis is an accessory. App data, SQLite and the credential
+# model sync; deploy/start.sh). Redis and sex-lite (web search and fetch) are
+# accessories. App data, SQLite and the credential
 # files all live in one host directory mounted at /data.
 #
 # The target comes from the environment, so the same file deploys anywhere:
@@ -63,6 +64,8 @@ proxy:
 # is this same machine (the port is already taken by the registry), so then the
 # server pulls from the registry directly. It has no auth; the login is a no-op.
 <% registry = ENV["KAMAL_REGISTRY"].to_s.strip %>
+<%# The sex-lite image tag; keep in step with deploy/sex-lite.sh. %>
+<% sex_lite_ref = "4017f2fe3e50" %>
 registry:
 <% if registry.empty? %>
   server: localhost:5555
@@ -97,6 +100,7 @@ env:
     PROXY_DATA_DIR: /data/proxy
     PROXY_URL: http://127.0.0.1:8317
     REDIS_URL: redis://chat-redis:6379
+    WEB_MCP_URL: http://chat-sex:3002/mcp
     BETTER_AUTH_URL: <%= public_url %>
   secret:
     - BETTER_AUTH_SECRET
@@ -111,6 +115,17 @@ accessories:
     cmd: redis-server --appendonly yes
     directories:
       - data:/data
+  # Web search (its own SearXNG) and page fetch over MCP. Reachable only on the
+  # Kamal network; it has no auth and refuses private addresses itself. The
+  # image is built by deploy/sex-lite.sh.
+  sex:
+    image: <%= registry.empty? ? "localhost:5555" : registry %>/sex-lite:<%= sex_lite_ref %>
+    host: <%= host %>
+    env:
+      clear:
+        PORT: "3002"
+        # Requests arrive with this Host header; sex-lite refuses unknown hosts.
+        SEX_ALLOWED_HOSTS: chat-sex
 
 # Two containers overlap during a deploy and both open the SQLite file. That is
 # fine for SQLite, but keep the overlap short.

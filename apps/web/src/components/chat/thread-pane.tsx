@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 
 import { orpc } from "@/utils/orpc";
 
+import { PaneLoading } from "./pane-loading";
 import { historyQuery, type Pending } from "./thread-history";
 import { chatTransport, type ChatMessage } from "./transport";
 import { ThreadView } from "./thread-view";
@@ -122,6 +123,6 @@ export function ThreadPane({
 
   // Stored messages are already UIMessages, the same shape the stream builds.
   const initial = history.data?.messages ?? null;
-  if (!initial) return <div className="flex-1" />;
+  if (!initial) return <PaneLoading />;
   return <Conversation key={threadId} threadId={threadId} initial={initial} pending={pending} />;
 }

@@ -10,6 +10,7 @@
     "check-types": "tsc -b"
   },
   "dependencies": {
+    "@ai-sdk/mcp": "^2.0.86",
     "@ai-sdk/openai": "^4.0.101",
     "@cpajs/codex-auth": "0.1.0-rc.6",
     "@cpajs/cpa": "0.1.0-rc.7",

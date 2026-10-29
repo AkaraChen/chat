@@ -44,6 +44,7 @@ export async function handleChatRequest(context: Context, request: Request): Pro
         createModel: context.createModel,
         titleQueue: context.titleQueue,
         fetch: context.fetch,
+        web: context.web,
       },
       {
         userId: session.userId,

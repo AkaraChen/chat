@@ -24,8 +24,10 @@ services:
       PROXY_HOST: 0.0.0.0
       PROXY_URL: http://127.0.0.1:8317
       REDIS_URL: redis://redis:6379
+      WEB_MCP_URL: http://sex:3002/mcp
     depends_on:
       - redis
+      - sex
     volumes:
       - type: bind
         source: ./.data
@@ -70,6 +72,15 @@ services:
     depends_on:
       - web
       - redis
+    restart: unless-stopped
+
+  # Web search and page fetch over MCP. Same pinned commit as deploy/sex-lite.sh.
+  sex:
+    build:
+      context: https://github.com/AkaraChen/sex.git#4017f2fe3e5072ff3311daf0a5255479c09c4e08
+      target: lite
+    environment:
+      SEX_ALLOWED_HOSTS: sex
     restart: unless-stopped
 
   redis:
