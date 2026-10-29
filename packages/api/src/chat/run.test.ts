@@ -8,6 +8,7 @@ import { MockLanguageModelV4 } from "ai/test";
 import { createGithubStore } from "../github/store";
 import type { ChatMessage } from "./message";
 import { InvalidMessageError, loadMessages, MAX_STEPS, streamChat, type ChatDeps } from "./run";
+import { timePrompt } from "./time";
 import {
   callTool,
   chunksOf,
@@ -87,7 +88,7 @@ describe("chat loop", () => {
 
     expect(model.doStreamCalls).toHaveLength(1);
     // The GitHub tools are deferred: only the search tools are offered at first.
-    expect(toolNames(model)).toEqual(["search_templates", "tool_search"]);
+    expect(toolNames(model)).toEqual(["get_current_time", "search_templates", "tool_search"]);
     expect(chunks.map((c) => c.type)).not.toContain("data-spec");
     expect(chunks.at(-1)!.type).toBe("finish");
 
@@ -142,7 +143,7 @@ describe("chat loop", () => {
     const { deps } = harness(model);
     const thread = await newThread();
     await send(deps, thread.id);
-    expect(toolNames(model)).toEqual(["search_templates", "tool_search"]);
+    expect(toolNames(model)).toEqual(["get_current_time", "search_templates", "tool_search"]);
     const search = (await saved(thread.id))[1]!.parts.find(
       (p) => p.type === "tool-search_templates",
     ) as { output: { detail: { template: string }; guide: string } };
@@ -168,6 +169,56 @@ describe("chat loop", () => {
     expect(assistant.parts.find((p) => p.type === "tool-get_pull_request_files")).toMatchObject({
       state: "output-error",
     });
+  });
+
+  test("with a web server the web tools are offered up front, and a turn closes its connection", async () => {
+    const model = scriptedModel([
+      callTool("c1", "web_fetch", { url: "https://example.com/" }),
+      say("It says hello."),
+    ]);
+    const { deps } = harness(model);
+    const closed: number[] = [];
+    deps.web = async () => ({
+      call: async () => "Title: Example\nURL: https://example.com/\n\nHello.",
+      close: async () => void closed.push(1),
+    });
+    const thread = await newThread();
+    await send(deps, thread.id, "what is on example.com?");
+
+    expect(toolNames(model)).toEqual([
+      "get_current_time",
+      "search_templates",
+      "tool_search",
+      "web_fetch",
+      "web_search",
+    ]);
+    const assistant = (await saved(thread.id))[1]!;
+    expect(assistant.parts.find((p) => p.type === "tool-web_fetch")).toMatchObject({
+      state: "output-available",
+      output: { detail: { host: "example.com" }, title: "Example", content: "Hello." },
+    });
+    expect(closed).toHaveLength(1);
+
+    // Without the server the tools are gone, and the earlier call still loads.
+    const next = scriptedModel([say("Done.")]);
+    const { deps: plain } = harness(next);
+    await send(plain, thread.id, "thanks");
+    expect(toolNames(next)).toEqual(["get_current_time", "search_templates", "tool_search"]);
+  });
+
+  test("an unreachable web server fails the tool call, not the turn", async () => {
+    const model = scriptedModel([
+      callTool("c1", "web_search", { query: "news" }),
+      say("Search is down."),
+    ]);
+    const { deps } = harness(model);
+    deps.web = () => Promise.reject(new Error("connect ECONNREFUSED"));
+    const thread = await newThread();
+    const chunks = await send(deps, thread.id);
+
+    expect(chunks.map((c) => c.type)).toContain("tool-output-error");
+    expect(chunks.at(-1)!.type).toBe("finish");
+    expect(model.doStreamCalls).toHaveLength(2);
   });
 
   test("a view that fails the catalog is dropped and the prose stays, without a retry", async () => {
@@ -219,6 +270,17 @@ describe("chat loop", () => {
     await send(deps, thread.id, "one");
     await send(deps, thread.id, "two");
     expect(queued).toEqual([thread.id]);
+  });
+
+  test("the conversation opens with when the thread started, the same every turn", async () => {
+    const model = scriptedModel([say("One."), say("Two.")]);
+    const { deps } = harness(model);
+    const thread = await newThread();
+    await send(deps, thread.id, "one");
+    await send(deps, thread.id, "two");
+    const system = { role: "system" as const, content: timePrompt(thread.createdAt) };
+    expect(model.doStreamCalls[0]!.prompt[0]).toEqual(system);
+    expect(model.doStreamCalls[1]!.prompt[0]).toEqual(system);
   });
 
   test("history sends the prose and a component summary, not the spec", async () => {

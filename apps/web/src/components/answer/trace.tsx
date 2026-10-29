@@ -40,6 +40,20 @@ const COPY: Record<string, Copy> = {
     right: (t, d) =>
       d.unresolved == null ? "" : t("trace.unresolved", { count: Number(d.unresolved) }),
   },
+  get_current_time: {
+    label: (t, d) => (d.time ? t("trace.checkedTime") : t("trace.checkingTime")),
+    right: (_, d) => String(d.time ?? ""),
+  },
+  // The detail arrives with the result, so a running step has none yet.
+  web_search: {
+    label: (t, d) =>
+      d.query ? t("trace.searchedWeb", { query: d.query }) : t("trace.searchingWeb"),
+    right: (t, d) => (d.results == null ? "" : t("trace.result", { count: Number(d.results) })),
+  },
+  web_fetch: {
+    label: (t, d) => (d.host ? t("trace.readPage", { host: d.host }) : t("trace.readingPage")),
+    right: () => "",
+  },
 };
 
 const GROUP = {

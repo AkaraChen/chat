@@ -5,6 +5,8 @@ import "@/i18n";
 
 import { orpc } from "./utils/orpc";
 import { ChatShell } from "./components/chat/chat-shell";
+import { ModelPicker } from "./components/chat/model-picker";
+import { Sidebar } from "./components/chat/sidebar";
 import { renderApp } from "./test-harness";
 import { setTestFetch } from "./test-setup";
 
@@ -197,4 +199,37 @@ test("renaming a thread updates the list query", async () => {
     }
   });
   expect(screen.getByRole("link", { name: "Evening notes" })).toBeTruthy();
+});
+
+test("the sidebar shows the list's shape until the conversations are read", async () => {
+  await renderApp(
+    <Sidebar
+      threads={[]}
+      loading
+      activeId={undefined}
+      name="Eric"
+      role="admin"
+      onSettings={() => {}}
+      onRename={async () => {}}
+      onDelete={async () => {}}
+    />,
+  );
+
+  expect(screen.getByRole("status").textContent).toBe("Loading conversations");
+  // The shape stands in for the rows, so the list never opens empty. New chat
+  // stays a link: it does not depend on the list.
+  expect(screen.queryByRole("link", { name: "Morning notes" })).toBeNull();
+  expect(screen.getByRole("link", { name: "New chat" })).toBeTruthy();
+  expect(document.querySelectorAll(".animate-pulse span").length).toBeGreaterThan(0);
+});
+
+test("the model picker waits with a spinner until the models are read", async () => {
+  // The read is in flight; a query that fails instead shows the unavailable line.
+  setTestFetch(async () => new Promise(() => {}));
+  await renderApp(<ModelPicker onConnect={() => {}} />);
+
+  const status = await screen.findByRole("status");
+  expect(status.textContent).toBe("Loading models");
+  expect(status.querySelector("svg")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Connect a provider" })).toBeNull();
 });
