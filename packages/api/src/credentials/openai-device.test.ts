@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { claimsOf, createOpenAIDeviceAuth, DeviceAuthError } from "./openai-device";
+import { createOpenAIDeviceAuth, DeviceAuthError } from "./openai-device";
 
 const jwt = (claims: object) =>
   ["e30", Buffer.from(JSON.stringify(claims)).toString("base64url"), "sig"].join(".");
@@ -10,13 +10,18 @@ const idToken = jwt({
   "https://api.openai.com/auth": { chatgpt_account_id: "acct-9", chatgpt_plan_type: "plus" },
 });
 
-type Call = { url: string; body: string };
+type Call = { url: string; body: string; method?: string; headers?: RequestInit["headers"] };
 
 // A scripted OpenAI: each URL answers from its own list, in order.
 function fakeOpenAI(routes: Record<string, Response[]>) {
   const calls: Call[] = [];
   const fetch = async (url: string, init?: RequestInit) => {
-    calls.push({ url, body: String(init?.body ?? "") });
+    calls.push({
+      url,
+      body: String(init?.body ?? ""),
+      method: init?.method,
+      headers: init?.headers,
+    });
     const next = routes[url]?.shift();
     if (!next) throw new Error(`unexpected ${url}`);
     return next;
@@ -27,6 +32,7 @@ function fakeOpenAI(routes: Record<string, Response[]>) {
 const USER_CODE = "https://auth.openai.com/api/accounts/deviceauth/usercode";
 const DEVICE_TOKEN = "https://auth.openai.com/api/accounts/deviceauth/token";
 const TOKEN = "https://auth.openai.com/oauth/token";
+const code = { deviceAuthId: "d", userCode: "u" };
 
 describe("OpenAI device sign-in", () => {
   test("start returns the code to enter and where", async () => {
@@ -102,8 +108,109 @@ describe("OpenAI device sign-in", () => {
     );
   });
 
-  test("claims are read from the id token, and a bad token reads as none", () => {
-    expect(claimsOf(idToken).email).toBe("me@example.com");
-    expect(claimsOf("not-a-jwt")).toEqual({});
+  test("each request goes where, and as, the Codex CLI sends it", async () => {
+    const { fetch, calls } = fakeOpenAI({
+      [USER_CODE]: [Response.json({ device_auth_id: "dev-1", user_code: "ABCD-1234" })],
+      [DEVICE_TOKEN]: [Response.json({ authorization_code: "code-1", code_verifier: "ver-1" })],
+      [TOKEN]: [Response.json({ access_token: "at", refresh_token: "rt", id_token: idToken })],
+    });
+    const auth = createOpenAIDeviceAuth({ fetch, now: () => 0 });
+    const started = await auth.start();
+    expect(started.intervalSeconds).toBe(5);
+    await auth.poll(started);
+    const json = { "content-type": "application/json", accept: "application/json" };
+    const form = {
+      "content-type": "application/x-www-form-urlencoded",
+      accept: "application/json",
+    };
+    expect(calls.map(({ url, method, headers }) => ({ url, method, headers }))).toEqual([
+      { url: USER_CODE, method: "POST", headers: json },
+      { url: DEVICE_TOKEN, method: "POST", headers: json },
+      { url: TOKEN, method: "POST", headers: form },
+    ]);
+    expect(JSON.parse(calls[1]!.body)).toEqual({ device_auth_id: "dev-1", user_code: "ABCD-1234" });
+    expect(Object.fromEntries(new URLSearchParams(calls[2]!.body))).toEqual({
+      grant_type: "authorization_code",
+      client_id: "app_EMoamEEZ73f0CkXaXp7hrann",
+      code: "code-1",
+      redirect_uri: "https://auth.openai.com/deviceauth/callback",
+      code_verifier: "ver-1",
+    });
+  });
+
+  test("odd answers from OpenAI read as before", async () => {
+    const cases: [
+      Record<string, Response[]>,
+      (a: ReturnType<typeof createOpenAIDeviceAuth>) => Promise<unknown>,
+      string,
+    ][] = [
+      [
+        { [USER_CODE]: [new Response("", { status: 404 })] },
+        (a) => a.start(),
+        "OpenAI's device sign-in is not available right now.",
+      ],
+      [
+        { [USER_CODE]: [new Response("busy", { status: 503 })] },
+        (a) => a.start(),
+        "Starting the OpenAI sign-in failed (503): busy",
+      ],
+      [
+        { [USER_CODE]: [Response.json({ interval: 5 })] },
+        (a) => a.start(),
+        "OpenAI did not return a sign-in code.",
+      ],
+      [
+        { [DEVICE_TOKEN]: [Response.json({ authorization_code: "c" })] },
+        (a) => a.poll(code),
+        "OpenAI's sign-in reply was incomplete.",
+      ],
+      [
+        {
+          [DEVICE_TOKEN]: [Response.json({ authorization_code: "c", code_verifier: "v" })],
+          [TOKEN]: [new Response("bad code", { status: 400 })],
+        },
+        (a) => a.poll(code),
+        "Signing in to OpenAI failed (400): bad code",
+      ],
+      [
+        {
+          [DEVICE_TOKEN]: [Response.json({ authorization_code: "c", code_verifier: "v" })],
+          [TOKEN]: [Response.json({ access_token: "at" })],
+        },
+        (a) => a.poll(code),
+        "OpenAI did not return the sign-in tokens.",
+      ],
+      [
+        {
+          [DEVICE_TOKEN]: [Response.json({ authorization_code: "c", code_verifier: "v" })],
+          [TOKEN]: [
+            Response.json({
+              access_token: "at",
+              refresh_token: "rt",
+              id_token: jwt({ "https://api.openai.com/auth": {} }),
+            }),
+          ],
+        },
+        (a) => a.poll(code),
+        "OpenAI did not say which account signed in.",
+      ],
+    ];
+    for (const [routes, run, message] of cases) {
+      const auth = createOpenAIDeviceAuth({ fetch: fakeOpenAI(routes).fetch });
+      const error = await run(auth).catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(DeviceAuthError);
+      expect((error as Error).message).toBe(message);
+    }
+  });
+
+  test("not reaching OpenAI is not OpenAI's answer", async () => {
+    const auth = createOpenAIDeviceAuth({
+      fetch: async () => {
+        throw new TypeError("fetch failed");
+      },
+    });
+    const error = await auth.start().catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(Error);
+    expect(error).not.toBeInstanceOf(DeviceAuthError);
   });
 });

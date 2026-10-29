@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 
 import type { CpaClient } from "@cpajs/cpa/client";
+import { buildCpaAuthFile } from "@cpajs/codex-auth";
 
 import { type Connection, isSignIn } from "./config";
 
@@ -25,24 +26,36 @@ export function seedOf({ credential }: Connection): string {
   return createHash("sha256").update(credential.refresh_token).digest("hex").slice(0, 16);
 }
 
-// The file CLIProxyAPI reads for a Codex OAuth account
-// (internal/auth/codex/token.go), plus `prefix`, which it reads from any auth
+// The file CLIProxyAPI reads for a Codex OAuth account, built by
+// @cpajs/codex-auth, plus `prefix`, which CLIProxyAPI reads from any auth
 // file, so the account's models are addressed `<connectionId>/<model>`.
-export function codexAuth(connection: Connection, now: Date): Record<string, string> {
+export function codexAuth(connection: Connection, now: Date): Record<string, unknown> {
   const { id, credential } = connection;
-  return {
-    type: "codex",
-    email: credential.email,
-    account_id: credential.account_id,
-    access_token: credential.access_token,
-    refresh_token: credential.refresh_token,
-    id_token: credential.id_token ?? "",
-    expired: credential.expires_at,
-    last_refresh: now.toISOString().replace(/\.\d{3}Z$/, "Z"),
-    plan_type: credential.plan_type || "free",
-    prefix: id,
-    [SEED_KEY]: seedOf(connection),
-  };
+  const expiresAt = Date.parse(credential.expires_at);
+  return buildCpaAuthFile(
+    {
+      accessToken: credential.access_token,
+      refreshToken: credential.refresh_token,
+      idToken: credential.id_token ?? "",
+      expiresAt: credential.expires_at,
+      // What is left of the sign-in's lifetime, so `expired` is the
+      // credential's own expiry rather than the access token's claim.
+      expiresIn: Number.isFinite(expiresAt)
+        ? Math.max(0, Math.round((expiresAt - now.getTime()) / 1000))
+        : 0,
+      claims: {
+        email: credential.email,
+        accountId: credential.account_id,
+        planType: credential.plan_type ?? "",
+        raw: {},
+      },
+    },
+    {
+      name: authFileName(id),
+      now: () => now.getTime(),
+      extra: { prefix: id, [SEED_KEY]: seedOf(connection) },
+    },
+  ).content;
 }
 
 export type AuthPlan = { upload: Connection[]; remove: string[] };

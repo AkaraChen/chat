@@ -133,6 +133,7 @@
       "dependencies": {
         "@ai-sdk/mcp": "^2.0.86",
         "@ai-sdk/openai": "^4.0.101",
+        "@cpajs/codex-auth": "0.1.0-rc.6",
         "@cpajs/cpa": "0.1.0-rc.7",
         "@json-render/core": "^0.21.3",
         "@my-better-t-app/db": "workspace:*",
@@ -409,6 +410,8 @@
     "@bramus/specificity": ["@bramus/specificity@2.4.3", "", { "dependencies": { "css-tree": "^3.2.1" }, "bin": { "specificity": "bin/cli.js" } }, "sha512-0GEz8qJWokkUVYQYRukmkSHIFNoBH8QTreeHrAFbvz1XFYc3Y+puhMs8PQ5x8GNugiC2l5jvDBXKLbBIByeSBw=="],
 
     "@corvu/utils": ["@corvu/utils@0.4.2", "", { "dependencies": { "@floating-ui/dom": "^1.6.11" }, "peerDependencies": { "solid-js": "^1.8" } }, "sha512-Ox2kYyxy7NoXdKWdHeDEjZxClwzO4SKM8plAaVwmAJPxHMqA0rLOoAsa+hBDwRLpctf+ZRnAd/ykguuJidnaTA=="],
+
+    "@cpajs/codex-auth": ["@cpajs/codex-auth@0.1.0-rc.6", "", { "peerDependencies": { "@cpajs/cpa": "^0.1.0-rc" }, "optionalPeers": ["@cpajs/cpa"] }, "sha512-oUhuldp2DhRxE8J479tl4VpG11TqNLbXDDwR+axTazFHLqoDj5hYs7FwRR5MH1LDb2YRKgpQqMZvsXMMCnMtUA=="],
 
     "@cpajs/cpa": ["@cpajs/cpa@0.1.0-rc.7", "", { "dependencies": { "bcryptjs": "^3.0.3", "yaml": "^2.9.1" }, "optionalDependencies": { "@cpajs/darwin-arm64": "0.1.0-rc.7", "@cpajs/darwin-x64": "0.1.0-rc.7", "@cpajs/freebsd-arm64": "0.1.0-rc.7", "@cpajs/freebsd-ia32": "0.1.0-rc.7", "@cpajs/freebsd-x64": "0.1.0-rc.7", "@cpajs/linux-arm": "0.1.0-rc.7", "@cpajs/linux-arm64-gnu": "0.1.0-rc.7", "@cpajs/linux-arm64-musl": "0.1.0-rc.7", "@cpajs/linux-ia32": "0.1.0-rc.7", "@cpajs/linux-loong64": "0.1.0-rc.7", "@cpajs/linux-mips": "0.1.0-rc.7", "@cpajs/linux-mipsel": "0.1.0-rc.7", "@cpajs/linux-ppc64": "0.1.0-rc.7", "@cpajs/linux-riscv64": "0.1.0-rc.7", "@cpajs/linux-s390x": "0.1.0-rc.7", "@cpajs/linux-x64-gnu": "0.1.0-rc.7", "@cpajs/linux-x64-musl": "0.1.0-rc.7", "@cpajs/netbsd-x64": "0.1.0-rc.7", "@cpajs/openbsd-arm64": "0.1.0-rc.7", "@cpajs/openbsd-x64": "0.1.0-rc.7", "@cpajs/win32-arm64": "0.1.0-rc.7", "@cpajs/win32-ia32": "0.1.0-rc.7", "@cpajs/win32-x64": "0.1.0-rc.7" } }, "sha512-ZcehOzCQuku+ir8qwYGL7/DxUCA67dPfcQh/j/TUw8djnsEy6N/dYrMF2R1qR3DJf8HdkfOFdhCF1ifGpqkOHA=="],
 

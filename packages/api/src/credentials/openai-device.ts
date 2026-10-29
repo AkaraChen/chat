@@ -1,158 +1,109 @@
+import {
+  CodexAbortError,
+  CodexAuthError,
+  CodexDeviceUnavailableError,
+  CodexHttpError,
+  CodexIdTokenError,
+  CodexIncompleteTokensError,
+  CodexNetworkError,
+  type CodexAuthOptions,
+  type DeviceCode,
+  exchangeDeviceGrant,
+  pollDeviceAuth,
+  startDeviceAuth,
+} from "@cpajs/codex-auth";
+
 import type { Credential } from "./store";
 
-// ChatGPT sign-in for Codex, by device code: the same client and endpoints
-// as the Codex CLI and CLIProxyAPI (sdk/auth/codex_device.go). The server is
+// ChatGPT sign-in for Codex, by device code, through @cpajs/codex-auth (the
+// same client and endpoints as the Codex CLI and CLIProxyAPI). The server is
 // remote, and the browser flow can only return to localhost, so the person
-// enters a code at OpenAI instead and this side polls until they have.
-const CLIENT_ID = "app_EMoamEEZ73f0CkXaXp7hrann";
-const USER_CODE_URL = "https://auth.openai.com/api/accounts/deviceauth/usercode";
-const DEVICE_TOKEN_URL = "https://auth.openai.com/api/accounts/deviceauth/token";
-const TOKEN_URL = "https://auth.openai.com/oauth/token";
-const EXCHANGE_REDIRECT_URI = "https://auth.openai.com/deviceauth/callback";
-export const DEVICE_VERIFICATION_URL = "https://auth.openai.com/codex/device";
-const DEFAULT_INTERVAL_S = 5;
-const DEVICE_TIMEOUT_MS = 15 * 60 * 1000;
+// enters a code at OpenAI instead and the browser asks this side to check,
+// once per call, until they have. Nothing is kept here between calls.
 
-export type DeviceStart = {
-  deviceAuthId: string;
-  userCode: string;
-  verificationUrl: string;
-  intervalSeconds: number;
-  expiresAt: string;
-};
+export type DeviceStart = DeviceCode;
 
 export type DevicePoll = { status: "pending" } | { status: "done"; credential: Credential };
 
+/** OpenAI refused or answered oddly; the message is worth showing. */
 export class DeviceAuthError extends Error {}
 
-type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
+const STEPS = {
+  usercode: "Starting the OpenAI sign-in",
+  devicetoken: "Checking the OpenAI sign-in",
+  exchange: "Signing in to OpenAI",
+  refresh: "Refreshing the OpenAI sign-in",
+} as const;
 
-function intervalOf(value: unknown): number {
-  const seconds = typeof value === "string" ? Number.parseInt(value, 10) : Number(value);
-  return Number.isFinite(seconds) && seconds > 0 ? seconds : DEFAULT_INTERVAL_S;
-}
-
-async function failure(response: Response, what: string): Promise<DeviceAuthError> {
-  const body = (await response.text().catch(() => "")).trim().slice(0, 300);
-  return new DeviceAuthError(`${what} failed (${response.status})${body ? `: ${body}` : ""}`);
-}
-
-function postJson(doFetch: Fetch, url: string, body: unknown) {
-  return doFetch(url, {
-    method: "POST",
-    headers: { "content-type": "application/json", accept: "application/json" },
-    body: JSON.stringify(body),
-  });
-}
-
-type Claims = {
-  email?: string;
-  "https://api.openai.com/auth"?: { chatgpt_account_id?: string; chatgpt_plan_type?: string };
-};
-
-/** The id token's claims. Not verified: it came straight from OpenAI over TLS. */
-export function claimsOf(idToken: string): Claims {
-  const payload = idToken.split(".")[1];
-  if (!payload) return {};
+/**
+ * The package's errors in chat's words. `unexpected` is what to say when
+ * OpenAI answered 2xx with something unusable. Failing to reach OpenAI is not
+ * OpenAI's answer, so it stays a plain error, as before.
+ */
+async function step<T>(unexpected: string, run: () => Promise<T>): Promise<T> {
   try {
-    return JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as Claims;
-  } catch {
-    return {};
+    return await run();
+  } catch (error) {
+    if (error instanceof CodexNetworkError || error instanceof CodexAbortError) throw error;
+    if (error instanceof CodexDeviceUnavailableError) {
+      throw new DeviceAuthError("OpenAI's device sign-in is not available right now.");
+    }
+    if (error instanceof CodexHttpError) {
+      const body = error.bodyExcerpt ? `: ${error.bodyExcerpt}` : "";
+      throw new DeviceAuthError(`${STEPS[error.step]} failed (${error.status})${body}`);
+    }
+    if (error instanceof CodexIncompleteTokensError || error instanceof CodexIdTokenError) {
+      throw new DeviceAuthError(
+        error.message.includes("email")
+          ? "OpenAI did not say which account signed in."
+          : "OpenAI did not return the sign-in tokens.",
+      );
+    }
+    if (error instanceof CodexAuthError) throw new DeviceAuthError(unexpected);
+    throw error;
   }
 }
 
-export function createOpenAIDeviceAuth(options: { fetch?: Fetch; now?: () => number } = {}) {
-  const doFetch: Fetch = options.fetch ?? ((input, init) => fetch(input, init));
-  const now = options.now ?? Date.now;
-
-  async function exchange(code: string, verifier: string): Promise<Credential> {
-    const response = await doFetch(TOKEN_URL, {
-      method: "POST",
-      headers: { "content-type": "application/x-www-form-urlencoded", accept: "application/json" },
-      body: new URLSearchParams({
-        grant_type: "authorization_code",
-        client_id: CLIENT_ID,
-        code,
-        redirect_uri: EXCHANGE_REDIRECT_URI,
-        code_verifier: verifier,
-      }).toString(),
-    });
-    if (!response.ok) throw await failure(response, "Signing in to OpenAI");
-    const tokens = (await response.json()) as {
-      access_token?: string;
-      refresh_token?: string;
-      id_token?: string;
-      expires_in?: number;
-    };
-    if (!tokens.access_token || !tokens.refresh_token || !tokens.id_token) {
-      throw new DeviceAuthError("OpenAI did not return the sign-in tokens.");
-    }
-    const claims = claimsOf(tokens.id_token);
-    const auth = claims["https://api.openai.com/auth"] ?? {};
-    if (!claims.email && !auth.chatgpt_account_id) {
-      throw new DeviceAuthError("OpenAI did not say which account signed in.");
-    }
-    return {
-      type: "openai",
-      method: "oauth",
-      email: claims.email ?? "",
-      account_id: auth.chatgpt_account_id ?? "",
-      api_key: "",
-      access_token: tokens.access_token,
-      refresh_token: tokens.refresh_token,
-      id_token: tokens.id_token,
-      plan_type: auth.chatgpt_plan_type ?? "",
-      expires_at: new Date(now() + (tokens.expires_in ?? 0) * 1000).toISOString(),
-    };
-  }
+export function createOpenAIDeviceAuth(
+  options: {
+    fetch?: (input: string, init?: RequestInit) => Promise<Response>;
+    now?: () => number;
+  } = {},
+) {
+  const codex: CodexAuthOptions = {
+    ...(options.fetch ? { fetch: options.fetch as typeof fetch } : {}),
+    ...(options.now ? { now: options.now } : {}),
+  };
 
   return {
     /** Asks OpenAI for a code the person enters at `verificationUrl`. */
-    async start(): Promise<DeviceStart> {
-      const response = await postJson(doFetch, USER_CODE_URL, { client_id: CLIENT_ID });
-      if (response.status === 404) {
-        throw new DeviceAuthError("OpenAI's device sign-in is not available right now.");
-      }
-      if (!response.ok) throw await failure(response, "Starting the OpenAI sign-in");
-      const body = (await response.json()) as {
-        device_auth_id?: string;
-        user_code?: string;
-        usercode?: string;
-        interval?: unknown;
-      };
-      const userCode = (body.user_code ?? body.usercode ?? "").trim();
-      const deviceAuthId = (body.device_auth_id ?? "").trim();
-      if (!userCode || !deviceAuthId) {
-        throw new DeviceAuthError("OpenAI did not return a sign-in code.");
-      }
-      return {
-        deviceAuthId,
-        userCode,
-        verificationUrl: DEVICE_VERIFICATION_URL,
-        intervalSeconds: intervalOf(body.interval),
-        expiresAt: new Date(now() + DEVICE_TIMEOUT_MS).toISOString(),
-      };
+    start(): Promise<DeviceStart> {
+      return step("OpenAI did not return a sign-in code.", () => startDeviceAuth(codex));
     },
 
     /** One check: pending until the person has entered the code, then the credential. */
     async poll(input: { deviceAuthId: string; userCode: string }): Promise<DevicePoll> {
-      const response = await postJson(doFetch, DEVICE_TOKEN_URL, {
-        device_auth_id: input.deviceAuthId,
-        user_code: input.userCode,
-      });
-      // OpenAI answers 403 or 404 until the code has been entered.
-      if (response.status === 403 || response.status === 404) return { status: "pending" };
-      if (!response.ok) throw await failure(response, "Checking the OpenAI sign-in");
-      const body = (await response.json()) as {
-        authorization_code?: string;
-        code_verifier?: string;
-      };
-      if (!body.authorization_code || !body.code_verifier) {
-        throw new DeviceAuthError("OpenAI's sign-in reply was incomplete.");
-      }
+      const result = await step("OpenAI's sign-in reply was incomplete.", () =>
+        pollDeviceAuth(input, codex),
+      );
+      if (result.status === "pending") return { status: "pending" };
+      const tokens = await step("OpenAI did not return the sign-in tokens.", () =>
+        exchangeDeviceGrant(result.grant, codex),
+      );
       return {
         status: "done",
-        credential: await exchange(body.authorization_code, body.code_verifier),
+        credential: {
+          type: "openai",
+          method: "oauth",
+          email: tokens.claims.email,
+          account_id: tokens.claims.accountId,
+          api_key: "",
+          access_token: tokens.accessToken,
+          refresh_token: tokens.refreshToken,
+          id_token: tokens.idToken,
+          plan_type: tokens.claims.planType,
+          expires_at: tokens.expiresAt,
+        },
       };
     },
   };
