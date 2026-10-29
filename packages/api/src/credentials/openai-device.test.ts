@@ -1,3 +1,4 @@
+import type { FetchLike } from "@cpajs/codex-auth";
 import { describe, expect, test } from "bun:test";
 
 import { createOpenAIDeviceAuth, DeviceAuthError } from "./openai-device";
@@ -15,7 +16,8 @@ type Call = { url: string; body: string; method?: string; headers?: RequestInit[
 // A scripted OpenAI: each URL answers from its own list, in order.
 function fakeOpenAI(routes: Record<string, Response[]>) {
   const calls: Call[] = [];
-  const fetch = async (url: string, init?: RequestInit) => {
+  const fetch: FetchLike = async (input, init) => {
+    const url = String(input);
     calls.push({
       url,
       body: String(init?.body ?? ""),

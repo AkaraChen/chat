@@ -8,6 +8,7 @@ import {
   CodexNetworkError,
   type CodexAuthOptions,
   type DeviceCode,
+  type FetchLike,
   exchangeDeviceGrant,
   pollDeviceAuth,
   startDeviceAuth,
@@ -52,12 +53,11 @@ async function step<T>(unexpected: string, run: () => Promise<T>): Promise<T> {
       const body = error.bodyExcerpt ? `: ${error.bodyExcerpt}` : "";
       throw new DeviceAuthError(`${STEPS[error.step]} failed (${error.status})${body}`);
     }
+    if (error instanceof CodexIncompleteTokensError && error.missing.includes("email")) {
+      throw new DeviceAuthError("OpenAI did not say which account signed in.");
+    }
     if (error instanceof CodexIncompleteTokensError || error instanceof CodexIdTokenError) {
-      throw new DeviceAuthError(
-        error.message.includes("email")
-          ? "OpenAI did not say which account signed in."
-          : "OpenAI did not return the sign-in tokens.",
-      );
+      throw new DeviceAuthError("OpenAI did not return the sign-in tokens.");
     }
     if (error instanceof CodexAuthError) throw new DeviceAuthError(unexpected);
     throw error;
@@ -66,12 +66,12 @@ async function step<T>(unexpected: string, run: () => Promise<T>): Promise<T> {
 
 export function createOpenAIDeviceAuth(
   options: {
-    fetch?: (input: string, init?: RequestInit) => Promise<Response>;
+    fetch?: FetchLike;
     now?: () => number;
   } = {},
 ) {
   const codex: CodexAuthOptions = {
-    ...(options.fetch ? { fetch: options.fetch as typeof fetch } : {}),
+    ...(options.fetch ? { fetch: options.fetch } : {}),
     ...(options.now ? { now: options.now } : {}),
   };
 
