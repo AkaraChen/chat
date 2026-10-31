@@ -10,8 +10,9 @@ export type Turn =
 
 type Detail = NonNullable<TraceStep["detail"]>;
 
-// Loading the GitHub tools is plumbing, not a step the reader cares about.
-const HIDDEN = new Set(["tool_search"]);
+// Loading the GitHub tools is plumbing, not a step the reader cares about,
+// and a widget is drawn in the answer itself.
+const HIDDEN = new Set(["tool_search", "show_widget"]);
 
 function stepOf(part: ChatMessage["parts"][number]): TraceStep | null {
   if (!part.type.startsWith("tool-") || !("state" in part)) return null;

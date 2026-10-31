@@ -16,7 +16,8 @@ import {
 import type { GithubStore } from "../github/store";
 import { githubTools, githubToolsFor } from "../github/tools";
 import { enqueueThreadTitle, type ThreadTitleQueue } from "../jobs/thread-title";
-import { createSearchTemplatesTool } from "../templates/search";
+import { createReadMeTool, loadedWidget } from "../views/read-me";
+import { createShowWidgetTool } from "../views/show-widget";
 import type { WebConnect } from "../web/mcp";
 import { webTools, webToolSchemas } from "../web/tools";
 import { coalesceTextDeltas } from "./coalesce";
@@ -68,9 +69,9 @@ function messageOf(error: unknown): string {
 
 /**
  * The tools a turn starts with. The GitHub tools are deferred: the model
- * sees `tool_search`, `search_templates`, `get_current_time` and the web
- * tools, and a search
- * loads the GitHub tools for the next step and the rest of the turn.
+ * sees `tool_search`, `read_me`, `get_current_time` and the web tools, and a
+ * search loads the GitHub tools for the next step and the rest of the turn.
+ * `show_widget` is held back until read_me has loaded the widget module.
  */
 function toolsFor(
   token: string | null,
@@ -79,7 +80,8 @@ function toolsFor(
 ): ToolSet {
   return {
     tool_search: toolSearch(),
-    search_templates: createSearchTemplatesTool({ github: token !== null }),
+    read_me: createReadMeTool({ github: token !== null }),
+    show_widget: createShowWidgetTool(),
     get_current_time: timeTool(),
     ...web?.tools,
     ...githubToolsFor(token, fetchImpl),
@@ -90,7 +92,8 @@ function toolsFor(
 // every tool's schema is checked whether or not it is there now.
 const historyTools = {
   tool_search: toolSearch(),
-  search_templates: createSearchTemplatesTool(),
+  read_me: createReadMeTool(),
+  show_widget: createShowWidgetTool(),
   get_current_time: timeTool(),
   ...webToolSchemas,
   ...githubTools({ token: "" }),
@@ -147,7 +150,7 @@ function checkUserMessage(message: ChatMessage | undefined): ChatMessage {
  *
  * Text that parses as JSON Patch inside a ```spec fence becomes `data-spec`
  * parts (json-render inline mode). When the stream ends, the assistant
- * message is saved as sent, minus a view that does not pass the catalog.
+ * message is saved as sent, minus any view that does not pass the catalog.
  * A model failure ends the stream with an `error` chunk.
  */
 export async function streamChat(deps: ChatDeps, input: ChatInput): Promise<Response> {
@@ -201,9 +204,14 @@ export async function streamChat(deps: ChatDeps, input: ChatInput): Promise<Resp
         tools,
         stopWhen: isStepCount(MAX_STEPS),
         // The last step can only write, so the turn never stops on a tool
-        // call whose result the model would not see.
-        prepareStep: ({ stepNumber }) =>
-          stepNumber === MAX_STEPS - 1 ? { toolChoice: "none" } : undefined,
+        // call whose result the model would not see. A widget is drawn only
+        // once the model has read how.
+        prepareStep: ({ stepNumber, steps }) => ({
+          ...(stepNumber === MAX_STEPS - 1 ? { toolChoice: "none" as const } : {}),
+          activeTools: Object.keys(tools).filter(
+            (name) => name !== "show_widget" || loadedWidget(steps),
+          ),
+        }),
         // Large deltas arrive in blocks from some providers; spread them out.
         experimental_transform: paceText(),
         onError: () => {},

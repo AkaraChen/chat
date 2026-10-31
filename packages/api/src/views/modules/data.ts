@@ -1,14 +1,21 @@
-import type { Template } from "./types";
-import { PLACEHOLDER_NOTE } from "./types";
+import type { ViewModule } from "../types";
 
-export const id = "economy" as const;
+export const id = "data" as const;
 
-export const when = `Use when the user's message already contains a set of numbers (rates, prices, indicators over time) and wants them laid out as a chart and a table. If the message has no numbers, draw nothing and say in the prose that the data is missing. ${PLACEHOLDER_NOTE}`;
+export const summary = "read a set of numbers: trends, comparisons, breakdowns";
 
-export const components = ["Answer", "LineChart", "StatStrip", "Table"] as const;
+export const when =
+  "Use when the answer rests on a set of numbers the user gave or a tool returned and they read better laid out. If there are no numbers, draw nothing and say in the prose that the data is missing. Prose: what the numbers show, in one sentence, and where they come from.";
 
-export const prose =
-  "What the numbers show in one sentence, and that they come from the user's message.";
+export const routes = [
+  ["how has X changed over time", "LineChart, with StatStrip for the latest, high, low and change"],
+  ["compare X across A, B, C", "BarChart"],
+  ["break this down / which is largest", "BarChart sorted largest first"],
+  ["give me the figures", "Table"],
+  ["the key numbers", "StatStrip"],
+] as const;
+
+export const components = ["Answer", "LineChart", "BarChart", "StatStrip", "Table"] as const;
 
 export const usage = {
   Answer: "Root container with empty props. List the other elements in reading order.",
@@ -17,9 +24,11 @@ export const usage = {
   StatStrip:
     "Up to four headline numbers (latest, high, low, change). Each compare line says what it is measured against.",
   Table: "The same numbers as rows, one string per column, formatted as the user wrote them.",
+  BarChart:
+    "Categories that are compared rather than ordered in time. Sort largest first unless the order means something.",
 } as const;
 
-export const example: Template["example"] = {
+export const example: ViewModule["example"] = {
   root: "answer",
   elements: {
     answer: {
@@ -82,34 +91,4 @@ export const example: Template["example"] = {
   },
 };
 
-export const terms = [
-  "economy",
-  "economic",
-  "inflation",
-  "gdp",
-  "rate",
-  "interest",
-  "cpi",
-  "unemployment",
-  "price",
-  "chart",
-  "trend",
-  "quarter",
-  "yield",
-  "growth",
-  "table",
-  "经济",
-  "通胀",
-  "利率",
-  "增长",
-  "失业",
-  "物价",
-  "走势",
-  "图表",
-  "季度",
-  "同比",
-  "环比",
-  "汇率",
-] as const;
-
-export const economy: Template = { id, when, prose, components, usage, example, terms };
+export const data: ViewModule = { id, summary, when, routes, components, usage, example };

@@ -1,8 +1,8 @@
 import type { Spec } from "@json-render/core";
 
-import { specOf, type ChatMessage } from "./message";
+import { viewsOf, type ChatMessage, type ChatPart } from "./message";
 
-// A one-line account of which components an earlier answer showed. The model
+// A one-line account of which components an earlier view showed. The model
 // sees this instead of the full spec, which would cost tokens and invite copying.
 export function describeSpec(spec: Spec | null): string {
   if (!spec) return "";
@@ -17,22 +17,38 @@ export function describeSpec(spec: Spec | null): string {
   return `[The view showed: ${parts.join(", ")}]`;
 }
 
+// A widget's HTML stays in the model's history only in the latest answer, so
+// the model can change what it just drew. Older ones keep their title.
+function withoutWidgetHtml(part: ChatPart): ChatPart {
+  if (part.type !== "tool-show_widget" || !("input" in part)) return part;
+  const input = part.input as { title?: unknown; html?: unknown } | undefined;
+  if (typeof input?.html !== "string") return part;
+  return {
+    ...part,
+    input: { title: input.title, html: `(not kept: ${input.html.length} characters)` },
+  } as ChatPart;
+}
+
 /**
  * Stored messages as the model should read them: each view's `data-spec`
- * parts become one summary line where the view was. Text and tool parts stay.
+ * parts become one summary line where the view was, and widgets before the
+ * latest answer lose their HTML. Text and other tool parts stay.
  */
 export function forModel(messages: ChatMessage[]): ChatMessage[] {
-  return messages.map((message) => {
+  const latest = messages.findLastIndex((message) => message.role === "assistant");
+  return messages.map((message, messageIndex) => {
     if (message.role !== "assistant") return message;
-    const summary = describeSpec(specOf(message.parts));
+    const summaries = new Map<number, string>();
+    for (const view of viewsOf(message.parts)) {
+      summaries.set(view.parts[0]!, describeSpec(view.spec));
+    }
     const parts: ChatMessage["parts"] = [];
-    let placed = false;
-    for (const part of message.parts) {
-      if (part.type !== "data-spec") {
-        parts.push(part);
-      } else if (!placed) {
-        placed = true;
+    for (const [index, part] of message.parts.entries()) {
+      if (part.type === "data-spec") {
+        const summary = summaries.get(index);
         if (summary) parts.push({ type: "text", text: summary });
+      } else {
+        parts.push(messageIndex === latest ? part : withoutWidgetHtml(part));
       }
     }
     return { ...message, parts };

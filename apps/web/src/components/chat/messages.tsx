@@ -1,10 +1,10 @@
-import { SPEC_DATA_PART_TYPE } from "@json-render/core";
-import { useJsonRenderMessage } from "@json-render/react";
-import { validateSpec } from "@my-better-t-app/api/templates/catalog";
+import type { Spec } from "@json-render/core";
+import { viewsOf } from "@my-better-t-app/api/chat/message";
+import { validateSpec } from "@my-better-t-app/api/views/catalog";
 import { PaperclipIcon } from "@phosphor-icons/react";
 import { memo, useLayoutEffect, useMemo, useRef } from "react";
 
-import { AnswerView, Trace } from "../answer";
+import { AnswerView, Trace, Widget } from "../answer";
 import { RichText } from "../answer/rich-text";
 import { GitHubMark } from "../github-mark";
 import { Spinner } from "../spinner";
@@ -53,39 +53,80 @@ function UserBubbleView({ turn }: { turn: UserTurn }) {
   );
 }
 
-// Text parts joined the way useJsonRenderMessage joins them.
-function textOf(parts: AssistantTurnData["parts"]): string {
-  return parts
-    .map((part) => (part.type === "text" ? part.text.trim() : ""))
-    .filter(Boolean)
-    .join("\n\n");
+// `at` is the index of the segment's first part, a key that stays put when a
+// view before it is dropped.
+type Segment = { at: number } & (
+  | { kind: "text"; text: string }
+  | { kind: "view"; spec: Spec }
+  | { kind: "widget"; title: string; html: string; done: boolean }
+);
+
+/**
+ * What an answer draws, in the order it was written: prose, views and
+ * widgets. Each view sits where its first patch arrived; later patches
+ * update that view. Once the turn is over, a view that fails the catalog is
+ * left out, as the server does.
+ */
+function segmentsOf(parts: AssistantTurnData["parts"], live: boolean): Segment[] {
+  const firsts = new Map(viewsOf(parts).map((view) => [view.parts[0]!, view.spec]));
+  const segments: Segment[] = [];
+  let text: string[] = [];
+  let textAt = 0;
+  const flush = () => {
+    if (text.length) segments.push({ at: textAt, kind: "text", text: text.join("\n\n") });
+    text = [];
+  };
+  parts.forEach((part, index) => {
+    if (part.type === "text") {
+      if (!part.text.trim()) return;
+      if (text.length === 0) textAt = index;
+      text.push(part.text.trim());
+    } else if (firsts.has(index)) {
+      flush();
+      const spec = firsts.get(index)!;
+      if (live || validateSpec(spec).length === 0) segments.push({ at: index, kind: "view", spec });
+    } else if (part.type === "tool-show_widget" && "input" in part) {
+      const input = (part.input ?? {}) as { title?: unknown; html?: unknown };
+      if (typeof input.html !== "string" || !input.html) return;
+      flush();
+      segments.push({
+        at: index,
+        kind: "widget",
+        title: typeof input.title === "string" ? input.title : "",
+        html: input.html,
+        done: part.state !== "input-streaming",
+      });
+    }
+  });
+  flush();
+  return segments;
 }
 
 function AssistantTurnView({ turn, live }: { turn: AssistantTurnData; live: boolean }) {
-  const { spec, hasSpec } = useJsonRenderMessage(turn.parts);
-  // While streaming the view builds up as json-render draws it. Once the turn
-  // is over, a view that fails the catalog is left out, as the server does.
-  const view = useMemo(
-    () => (hasSpec && (live || validateSpec(spec).length === 0) ? spec : null),
-    [hasSpec, live, spec],
-  );
-  // The view is drawn where its first patch arrived, between the prose
-  // written before it and after it. Later patches update that one view.
-  const { before, after, placed } = useMemo(() => {
-    const first = turn.parts.findIndex((part) => part.type === SPEC_DATA_PART_TYPE);
-    return {
-      before: textOf(first === -1 ? turn.parts : turn.parts.slice(0, first)),
-      after: first === -1 ? "" : textOf(turn.parts.slice(first)),
-      placed: first !== -1,
-    };
-  }, [turn.parts]);
-  const waiting = live && turn.steps.length === 0 && !before && !after && !view;
+  const segments = useMemo(() => segmentsOf(turn.parts, live), [turn.parts, live]);
+  const waiting = live && turn.steps.length === 0 && segments.length === 0;
   return (
     <div className="flex flex-col gap-4">
       <Trace steps={turn.steps} />
-      {before ? <RichText text={before} streaming={live && !placed} className="text-ink" /> : null}
-      <AnswerView spec={view} loading={live} />
-      {after ? <RichText text={after} streaming={live} className="text-ink" /> : null}
+      {segments.map((segment, index) => {
+        const last = index === segments.length - 1;
+        if (segment.kind === "text") {
+          return (
+            <RichText
+              key={segment.at}
+              text={segment.text}
+              streaming={live && last}
+              className="text-ink"
+            />
+          );
+        }
+        if (segment.kind === "view") {
+          return <AnswerView key={segment.at} spec={segment.spec} loading={live && last} />;
+        }
+        return (
+          <Widget key={segment.at} title={segment.title} html={segment.html} done={segment.done} />
+        );
+      })}
       {waiting && <Spinner size={16} />}
     </div>
   );

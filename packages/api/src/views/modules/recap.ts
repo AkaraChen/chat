@@ -1,14 +1,21 @@
-import type { Template } from "./types";
-import { PLACEHOLDER_NOTE } from "./types";
+import type { ViewModule } from "../types";
 
-export const id = "meeting" as const;
+export const id = "recap" as const;
 
-export const when = `Use when the user pastes meeting notes or asks to organise a meeting: what was decided, who owns what, what is still open. ${PLACEHOLDER_NOTE}`;
+export const summary =
+  "sort out a meeting, thread or document: what was decided, who does what, what is open";
 
-export const components = ["Answer", "Decisions", "OpenItems", "Todo"] as const;
+export const when =
+  "Use when the user pastes notes, a thread or a document and wants it organised: what was decided, who owns what, what is still open. Prose: how many things were decided and how many are still open, in one or two sentences.";
 
-export const prose =
-  "How many things were decided and how many are still open, in one or two sentences.";
+export const routes = [
+  ["summarise these meeting notes", "Decisions, then OpenItems, then one Todo per owner"],
+  ["what did we agree on", "Decisions only"],
+  ["who is doing what", "one Todo per follow-up that names a person"],
+  ["pull out the details of this order/contract/person", "Record"],
+] as const;
+
+export const components = ["Answer", "Decisions", "OpenItems", "Todo", "Notes", "Record"] as const;
 
 export const usage = {
   Answer: "Root container with empty props. List the other elements in reading order.",
@@ -16,9 +23,12 @@ export const usage = {
   OpenItems:
     "Two groups of unresolved questions (for example by theme), each with exactly two cards. If the notes have fewer open items, leave this component out.",
   Todo: "One element per follow-up that names a person. Time is the user's own wording. Skip follow-ups without an owner.",
+  Notes: "Loose observations that are neither decisions nor open questions.",
+  Record:
+    "One bounded thing the text describes (an order, a contract, a person): title, optional subtitle, up to eight label/value fields.",
 } as const;
 
-export const example: Template["example"] = {
+export const example: ViewModule["example"] = {
   root: "answer",
   elements: {
     answer: {
@@ -72,32 +82,4 @@ export const example: Template["example"] = {
   },
 };
 
-export const terms = [
-  "meeting",
-  "minutes",
-  "agenda",
-  "decision",
-  "decided",
-  "action item",
-  "follow-up",
-  "follow up",
-  "owner",
-  "attendee",
-  "standup",
-  "sync",
-  "retro",
-  "notes",
-  "会议",
-  "会议纪要",
-  "纪要",
-  "决定",
-  "决议",
-  "待办",
-  "负责人",
-  "未决",
-  "跟进",
-  "例会",
-  "复盘",
-] as const;
-
-export const meeting: Template = { id, when, prose, components, usage, example, terms };
+export const recap: ViewModule = { id, summary, when, routes, components, usage, example };

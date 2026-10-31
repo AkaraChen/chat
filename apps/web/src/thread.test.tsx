@@ -196,7 +196,7 @@ const turns: Turn[] = [
     role: "assistant",
     parts: [{ type: "text", text: "The review can **ship**." }, ...specParts(spec)],
     steps: [
-      { tool: "search_templates", status: "done", detail: { template: "review" } },
+      { tool: "read_me", status: "done", detail: { modules: "code" } },
       {
         tool: "get_pull_request_diff",
         status: "done",
@@ -211,8 +211,8 @@ test("a thread shows the attachment, trace, answer cards, and composer tools", (
 
   expect(screen.getByText("Launch review notes")).toBeTruthy();
   expect(screen.getByText("Review AkaraChen/chat#128.")).toBeTruthy();
-  expect(screen.getByText("Found a template")).toBeTruthy();
-  expect(screen.getByText("Review")).toBeTruthy();
+  expect(screen.getByText("Chose a layout")).toBeTruthy();
+  expect(screen.getByText("Code review")).toBeTruthy();
   expect(screen.getByText("+214 -86")).toBeTruthy();
   expect(screen.getByText("Read the diff")).toBeTruthy();
 
@@ -257,7 +257,7 @@ test("trace marks follow a running step and an error step", () => {
   const { rerender } = render(
     <Trace
       steps={[
-        { tool: "search_templates", status: "running", detail: { template: "review" } },
+        { tool: "read_me", status: "running" },
         {
           tool: "get_pull_request_diff",
           status: "running",
@@ -266,20 +266,20 @@ test("trace marks follow a running step and an error step", () => {
       ]}
     />,
   );
-  expect(screen.getByText("Finding a template")).toBeTruthy();
-  expect(screen.queryByText("Found a template")).toBeNull();
+  expect(screen.getByText("Choosing a layout")).toBeTruthy();
+  expect(screen.queryByText("Chose a layout")).toBeNull();
   expect(screen.queryByRole("img", { name: "Done" })).toBeNull();
   expect(screen.getAllByRole("img", { name: "Running" }).length).toBeGreaterThanOrEqual(2);
 
   rerender(
     <Trace
       steps={[
-        { tool: "search_templates", status: "error", detail: { template: "review" } },
+        { tool: "read_me", status: "error" },
         { tool: "get_pull_request_diff", status: "error", detail: { additions: 4, deletions: 1 } },
       ]}
     />,
   );
-  expect(screen.getByText("Finding a template failed")).toBeTruthy();
+  expect(screen.getByText("Choosing a layout failed")).toBeTruthy();
   expect(screen.getByText("Read the diff failed")).toBeTruthy();
   expect(screen.queryByRole("img", { name: "Done" })).toBeNull();
   expect(screen.queryByRole("img", { name: "Running" })).toBeNull();

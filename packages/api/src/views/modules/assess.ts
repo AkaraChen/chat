@@ -1,23 +1,29 @@
-import type { Template } from "./types";
-import { PLACEHOLDER_NOTE } from "./types";
+import type { ViewModule } from "../types";
 
-export const id = "capability-check" as const;
+export const id = "assess" as const;
 
-export const when = `Use when the user asks whether a platform, runtime, API or version supports a feature (does X support Y, X 支持 Y 吗, 兼容吗), or asks where the limit is. Answer the capability first, then separate what works from what does not and what it would take. Use only facts the user gave or a tool returned; when the version or the answer is unknown, say so. ${PLACEHOLDER_NOTE}`;
+export const summary = "know whether something can, does or will work, and where the limit is";
 
-export const components = ["Answer", "Rows", "Sources"] as const;
+export const when =
+  "Use when the user asks whether a platform, runtime, API or version supports something (does X support Y, 支持吗, 兼容吗), whether a plan will work, or where the limit is. Answer first, then separate what works from what does not and what it would take. When the version or the answer is unknown, say so.";
 
-export const prose =
-  "The short answer in one sentence, then the exact boundary: what works, what does not, and what it would take.";
+export const routes = [
+  ["does X support Y", "Rows with one verdict row per capability"],
+  ["will this work / is this safe", "Rows with the verdict, then Notes for the caveats"],
+  ["what would it take", "a second Rows with the effort per step, no status"],
+] as const;
+
+export const components = ["Answer", "Rows", "Notes"] as const;
 
 export const usage = {
   Answer: "Root container with empty props. List the other elements in reading order.",
   Rows: "One card for the verdict, one row per capability. status is negative when unsupported, neutral when partial or requiring work, and positive when supported. Each value is a word or a short phrase; why goes in the prose. A second Rows card may list the effort; leave status off those rows.",
   Sources:
     "Only sources actually read in tool results or sent by the user, one per row. Omit the element when there are none. Never invent a source.",
+  Notes: "Caveats and conditions that do not fit a verdict row.",
 } as const;
 
-export const example: Template["example"] = {
+export const example: ViewModule["example"] = {
   root: "answer",
   elements: {
     answer: {
@@ -71,43 +77,4 @@ export const example: Template["example"] = {
   },
 };
 
-export const terms = [
-  "support",
-  "supports",
-  "supported",
-  "support for",
-  "compatible",
-  "compatibility",
-  "capability",
-  "limitation",
-  "limitations",
-  "extension",
-  "extensions",
-  "webextension",
-  "webextensions",
-  "safari",
-  "wpe",
-  "webkit",
-  "webview",
-  "支持",
-  "是否支持",
-  "兼容",
-  "兼容性",
-  "扩展",
-  "插件",
-  "能力",
-  "限制",
-  "能不能",
-  "可以吗",
-  "有没有",
-] as const;
-
-export const capabilityCheck: Template = {
-  id,
-  when,
-  prose,
-  components,
-  usage,
-  example,
-  terms,
-};
+export const assess: ViewModule = { id, summary, when, routes, components, usage, example };

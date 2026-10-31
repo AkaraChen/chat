@@ -1,14 +1,22 @@
-import type { Template } from "./types";
-import { PLACEHOLDER_NOTE } from "./types";
+import type { ViewModule } from "../types";
 
-export const id = "review" as const;
+export const id = "code" as const;
 
-export const when = `Use when the user gives a repository and a pull request number and asks for a review, a summary or the risks, and the GitHub tools are available. Fetch the pull request first. ${PLACEHOLDER_NOTE}`;
+export const summary = "review a pull request (needs GitHub)";
 
-export const components = ["Answer", "Changes", "Diff", "Notes"] as const;
+export const when =
+  "Use when the user gives a repository and a pull request number and asks for a review, a summary or the risks. Fetch the pull request first. Prose: the verdict in one sentence, then the repo, number and what was read (files, diff, CI, comments).";
 
-export const prose =
-  "The verdict in one sentence, then the repo, number and what was read (files, diff, CI, comments).";
+export const routes = [
+  ["review owner/repo#123", "Changes, the one Diff that matters most, Notes"],
+  [
+    "is this PR safe to merge",
+    "Rows with a verdict per concern, then the Diff behind the worst one",
+  ],
+  ["what changed", "Changes only"],
+] as const;
+
+export const components = ["Answer", "Changes", "Diff", "Rows", "Notes"] as const;
 
 export const usage = {
   Answer: "Root container with empty props. List the other elements in reading order.",
@@ -16,9 +24,10 @@ export const usage = {
     "Files from get_pull_request_files with their real additions and deletions. List the largest few if there are many.",
   Diff: "The one hunk that matters most, copied from get_pull_request_diff. startLine is the new-file line of the first patch line. Note: one sentence on why it matters.",
   Notes: "Short observations such as CI status or unresolved comments, only from tool results.",
+  Rows: "One row per concern with a positive, neutral or negative status when the user asks whether it is safe to merge.",
 } as const;
 
-export const example: Template["example"] = {
+export const example: ViewModule["example"] = {
   root: "answer",
   elements: {
     answer: {
@@ -69,26 +78,4 @@ export const example: Template["example"] = {
   },
 };
 
-export const terms = [
-  "review",
-  "pull request",
-  "pr",
-  "diff",
-  "merge",
-  "commit",
-  "repo",
-  "repository",
-  "github",
-  "ci",
-  "审查",
-  "代码审查",
-  "评审",
-  "合并",
-  "拉取请求",
-  "仓库",
-  "提交",
-  "改动",
-  "补丁",
-] as const;
-
-export const review: Template = { id, when, prose, components, usage, example, terms };
+export const code: ViewModule = { id, summary, when, routes, components, usage, example };
