@@ -7,7 +7,7 @@ import {
 import type { UIMessage } from "ai";
 import { z } from "zod";
 
-import { validateSpec } from "../templates/catalog";
+import { validateSpec } from "../views/catalog";
 
 // Shared with the web app, so nothing here touches the database.
 
@@ -45,25 +45,41 @@ export type ChatPart = ChatMessage["parts"][number];
 const isSpecPart = (part: ChatPart): part is Extract<ChatPart, { type: "data-spec" }> =>
   part.type === SPEC_DATA_PART_TYPE;
 
-/** The spec the message's `data-spec` parts add up to, or null when there are none. */
-export function specOf(parts: readonly ChatPart[]): Spec | null {
-  let spec: Spec | null = null;
-  for (const part of parts) {
+/** One view in a message: its spec, and the indexes of the parts that built it. */
+export type View = { spec: Spec; parts: number[] };
+
+/**
+ * The views the message's `data-spec` parts add up to, in order. Each view
+ * starts by setting `/root`; a second `/root` starts the next view.
+ */
+export function viewsOf(parts: readonly ChatPart[]): View[] {
+  const views: View[] = [];
+  let current: View | null = null;
+  for (const [index, part] of parts.entries()) {
     if (!isSpecPart(part) || part.data.type !== "patch") continue;
-    spec ??= { root: "", elements: {} };
-    applySpecPatch(spec, part.data.patch as Parameters<typeof applySpecPatch>[1]);
+    const patch = part.data.patch;
+    if (current && patch.path === "/root" && current.spec.root) current = null;
+    if (!current) {
+      current = { spec: { root: "", elements: {} }, parts: [] };
+      views.push(current);
+    }
+    applySpecPatch(current.spec, patch as Parameters<typeof applySpecPatch>[1]);
+    current.parts.push(index);
   }
-  return spec;
+  return views;
 }
 
-/** False when the message has a view and it does not pass the catalog. */
+/** False when the message has a view that does not pass the catalog. */
 export function hasValidSpec(parts: readonly ChatPart[]): boolean {
-  const spec = specOf(parts);
-  return spec === null || validateSpec(spec).length === 0;
+  return viewsOf(parts).every((view) => validateSpec(view.spec).length === 0);
 }
 
-/** The message with its view dropped if the view does not pass the catalog. Prose stays. */
+/** The message without the views that do not pass the catalog. Prose and valid views stay. */
 export function withoutInvalidSpec(message: ChatMessage): ChatMessage {
-  if (hasValidSpec(message.parts)) return message;
-  return { ...message, parts: message.parts.filter((part) => !isSpecPart(part)) };
+  const dropped = new Set<number>();
+  for (const view of viewsOf(message.parts)) {
+    if (validateSpec(view.spec).length > 0) view.parts.forEach((index) => dropped.add(index));
+  }
+  if (dropped.size === 0) return message;
+  return { ...message, parts: message.parts.filter((_, index) => !dropped.has(index)) };
 }

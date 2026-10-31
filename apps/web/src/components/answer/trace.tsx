@@ -18,9 +18,9 @@ type Copy = {
 };
 
 const COPY: Record<string, Copy> = {
-  search_templates: {
-    label: (t) => t("trace.foundTemplate"),
-    right: (_, d) => String(d.template ?? ""),
+  read_me: {
+    label: (t) => t("trace.choseLayout"),
+    right: (t, d) => moduleNames(t, d.modules),
   },
   get_pull_request: { label: (t) => t("trace.fetchedPullRequest") },
   get_pull_request_files: {
@@ -56,13 +56,34 @@ const COPY: Record<string, Copy> = {
   },
 };
 
+// The work group is named for the first module read_me loaded.
 const GROUP = {
-  meeting: "trace.sortedMeeting",
-  review: "trace.reviewedDiff",
-  economy: "trace.chartedFigures",
-  "tech-choice": "trace.weighedOptions",
-  "capability-check": "trace.checkedDocs",
+  recap: "trace.sortedMeeting",
+  code: "trace.reviewedDiff",
+  data: "trace.chartedFigures",
+  compare: "trace.weighedOptions",
+  assess: "trace.checkedDocs",
+  explain: "trace.tracedMechanism",
+  interactive: "trace.setUpControls",
+  widget: "trace.drewPicture",
 } as const;
+
+type ModuleId = keyof typeof GROUP;
+
+const isModule = (id: string): id is ModuleId => Object.hasOwn(GROUP, id);
+
+function modulesOf(value: unknown): ModuleId[] {
+  return String(value ?? "")
+    .split(",")
+    .map((id) => id.trim())
+    .filter(isModule);
+}
+
+function moduleNames(t: TFunction, value: unknown) {
+  return modulesOf(value)
+    .map((id) => t(`trace.module.${id}`))
+    .join(", ");
+}
 
 function Mark({ status }: { status: TraceStep["status"] }) {
   const { t } = useTranslation();
@@ -120,10 +141,10 @@ function labelOf(t: TFunction, step: TraceStep) {
   return step.status === "error" ? t("trace.stepFailed", { label }) : label;
 }
 
-function templateLabel(t: TFunction, status: TraceStep["status"]) {
-  if (status === "running") return t("trace.findingTemplate");
-  if (status === "error") return t("trace.findingTemplateFailed");
-  return t("trace.foundTemplate");
+function layoutLabel(t: TFunction, status: TraceStep["status"]) {
+  if (status === "running") return t("trace.choosingLayout");
+  if (status === "error") return t("trace.choosingLayoutFailed");
+  return t("trace.choseLayout");
 }
 
 function groupStatus(steps: TraceStep[]): TraceStep["status"] {
@@ -141,52 +162,44 @@ function rightOf(t: TFunction, step: TraceStep) {
   return values.length ? values.join(" ") : "";
 }
 
-function prettyTemplate(value: string) {
-  if (!value) return "";
-  return value.slice(0, 1).toUpperCase() + value.slice(1);
-}
-
-const TEMPLATE_NAME: Record<string, string> = {
-  "tech-choice": "Tech choice",
-  "capability-check": "Capability check",
-};
-
-function templateNameOf(value: string) {
-  return TEMPLATE_NAME[value] ?? prettyTemplate(value);
-}
-
-/** Collapsible step list. The template row starts closed; the work group starts open. */
+/** Collapsible step list. The layout row starts closed; the work group starts open. */
 export function Trace({ steps }: { steps: TraceStep[] }) {
   const { t } = useTranslation();
-  const template = steps.find((step) => step.tool === "search_templates");
-  const rest = steps.filter((step) => step !== template);
-  const templateName = templateNameOf(String(template?.detail?.template ?? ""));
-  const group = GROUP[String(template?.detail?.template ?? "") as keyof typeof GROUP];
-  const groupTitle = group ? t(group) : t("trace.steps");
-  const [templateOpen, setTemplateOpen] = useState(false);
+  // read_me may run more than once; the first call names the layout.
+  const layout = steps.find((step) => step.tool === "read_me");
+  const rest = steps.filter((step) => step.tool !== "read_me");
+  const loaded = [
+    ...new Set(
+      steps.filter((step) => step.tool === "read_me").flatMap((s) => modulesOf(s.detail?.modules)),
+    ),
+  ];
+  const layoutName = loaded.map((id) => t(`trace.module.${id}`)).join(", ");
+  const first = loaded[0];
+  const groupTitle = first ? t(GROUP[first]) : t("trace.steps");
+  const [layoutOpen, setLayoutOpen] = useState(false);
   const [groupOpen, setGroupOpen] = useState(true);
   if (steps.length === 0) return null;
 
   return (
     <div className="flex flex-col gap-2 text-sm text-ink">
-      {template ? (
+      {layout ? (
         <div>
           <button
             type="button"
-            aria-expanded={templateOpen}
-            onClick={() => setTemplateOpen((open) => !open)}
+            aria-expanded={layoutOpen}
+            onClick={() => setLayoutOpen((open) => !open)}
             className="flex w-full items-center gap-2 text-left"
           >
             <span aria-hidden="true" className="w-3 text-ink-tertiary">
-              {templateOpen ? "▾" : "›"}
+              {layoutOpen ? "▾" : "›"}
             </span>
-            <Mark status={template.status} />
-            <span className="text-ink-secondary">{templateLabel(t, template.status)}</span>
-            <span className="ml-auto text-ink-tertiary">{templateName}</span>
+            <Mark status={layout.status} />
+            <span className="text-ink-secondary">{layoutLabel(t, layout.status)}</span>
+            <span className="ml-auto text-ink-tertiary">{layoutName}</span>
           </button>
-          {templateOpen ? (
+          {layoutOpen ? (
             <p className="pt-1 pl-5 text-ink-secondary">
-              {t("trace.usingTemplate", { name: templateName || t("trace.matching") })}
+              {layoutName ? t("trace.usingLayout", { name: layoutName }) : t("trace.noLayout")}
             </p>
           ) : null}
         </div>

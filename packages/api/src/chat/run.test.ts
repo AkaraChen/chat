@@ -88,7 +88,7 @@ describe("chat loop", () => {
 
     expect(model.doStreamCalls).toHaveLength(1);
     // The GitHub tools are deferred: only the search tools are offered at first.
-    expect(toolNames(model)).toEqual(["get_current_time", "search_templates", "tool_search"]);
+    expect(toolNames(model)).toEqual(["get_current_time", "read_me", "tool_search"]);
     expect(chunks.map((c) => c.type)).not.toContain("data-spec");
     expect(chunks.at(-1)!.type).toBe("finish");
 
@@ -134,23 +134,89 @@ describe("chat loop", () => {
     expect(assistant.parts.filter((p) => p.type === "data-spec")).toHaveLength(3);
   });
 
-  test("without a token search_templates leaves out the review template", async () => {
+  test("without a token read_me cannot load the code module", async () => {
     await github.clear();
     const model = scriptedModel([
-      callTool("c1", "search_templates", { query: "review acme/web #128" }),
+      callTool("c1", "read_me", { modules: ["compare"] }),
       say("I cannot read pull requests without a GitHub token."),
     ]);
     const { deps } = harness(model);
     const thread = await newThread();
     await send(deps, thread.id);
-    expect(toolNames(model)).toEqual(["get_current_time", "search_templates", "tool_search"]);
-    const search = (await saved(thread.id))[1]!.parts.find(
-      (p) => p.type === "tool-search_templates",
-    ) as { output: { detail: { template: string }; guide: string } };
-    expect(search.output.detail.template).not.toBe("review");
+    expect(toolNames(model)).toEqual(["get_current_time", "read_me", "tool_search"]);
+    const readMe = model.doStreamCalls[0]!.tools!.find((t) => t.name === "read_me")!;
+    expect(JSON.stringify(readMe)).not.toContain('"code"');
+    const read = (await saved(thread.id))[1]!.parts.find((p) => p.type === "tool-read_me") as {
+      output: { detail: { modules: string }; guide: string };
+    };
+    expect(read.output.detail.modules).toBe("compare");
     // The components travel with the tool result, not the system prompt.
-    expect(search.output.guide).toContain("AVAILABLE COMPONENTS");
-    expect(JSON.stringify(model.doStreamCalls[0]!.prompt)).not.toContain("AVAILABLE COMPONENTS");
+    expect(read.output.guide).toContain("SPEC FORMAT");
+    expect(JSON.stringify(model.doStreamCalls[0]!.prompt)).not.toContain("SPEC FORMAT");
+  });
+
+  test("show_widget is offered only once read_me has loaded the widget module", async () => {
+    const model = scriptedModel([
+      callTool("c1", "read_me", { modules: ["explain"] }),
+      callTool("c2", "read_me", { modules: ["widget"] }),
+      callTool("c3", "show_widget", { title: "Buckets", html: "<svg></svg>" }),
+      say("Each key falls into one bucket."),
+    ]);
+    const { deps } = harness(model);
+    const thread = await newThread();
+    await send(deps, thread.id);
+    expect(toolNames(model, 0)).not.toContain("show_widget");
+    expect(toolNames(model, 1)).not.toContain("show_widget");
+    expect(toolNames(model, 2)).toContain("show_widget");
+    const widget = (await saved(thread.id))[1]!.parts.find((p) => p.type === "tool-show_widget");
+    expect(widget).toMatchObject({
+      state: "output-available",
+      input: { title: "Buckets", html: "<svg></svg>" },
+      output: { detail: { title: "Buckets" } },
+    });
+  });
+
+  test("only the latest answer keeps its widget HTML in the history", async () => {
+    const html = "<div>first widget</div>";
+    const model = scriptedModel([
+      callTool("c1", "read_me", { modules: ["widget"] }),
+      callTool("c2", "show_widget", { title: "First", html }),
+      say("One."),
+      say("Two."),
+      say("Three."),
+    ]);
+    const { deps } = harness(model);
+    const thread = await newThread();
+    await send(deps, thread.id, "one");
+    await send(deps, thread.id, "two");
+    expect(JSON.stringify(model.doStreamCalls[3]!.prompt)).toContain("first widget");
+    await send(deps, thread.id, "three");
+    const prompt = JSON.stringify(model.doStreamCalls[4]!.prompt);
+    expect(prompt).not.toContain("first widget");
+    expect(prompt).toContain("not kept: 23 characters");
+  });
+
+  test("two views in one answer are kept apart, and only the one that fails is dropped", async () => {
+    const bad = {
+      root: "broken",
+      elements: { broken: { type: "Notes", props: { title: "t", items: [] }, children: [] } },
+    };
+    const model = scriptedModel([
+      say(
+        inline("First.", notesSpec("a")) +
+          inline("Second.", bad) +
+          inline("Third.", notesSpec("c")),
+      ),
+    ]);
+    const { deps } = harness(model);
+    const thread = await newThread();
+    await send(deps, thread.id);
+    const assistant = (await saved(thread.id))[1]!;
+    const specs = assistant.parts.filter((p) => p.type === "data-spec");
+    expect(specs).toHaveLength(6);
+    expect(JSON.stringify(specs)).not.toContain("broken");
+    const text = assistant.parts.map((p) => (p.type === "text" ? p.text : "")).join("");
+    expect(text).toContain("Second.");
   });
 
   test("a failing tool is kept as a tool error and the model goes on", async () => {
@@ -187,7 +253,7 @@ describe("chat loop", () => {
 
     expect(toolNames(model)).toEqual([
       "get_current_time",
-      "search_templates",
+      "read_me",
       "tool_search",
       "web_fetch",
       "web_search",
@@ -203,7 +269,7 @@ describe("chat loop", () => {
     const next = scriptedModel([say("Done.")]);
     const { deps: plain } = harness(next);
     await send(plain, thread.id, "thanks");
-    expect(toolNames(next)).toEqual(["get_current_time", "search_templates", "tool_search"]);
+    expect(toolNames(next)).toEqual(["get_current_time", "read_me", "tool_search"]);
   });
 
   test("an unreachable web server fails the tool call, not the turn", async () => {
@@ -241,7 +307,7 @@ describe("chat loop", () => {
   });
 
   test(`stops after ${MAX_STEPS} steps and the last step may not call a tool`, async () => {
-    const model = scriptedModel([callTool("c", "search_templates", { query: "meeting" })]);
+    const model = scriptedModel([callTool("c", "read_me", { modules: ["recap"] })]);
     const { deps } = harness(model);
     const thread = await newThread();
     await send(deps, thread.id);

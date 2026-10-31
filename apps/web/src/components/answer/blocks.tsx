@@ -1,4 +1,4 @@
-import type { ComponentProps } from "@my-better-t-app/api/templates/catalog";
+import type { ComponentProps } from "@my-better-t-app/api/views/catalog";
 import { cn } from "@my-better-t-app/ui/lib/utils";
 import { FileTextIcon, GlobeIcon } from "@phosphor-icons/react";
 import type { ReactNode } from "react";

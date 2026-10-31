@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 
 import { orpc } from "@/utils/orpc";
 
+import { AskContext } from "../answer";
 import { PaneLoading } from "./pane-loading";
 import { historyQuery, type Pending } from "./thread-history";
 import { chatTransport, type ChatMessage } from "./transport";
@@ -89,17 +90,23 @@ function Conversation({
     void chat.sendMessage({ text }, { body: { model } });
   }
 
+  // A follow-up from a view or widget is sent as if the user typed it.
+  const ask =
+    busy || !ready ? null : (text: string) => void chat.sendMessage({ text }, { body: { model } });
+
   return (
-    <ThreadView
-      turns={turns}
-      streaming={busy}
-      error={chat.status === "error" ? (chat.error?.message ?? t("thread.failed")) : null}
-      draft={draft}
-      onDraft={setDraft}
-      onSend={send}
-      busy={busy}
-      disabled={!ready}
-    />
+    <AskContext.Provider value={ask}>
+      <ThreadView
+        turns={turns}
+        streaming={busy}
+        error={chat.status === "error" ? (chat.error?.message ?? t("thread.failed")) : null}
+        draft={draft}
+        onDraft={setDraft}
+        onSend={send}
+        busy={busy}
+        disabled={!ready}
+      />
+    </AskContext.Provider>
   );
 }
 
