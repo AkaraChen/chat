@@ -2,6 +2,7 @@ import type { Database } from "@my-better-t-app/db";
 import type { Role } from "@my-better-t-app/db/auth";
 
 import type { ChatMessage } from "../chat/message";
+import { uploadIdOf } from "../files/kind";
 import { exportExpiresAt, type ExportAccess, type ExportDuration } from "./duration";
 import { mintExportToken, verifyExportToken } from "./token";
 
@@ -45,6 +46,18 @@ function messageOf(row: {
     parts: JSON.parse(row.parts),
     ...(row.metadata ? { metadata: JSON.parse(row.metadata) } : {}),
   } as ChatMessage;
+}
+
+// A shared chat's files are read through the link, so they open for whoever
+// the link opens for.
+function withShareLinks(message: ChatMessage, token: string): ChatMessage {
+  if (!message.parts.some((part) => part.type === "file")) return message;
+  const parts = message.parts.map((part) =>
+    part.type === "file" && uploadIdOf(part.url)
+      ? { ...part, url: `${part.url}?share=${encodeURIComponent(token)}` }
+      : part,
+  );
+  return { ...message, parts };
 }
 
 /**
@@ -111,6 +124,10 @@ export async function resolveThreadExport(input: {
     orderBy: [{ createdAt: "asc" }, { id: "asc" }],
   });
   const messages =
-    until == null ? [] : rows.filter((row) => row.createdAt.getTime() <= until).map(messageOf);
+    until == null
+      ? []
+      : rows
+          .filter((row) => row.createdAt.getTime() <= until)
+          .map((row) => withShareLinks(messageOf(row), input.token));
   return { status: "ok", thread: { title: thread.title, messages } };
 }

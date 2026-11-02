@@ -4,6 +4,7 @@ import type { Role } from "@my-better-t-app/db/auth";
 import type { ModelFactory } from "./chat/model";
 import type { OpenAIDeviceAuth } from "./credentials/openai-device";
 import type { CredentialStore } from "./credentials/store";
+import type { DocumentReader } from "./files/documents";
 import type { GithubStore } from "./github/store";
 import type { ThreadTitleQueue } from "./jobs/thread-title";
 import type { ModelsDev } from "./models/models-dev";
@@ -22,6 +23,8 @@ export type Context = {
   createModel: ModelFactory;
   // Web search and fetch over MCP. Unset when no server is configured.
   web?: WebConnect;
+  // Reads an attached PDF or office document as Markdown.
+  readDocument: DocumentReader;
   // Replaces `fetch` for the proxy and GitHub. Tests only.
   fetch?: typeof fetch;
   session: { userId: string; role: Role } | null;

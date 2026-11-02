@@ -1,7 +1,9 @@
+import type { FileUIPart } from "ai";
+
 import { orpc } from "@/utils/orpc";
 
 /** The first message of a thread started from the empty state, sent once it opens. */
-export type Pending = { threadId: string; text: string };
+export type Pending = { threadId: string; text: string; files: FileUIPart[] };
 
 /**
  * A thread's stored messages. The cache is kept, so a thread opened again

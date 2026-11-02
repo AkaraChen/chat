@@ -2,6 +2,7 @@ import { createProxyModelFactory } from "@my-better-t-app/api/chat/model";
 import type { Context as ApiContext } from "@my-better-t-app/api/context";
 import { createOpenAIDeviceAuth } from "@my-better-t-app/api/credentials/openai-device";
 import { createCredentialStore } from "@my-better-t-app/api/credentials/store";
+import { createDocumentReader } from "@my-better-t-app/api/files/documents";
 import { createGithubStore } from "@my-better-t-app/api/github/store";
 import { createThreadTitleQueue } from "@my-better-t-app/api/jobs/queue";
 import type { ThreadTitleQueue } from "@my-better-t-app/api/jobs/thread-title";
@@ -23,6 +24,7 @@ const modelsDev = createModelsDev({ cachePath: ENV.MODELS_DEV_CACHE_FILE });
 const proxy = { url: ENV.PROXY_URL, apiKey: ENV.PROXY_API_KEY };
 const createModel = createProxyModelFactory(proxy);
 const web = ENV.WEB_MCP_URL ? createMcpConnect(ENV.WEB_MCP_URL) : undefined;
+const readDocument = createDocumentReader();
 
 let queue: ThreadTitleQueue | undefined;
 const titleQueue = () => (queue ??= createThreadTitleQueue(ENV.REDIS_URL));
@@ -39,6 +41,7 @@ export async function createContext({ req }: { req: Request }): Promise<ApiConte
     titleQueue,
     createModel,
     web,
+    readDocument,
     session: result ? { userId: result.user.id, role: toRole(result.user.role) } : null,
     authSecret: ENV.BETTER_AUTH_SECRET,
   };

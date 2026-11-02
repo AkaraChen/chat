@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 
 import { call } from "@orpc/server";
+import { MockLanguageModelV4 } from "ai/test";
 
 import { handleChatRequest } from "../chat/http";
 import {
@@ -119,6 +120,7 @@ beforeAll(async () => {
     }),
     createModel: () => scriptedModel([say(inline("Hi.", notesSpec()))]),
     fetch: await fakeProxyFetch(credentials),
+    readDocument: async (bytes) => `# Read\n\n${bytes.byteLength} bytes`,
     authSecret: "test-secret",
   };
 });
@@ -242,6 +244,75 @@ describe("models", () => {
     // The response never carries the key.
     const list = await call(appRouter.models.list, undefined, { context: ctx });
     expect(JSON.stringify(list)).not.toContain("sk-1");
+  });
+
+  test("image models are marked, and one can be picked to read images for the rest", async () => {
+    const ctx = as("u1");
+    const list = await call(appRouter.models.list, undefined, { context: ctx });
+    expect(list.vision).toBeNull();
+    const custom = list.connections.find((c) => c.type === "custom")!;
+    expect(custom.models.find((m) => m.id === "deepseek-flash")).toMatchObject({ images: true });
+    expect(custom.models.find((m) => m.id === "deepseek-v4-pro")?.images).toBeUndefined();
+
+    const eye = { connectionId: custom.connectionId, modelId: "deepseek-flash" };
+    await call(appRouter.models.selectVision, { model: eye }, { context: ctx });
+    expect((await call(appRouter.models.list, undefined, { context: ctx })).vision).toEqual({
+      ...eye,
+      available: true,
+    });
+    await expect(
+      call(
+        appRouter.models.selectVision,
+        { model: { connectionId: custom.connectionId, modelId: "ghost" } },
+        { context: ctx },
+      ),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+
+    // A chat model models.dev lists as blind has the image read by the image model.
+    const thread = await call(appRouter.threads.create, { text: "look" }, { context: ctx });
+    const image = await t.db.upload.create({
+      data: {
+        userId: "u1",
+        name: "shot.png",
+        mediaType: "image/png",
+        size: 8,
+        data: new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+      },
+    });
+    const reader = new MockLanguageModelV4({
+      doGenerate: async () =>
+        ({
+          content: [{ type: "text", text: "A cat." }],
+          finishReason: { unified: "stop", raw: "stop" },
+          usage: {
+            inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
+            outputTokens: { total: 1, text: 1, reasoning: 0 },
+          },
+          warnings: [],
+        }) as never,
+    });
+    const writer = scriptedModel([say("A cat, then.")]);
+    const response = await chat(
+      { ...ctx, createModel: (_c, modelId) => (modelId === "deepseek-flash" ? reader : writer) },
+      {
+        id: thread.id,
+        model: { connectionId: custom.connectionId, modelId: "deepseek-v4-pro" },
+        message: {
+          id: "with-image",
+          role: "user",
+          parts: [{ type: "file", mediaType: "image/png", url: `/api/files/${image.id}` }],
+        },
+      },
+    );
+    expect(response.status).toBe(200);
+    await chunksOf(response);
+    expect(reader.doGenerateCalls).toHaveLength(1);
+    expect(JSON.stringify(writer.doStreamCalls[0]!.prompt)).toContain("A cat.");
+    // Its title job is not one the chat tests below count.
+    queued.length = 0;
+
+    await call(appRouter.models.selectVision, { model: null }, { context: ctx });
+    expect((await call(appRouter.models.list, undefined, { context: ctx })).vision).toBeNull();
   });
 
   test("select is remembered, and unavailable once the connection is gone", async () => {

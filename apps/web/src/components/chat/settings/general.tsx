@@ -2,13 +2,32 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 
 import { type Locale, localeNames, locales, saveLocale, toLocale } from "@/i18n";
 
 import { authClient } from "../../../auth-client";
 import { usePreferences } from "../preferences";
 
-export function GeneralPanel({ name, email }: { name: string; email: string }) {
+export type ModelRef = { connectionId: string; modelId: string };
+
+/** The models that can read images, by connection, and the one picked. */
+export type VisionSettings = {
+  groups: { connectionId: string; name: string; models: { id: string; name: string }[] }[];
+  choice: (ModelRef & { available: boolean }) | null;
+};
+
+export function GeneralPanel({
+  name,
+  email,
+  vision,
+  onVision,
+}: {
+  name: string;
+  email: string;
+  vision?: VisionSettings;
+  onVision?: (model: ModelRef | null) => Promise<void>;
+}) {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const router = useRouter();
@@ -87,7 +106,85 @@ export function GeneralPanel({ name, email }: { name: string; email: string }) {
           />
         </div>
       </section>
+      {vision && onVision ? <ImageModel vision={vision} onChange={onVision} /> : null}
     </div>
+  );
+}
+
+const keyOf = (model: ModelRef) => JSON.stringify([model.connectionId, model.modelId]);
+
+// The pick shows while it is being saved; a refusal puts the saved one back.
+function ImageModel({
+  vision,
+  onChange,
+}: {
+  vision: VisionSettings;
+  onChange: (model: ModelRef | null) => Promise<void>;
+}) {
+  const { t } = useTranslation();
+  const [saving, setSaving] = useState<string | null>(null);
+  const { groups, choice } = vision;
+  const listed =
+    choice !== null &&
+    groups.some(
+      (g) =>
+        g.connectionId === choice.connectionId && g.models.some((m) => m.id === choice.modelId),
+    );
+  const missing = choice !== null && (!choice.available || !listed);
+  const value = saving ?? (choice && !missing ? keyOf(choice) : "");
+
+  async function pick(key: string) {
+    setSaving(key);
+    try {
+      const [connectionId, modelId] = key ? (JSON.parse(key) as [string, string]) : [];
+      await onChange(connectionId && modelId ? { connectionId, modelId } : null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t("general.imageModelFailed"));
+    } finally {
+      setSaving(null);
+    }
+  }
+
+  const detail = missing
+    ? t("general.imageModelMissing")
+    : groups.length === 0
+      ? t("general.imageModelNone")
+      : t("general.imageModelDetail");
+  return (
+    <section className="flex flex-col gap-2">
+      <h3 className="text-[13px] text-ink-secondary">{t("general.imageModel")}</h3>
+      <label className="relative block">
+        <span className="sr-only">{t("general.imageModel")}</span>
+        <select
+          aria-label={t("general.imageModel")}
+          value={value}
+          disabled={saving !== null || (groups.length === 0 && !missing)}
+          onChange={(event) => void pick(event.target.value)}
+          className="h-12 w-full appearance-none rounded-[12px] border border-line-quiet bg-paper px-4 text-[15px] text-ink outline-none disabled:text-ink-tertiary"
+        >
+          <option value="">{t("general.imageModelOff")}</option>
+          {groups.map((group) => (
+            <optgroup key={group.connectionId} label={group.name}>
+              {group.models.map((model) => (
+                <option
+                  key={model.id}
+                  value={keyOf({ connectionId: group.connectionId, modelId: model.id })}
+                >
+                  {model.name}
+                </option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute top-1/2 right-4 -translate-y-1/2 text-ink-secondary"
+        >
+          ▾
+        </span>
+      </label>
+      <p className={`text-[13px] ${missing ? "text-warn" : "text-ink-secondary"}`}>{detail}</p>
+    </section>
   );
 }
 

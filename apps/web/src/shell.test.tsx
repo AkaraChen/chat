@@ -48,9 +48,9 @@ test("signed-in shell shows the empty state and collapses the thread list", asyn
   expect(screen.queryByRole("button", { name: "Deeper Research" })).toBeNull();
   expect(screen.getByRole("button", { name: "Attach" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "Tools" })).toBeTruthy();
-  expect(screen.getByRole("button", { name: "Microphone" })).toBeTruthy();
-  expect(screen.getByRole("button", { name: "Globe" })).toBeTruthy();
-  expect(screen.getByRole("button", { name: "Voice" })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Microphone" })).toBeNull();
+  expect(screen.getByRole("button", { name: "Web search off" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Send" })).toBeTruthy();
   for (const title of ["Sort the meeting", "Review a pull request", "Chart these figures"]) {
     expect(screen.getByRole("button", { name: new RegExp(title) })).toBeTruthy();
   }

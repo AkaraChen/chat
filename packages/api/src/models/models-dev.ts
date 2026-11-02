@@ -6,7 +6,8 @@ const MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const OPENAI_COMPATIBLE = "@ai-sdk/openai-compatible";
 
 export type ModelsDevProvider = { id: string; name: string; api: string };
-export type ModelsDevModel = { id: string; name: string };
+/** `images` is set when models.dev lists image among the model's inputs. */
+export type ModelsDevModel = { id: string; name: string; images?: true };
 export type ModelsDevEntry = ModelsDevProvider & { models: ModelsDevModel[] };
 
 // The models each kind of connection gets: `custom` for Custom connections
@@ -38,10 +39,16 @@ function usableModels(models: unknown): ModelsDevModel[] {
   for (const [key, value] of Object.entries(asRecord(models) ?? {})) {
     const model = asRecord(value);
     if (!model || model.tool_call !== true) continue;
-    const output = asRecord(model.modalities)?.output;
+    const modalities = asRecord(model.modalities);
+    const output = modalities?.output;
     if (!Array.isArray(output) || !output.includes("text")) continue;
+    const input = modalities?.input;
     const id = typeof model.id === "string" ? model.id : key;
-    result.push({ id, name: typeof model.name === "string" ? model.name : id });
+    result.push({
+      id,
+      name: typeof model.name === "string" ? model.name : id,
+      ...(Array.isArray(input) && input.includes("image") ? { images: true as const } : {}),
+    });
   }
   return result.sort((a, b) => a.name.localeCompare(b.name));
 }

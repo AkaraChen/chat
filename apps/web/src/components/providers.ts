@@ -46,3 +46,8 @@ export const providers: readonly ProviderInfo[] = [
 export function findProvider(slug: string): ProviderInfo | undefined {
   return providers.find((provider) => provider.slug === slug);
 }
+
+/** What a connection is called in pickers: its models.dev name, its brand, or its label. */
+export function connectionName(c: { type: string; label: string; name?: string }) {
+  return c.name ?? findProvider(c.type)?.name ?? c.label;
+}

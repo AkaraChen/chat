@@ -34,6 +34,7 @@
     "ai": "7.0.152",
     "better-auth": "1.6.23",
     "dompurify": "^3.4.17",
+    "here-docs": "^0.1.0",
     "i18next": "^26.5.10",
     "libsql": "0.5.29",
     "lucide-react": "^1.56.0",

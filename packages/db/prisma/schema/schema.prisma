@@ -30,7 +30,9 @@ model User {
   sessions        Session[]
   accounts        Account[]
   modelChoice     ModelChoice?
+  visionChoice    VisionChoice?
   threads         Thread[]
+  uploads         Upload[]
 
   @@unique([email])
   @@unique([username])
@@ -98,6 +100,19 @@ model ModelChoice {
   @@map("model_choice")
 }
 
+// The model that reads images for a chat model that cannot. Without one, such
+// a model is told an image was left out.
+model VisionChoice {
+  id           String @id @default(cuid())
+  userId       String
+  user         User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  connectionId String
+  modelId      String
+
+  @@unique([userId])
+  @@map("vision_choice")
+}
+
 // `titledAt` is null while the title is still the truncated first message.
 model Thread {
   id        String    @id @default(cuid())
@@ -108,6 +123,7 @@ model Thread {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   messages  Message[]
+  uploads   Upload[]
 
   @@index([userId, updatedAt])
   @@map("thread")
@@ -127,4 +143,28 @@ model Message {
 
   @@index([threadId, createdAt])
   @@map("message")
+}
+
+// A file the user attached. It belongs to the thread of the first message that
+// sends it, and goes with that thread. `text` is what the model reads of a PDF
+// or text file. `description` is an image model's reading of an image, kept
+// for the model named in `describedBy` (`<connectionId>/<modelId>`).
+model Upload {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  threadId    String?
+  thread      Thread?  @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  name        String
+  mediaType   String
+  size        Int
+  data        Bytes
+  text        String?
+  description String?
+  describedBy String?
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([threadId])
+  @@map("upload")
 }

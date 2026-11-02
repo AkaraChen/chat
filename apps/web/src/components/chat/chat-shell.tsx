@@ -1,6 +1,7 @@
 import { ExportIcon } from "@phosphor-icons/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
+import type { FileUIPart } from "ai";
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -106,15 +107,16 @@ export function ChatShell({
 
   // A new thread is empty and already listed, so it opens without asking the
   // server for either; the first message goes out as soon as it shows.
-  async function start(text: string) {
+  async function start({ text, files }: { text: string; files: FileUIPart[] }) {
     try {
       // The thread's code loads alongside, so it opens without waiting on it.
-      // If that load fails, the pane's own lazy load tries again.
+      // If that load fails, the pane's own lazy load tries again. A message
+      // that is only files takes its title from the first.
       const [created] = await Promise.all([
-        client.threads.create({ text }),
+        client.threads.create({ text: text || files[0]?.filename || "…" }),
         loadThreadPane().catch(() => {}),
       ]);
-      pending.current = { threadId: created.id, text };
+      pending.current = { threadId: created.id, text, files };
       queryClient.setQueryData(historyQuery(created.id).queryKey, { ...created, messages: [] });
       // A title poll in flight would otherwise write the list without it.
       await queryClient.cancelQueries({ queryKey: listKey });

@@ -1,4 +1,5 @@
 import { ClockIcon, FileTextIcon, LightbulbIcon } from "@phosphor-icons/react";
+import type { FileUIPart } from "ai";
 import { useRef, useState, type ComponentType } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -19,7 +20,7 @@ export function EmptyPane({
   onStart,
 }: {
   name: string;
-  onStart: (text: string) => Promise<void>;
+  onStart: (message: { text: string; files: FileUIPart[] }) => Promise<void>;
 }) {
   const { t } = useTranslation();
   const { ready } = useModelChoice();
@@ -27,12 +28,13 @@ export function EmptyPane({
   const [busy, setBusy] = useState(false);
   const input = useRef<HTMLTextAreaElement | null>(null);
 
-  async function send() {
+  // A failed start throws, so the composer keeps the draft and its files.
+  async function send(files: FileUIPart[]) {
     const text = draft.trim();
-    if (!text) return;
+    if (!text && files.length === 0) return;
     setBusy(true);
     try {
-      await onStart(text);
+      await onStart({ text, files });
       setDraft("");
     } finally {
       setBusy(false);

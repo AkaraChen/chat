@@ -73,6 +73,7 @@ describe("proxy models", () => {
         connectionId: custom.id,
         type: "custom",
         label: "deepseek",
+        provider: "deepseek",
         models: [{ id: "fast", name: "DeepSeek Flash" }],
       },
       {

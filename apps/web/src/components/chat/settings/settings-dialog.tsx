@@ -8,8 +8,9 @@ import type { ProviderSlug } from "@my-better-t-app/api/credentials/store";
 import { orpc } from "@/utils/orpc";
 
 import { GitHubMark } from "../../github-mark";
+import { connectionName } from "../../providers";
 import { AppearancePanel } from "./appearance";
-import { GeneralPanel } from "./general";
+import { GeneralPanel, type ModelRef, type VisionSettings } from "./general";
 import { GithubPanel } from "./github-panel";
 import {
   ProvidersPanel,
@@ -36,6 +37,8 @@ export type SettingsData = {
   catalog: SettingsCatalog | null;
   listed: Record<string, CatalogModel[]>;
   githubSet: boolean;
+  /** The image model and what it can be. Left out, General does not offer it. */
+  vision?: VisionSettings;
 };
 
 export type SettingsHandlers = {
@@ -55,6 +58,7 @@ export type SettingsHandlers = {
   onSignInPoll?: (input: { deviceAuthId: string; userCode: string }) => Promise<SignInPoll>;
   onSaveToken?: (token: string) => Promise<void>;
   onClearToken?: () => Promise<void>;
+  onSelectVision?: (model: ModelRef | null) => Promise<void>;
 };
 
 function useLiveSettings(enabled: boolean): SettingsData {
@@ -80,11 +84,20 @@ function useLiveSettings(enabled: boolean): SettingsData {
   for (const connection of models.data?.connections ?? []) {
     listed[connection.connectionId] = connection.models;
   }
+  // Only the models models.dev says take images can read them for another.
+  const groups = (models.data?.connections ?? [])
+    .map((c) => ({
+      connectionId: c.connectionId,
+      name: connectionName(c),
+      models: c.models.filter((m) => m.images).map((m) => ({ id: m.id, name: m.name })),
+    }))
+    .filter((group) => group.models.length > 0);
   return {
     connections: connections.data ?? [],
     catalog: catalog.data ?? null,
     listed,
     githubSet: github.data?.set === true,
+    vision: models.data ? { groups, choice: models.data.vision ?? null } : undefined,
   };
 }
 
@@ -167,6 +180,11 @@ export function SettingsDialog({
   );
   const signInStart = useMutation(orpc.connections.openaiSignIn.start.mutationOptions());
   const signInPoll = useMutation(orpc.connections.openaiSignIn.poll.mutationOptions());
+  const selectVision = useMutation(
+    orpc.models.selectVision.mutationOptions({
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: orpc.models.list.key() }),
+    }),
+  );
   const saveToken = useMutation(orpc.github.save.mutationOptions({ onSuccess: refresh }));
   const clearToken = useMutation(orpc.github.clear.mutationOptions({ onSuccess: refresh }));
 
@@ -217,7 +235,17 @@ export function SettingsDialog({
             </button>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto px-8 py-6">
-            {view === "general" ? <GeneralPanel name={name} email={email} /> : null}
+            {view === "general" ? (
+              <GeneralPanel
+                name={name}
+                email={email}
+                vision={resolved.vision}
+                onVision={async (model) => {
+                  if (handlers?.onSelectVision) return handlers.onSelectVision(model);
+                  await selectVision.mutateAsync({ model });
+                }}
+              />
+            ) : null}
             {view === "providers" ? (
               <ProvidersPanel
                 connections={resolved.connections}

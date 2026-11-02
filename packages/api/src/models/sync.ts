@@ -31,6 +31,21 @@ export function syncedModels(entry: ModelsDevEntry, current: CredentialModel[]):
   ];
 }
 
+/**
+ * Whether a connection's model takes images, by models.dev. Undefined when
+ * models.dev does not list it: a model added by hand, or a catalog that could
+ * not be loaded.
+ */
+export function readsImages(
+  catalog: ModelsDevCatalog | null,
+  connection: Pick<Credential, "type" | "provider">,
+  modelId: string,
+): boolean | undefined {
+  const entry = catalog ? catalogEntryOf(catalog, connection) : null;
+  const model = entry?.models.find((m) => m.id === modelId);
+  return model ? model.images === true : undefined;
+}
+
 const sameModels = (a: CredentialModel[], b: CredentialModel[]) =>
   JSON.stringify(a) === JSON.stringify(b);
 

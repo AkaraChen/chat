@@ -250,3 +250,40 @@ test("open settings requests provider data", async () => {
     expect(started).toBe(true);
   });
 });
+
+test("General offers the models that read images as the image model", async () => {
+  const picked: unknown[] = [];
+  await renderApp(
+    <SettingsDialog
+      tab="general"
+      name="Eric"
+      email="eric@example.com"
+      onTab={() => {}}
+      onClose={() => {}}
+      data={{
+        ...base,
+        vision: {
+          groups: [
+            {
+              connectionId: "or-1",
+              name: "OpenRouter",
+              models: [{ id: "google/gemini-3.5-flash", name: "Gemini 3.5 Flash" }],
+            },
+          ],
+          choice: null,
+        },
+      }}
+      handlers={{ onSelectVision: async (model) => void picked.push(model) }}
+    />,
+  );
+  const select = screen.getByRole("combobox", { name: "Image model" }) as HTMLSelectElement;
+  expect([...select.options].map((option) => option.text)).toEqual(["None", "Gemini 3.5 Flash"]);
+  expect(select.value).toBe("");
+
+  fireEvent.change(select, { target: { value: select.options[1]!.value } });
+  await waitFor(() =>
+    expect(picked).toEqual([{ connectionId: "or-1", modelId: "google/gemini-3.5-flash" }]),
+  );
+  fireEvent.change(select, { target: { value: "" } });
+  await waitFor(() => expect(picked.at(-1)).toBeNull());
+});
