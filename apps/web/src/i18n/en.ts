@@ -119,8 +119,6 @@ export const en = {
     preferences: "Preferences",
     enterToSend: "Enter to send",
     enterToSendDetail: "Press Enter to send a message, Shift + Enter for a new line.",
-    spellCheck: "Spell check",
-    spellCheckDetail: "Underline misspelled words as you type.",
   },
   githubPanel: {
     token: "Personal access token",

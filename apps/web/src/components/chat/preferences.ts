@@ -4,7 +4,6 @@ export type Theme = "system" | "light" | "dark";
 
 export type Preferences = {
   enterToSend: boolean;
-  spellCheck: boolean;
   theme: Theme;
 };
 
@@ -13,7 +12,7 @@ export const PREFERENCES_KEY = "the-chat-preferences";
 const KEY = PREFERENCES_KEY;
 const EVENT = "the-chat-preferences";
 
-const defaults: Preferences = { enterToSend: true, spellCheck: false, theme: "system" };
+const defaults: Preferences = { enterToSend: true, theme: "system" };
 
 function themeOf(value: unknown): Theme {
   return value === "light" || value === "dark" ? value : "system";
@@ -27,7 +26,6 @@ export function readPreferences(): Preferences {
     const parsed = JSON.parse(raw) as Partial<Preferences>;
     return {
       enterToSend: parsed.enterToSend !== false,
-      spellCheck: parsed.spellCheck === true,
       theme: themeOf(parsed.theme),
     };
   } catch {
