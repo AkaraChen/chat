@@ -13,6 +13,7 @@ import {
   type ToolSet,
 } from "ai";
 
+import { MAX_FILES, uploadIdOf } from "../files/kind";
 import type { GithubStore } from "../github/store";
 import { githubTools, githubToolsFor } from "../github/tools";
 import { enqueueThreadTitle, type ThreadTitleQueue } from "../jobs/thread-title";
@@ -20,6 +21,7 @@ import { createReadMeTool, loadedWidget } from "../views/read-me";
 import { createShowWidgetTool } from "../views/show-widget";
 import type { WebConnect } from "../web/mcp";
 import { webTools, webToolSchemas } from "../web/tools";
+import { readingFor, withAttachments, type ImageInput } from "./attachments";
 import { coalesceTextDeltas } from "./coalesce";
 import { forModel } from "./history";
 import { paceText } from "./pace";
@@ -53,6 +55,10 @@ export type ChatInput = {
   message: unknown;
   connectionId: string;
   modelId: string;
+  /** False when the user turned web search off for this message. */
+  web?: boolean;
+  /** Whether the chat model sees images, and the image model that reads them for it. */
+  images?: ImageInput;
 };
 
 export class ThreadNotFoundError extends Error {
@@ -126,19 +132,47 @@ async function saveMessage(db: Database, threadId: string, message: ChatMessage)
   });
 }
 
-// A user message is text the person typed. Anything else from the client
-// (tool results, data parts, another role) is not taken on trust.
-function checkUserMessage(message: ChatMessage | undefined): ChatMessage {
+// A user message is text the person typed and files they uploaded. Anything
+// else from the client (tool results, data parts, another role) is not taken
+// on trust. A file part is rebuilt from the upload it names, which must be the
+// user's and not already sent in another thread.
+async function checkUserMessage(
+  db: Database,
+  userId: string,
+  threadId: string,
+  message: ChatMessage | undefined,
+): Promise<{ message: ChatMessage; uploads: string[] }> {
   if (!message || message.role !== "user") {
     throw new InvalidMessageError("The last message must be the user's.");
   }
-  if (!message.parts.every((part) => part.type === "text")) {
-    throw new InvalidMessageError("A message can only hold text.");
+  if (!message.parts.every((part) => part.type === "text" || part.type === "file")) {
+    throw new InvalidMessageError("A message can only hold text and files.");
   }
   const text = message.parts.map((part) => (part.type === "text" ? part.text : "")).join("");
-  if (!text.trim()) throw new InvalidMessageError("The message is empty.");
   if (text.length > MAX_MESSAGE_CHARS) throw new InvalidMessageError("The message is too long.");
-  return { id: message.id, role: "user", parts: message.parts };
+
+  const ids = message.parts.flatMap((part) =>
+    part.type === "file" ? [uploadIdOf(part.url) ?? ""] : [],
+  );
+  if (ids.length > MAX_FILES) {
+    throw new InvalidMessageError(`A message can carry up to ${MAX_FILES} files.`);
+  }
+  const rows = ids.length
+    ? await db.upload.findMany({
+        where: { id: { in: ids }, userId, OR: [{ threadId: null }, { threadId }] },
+        select: { id: true, name: true, mediaType: true },
+      })
+    : [];
+  const uploads = new Map(rows.map((row) => [row.id, row]));
+  if (ids.some((id) => !uploads.has(id))) throw new InvalidMessageError("A file was not found.");
+  if (!text.trim() && ids.length === 0) throw new InvalidMessageError("The message is empty.");
+
+  const parts = message.parts.map((part): ChatMessage["parts"][number] => {
+    if (part.type !== "file") return part;
+    const upload = uploads.get(uploadIdOf(part.url)!)!;
+    return { type: "file", mediaType: upload.mediaType, filename: upload.name, url: part.url };
+  });
+  return { message: { id: message.id, role: "user", parts }, uploads: [...new Set(ids)] };
 }
 
 /**
@@ -171,7 +205,7 @@ export async function streamChat(deps: ChatDeps, input: ChatInput): Promise<Resp
   });
   if (!validated.success) throw new InvalidMessageError(validated.error.message);
   const messages = validated.data;
-  const message = checkUserMessage(messages.at(-1));
+  const { message, uploads } = await checkUserMessage(db, input.userId, threadId, messages.at(-1));
   messages[messages.length - 1] = message;
 
   // Message ids come from the client. One that names a message in another
@@ -182,21 +216,31 @@ export async function streamChat(deps: ChatDeps, input: ChatInput): Promise<Resp
   });
   if (clash && clash.threadId !== threadId) throw new InvalidMessageError("Message id in use.");
   await saveMessage(db, threadId, message);
+  // A file goes with the thread it was first sent in.
+  if (uploads.length) {
+    await db.upload.updateMany({
+      where: { id: { in: uploads }, threadId: null },
+      data: { threadId },
+    });
+  }
 
   const token = await deps.github.read();
-  const web = deps.web ? webTools(deps.web) : null;
+  const web = deps.web && input.web !== false ? webTools(deps.web) : null;
   const tools = toolsFor(token, deps.fetch, web);
   const model = deps.createModel(input.connectionId, input.modelId);
+  const reading = readingFor(input.images, deps.createModel);
   const metadata: ChatMetadata = { connectionId: input.connectionId, modelId: input.modelId };
-  const modelMessages = await convertToModelMessages(forModel(messages), {
-    tools,
-    ignoreIncompleteToolCalls: true,
-  });
 
   const stream = createUIMessageStream<ChatMessage>({
     originalMessages: messages,
     onError: messageOf,
-    execute({ writer }) {
+    // Files are read inside the stream: an image model can take a while, and
+    // the reader should see the turn start rather than wait on it.
+    async execute({ writer }) {
+      const modelMessages = await convertToModelMessages(
+        forModel(await withAttachments(db, threadId, messages, reading)),
+        { tools, ignoreIncompleteToolCalls: true },
+      );
       const result = streamText({
         model,
         system: timePrompt(thread.createdAt),

@@ -17,6 +17,8 @@ import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as STokenRouteImport } from './routes/s.$token'
 import { Route as MemberConnectSplatRouteImport } from './routes/_member.connect.$'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as ApiFilesIndexRouteImport } from './routes/api/files/index'
+import { Route as ApiFilesIdRouteImport } from './routes/api/files/$id'
 import { Route as ApiRpcSplatRouteImport } from './routes/api/rpc/$'
 
 const IndexRoute = IndexRouteImport.update({
@@ -58,6 +60,16 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiFilesIndexRoute = ApiFilesIndexRouteImport.update({
+  id: '/api/files/',
+  path: '/api/files/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiFilesIdRoute = ApiFilesIdRouteImport.update({
+  id: '/api/files/$id',
+  path: '/api/files/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiRpcSplatRoute = ApiRpcSplatRouteImport.update({
   id: '/api/rpc/$',
   path: '/api/rpc/$',
@@ -72,7 +84,9 @@ export interface FileRoutesByFullPath {
   '/s/$token': typeof STokenRoute
   '/connect/$': typeof MemberConnectSplatRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/files/$id': typeof ApiFilesIdRoute
   '/api/rpc/$': typeof ApiRpcSplatRoute
+  '/api/files/': typeof ApiFilesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -82,7 +96,9 @@ export interface FileRoutesByTo {
   '/s/$token': typeof STokenRoute
   '/connect/$': typeof MemberConnectSplatRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/files/$id': typeof ApiFilesIdRoute
   '/api/rpc/$': typeof ApiRpcSplatRoute
+  '/api/files': typeof ApiFilesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -94,7 +110,9 @@ export interface FileRoutesById {
   '/s/$token': typeof STokenRoute
   '/_member/connect/$': typeof MemberConnectSplatRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/files/$id': typeof ApiFilesIdRoute
   '/api/rpc/$': typeof ApiRpcSplatRoute
+  '/api/files/': typeof ApiFilesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -106,7 +124,9 @@ export interface FileRouteTypes {
     | '/s/$token'
     | '/connect/$'
     | '/api/auth/$'
+    | '/api/files/$id'
     | '/api/rpc/$'
+    | '/api/files/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -116,7 +136,9 @@ export interface FileRouteTypes {
     | '/s/$token'
     | '/connect/$'
     | '/api/auth/$'
+    | '/api/files/$id'
     | '/api/rpc/$'
+    | '/api/files'
   id:
     | '__root__'
     | '/'
@@ -127,7 +149,9 @@ export interface FileRouteTypes {
     | '/s/$token'
     | '/_member/connect/$'
     | '/api/auth/$'
+    | '/api/files/$id'
     | '/api/rpc/$'
+    | '/api/files/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -136,7 +160,9 @@ export interface RootRouteChildren {
   ApiChatRoute: typeof ApiChatRoute
   STokenRoute: typeof STokenRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiFilesIdRoute: typeof ApiFilesIdRoute
   ApiRpcSplatRoute: typeof ApiRpcSplatRoute
+  ApiFilesIndexRoute: typeof ApiFilesIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -197,6 +223,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/files/': {
+      id: '/api/files/'
+      path: '/api/files'
+      fullPath: '/api/files/'
+      preLoaderRoute: typeof ApiFilesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/files/$id': {
+      id: '/api/files/$id'
+      path: '/api/files/$id'
+      fullPath: '/api/files/$id'
+      preLoaderRoute: typeof ApiFilesIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/rpc/$': {
       id: '/api/rpc/$'
       path: '/api/rpc/$'
@@ -228,7 +268,9 @@ const rootRouteChildren: RootRouteChildren = {
   ApiChatRoute: ApiChatRoute,
   STokenRoute: STokenRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiFilesIdRoute: ApiFilesIdRoute,
   ApiRpcSplatRoute: ApiRpcSplatRoute,
+  ApiFilesIndexRoute: ApiFilesIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

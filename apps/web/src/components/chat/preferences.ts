@@ -6,6 +6,8 @@ export type Preferences = {
   enterToSend: boolean;
   spellCheck: boolean;
   theme: Theme;
+  /** On unless turned off in the composer. Sent with every message. */
+  webSearch: boolean;
 };
 
 export const PREFERENCES_KEY = "the-chat-preferences";
@@ -13,7 +15,12 @@ export const PREFERENCES_KEY = "the-chat-preferences";
 const KEY = PREFERENCES_KEY;
 const EVENT = "the-chat-preferences";
 
-const defaults: Preferences = { enterToSend: true, spellCheck: false, theme: "system" };
+const defaults: Preferences = {
+  enterToSend: true,
+  spellCheck: false,
+  theme: "system",
+  webSearch: true,
+};
 
 function themeOf(value: unknown): Theme {
   return value === "light" || value === "dark" ? value : "system";
@@ -29,6 +36,7 @@ export function readPreferences(): Preferences {
       enterToSend: parsed.enterToSend !== false,
       spellCheck: parsed.spellCheck === true,
       theme: themeOf(parsed.theme),
+      webSearch: parsed.webSearch !== false,
     };
   } catch {
     return defaults;

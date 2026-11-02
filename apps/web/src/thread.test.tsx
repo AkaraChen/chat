@@ -188,7 +188,10 @@ const turns: Turn[] = [
     id: "user",
     role: "user",
     text: "Review AkaraChen/chat#128.",
-    attachment: "Launch review notes",
+    files: [
+      { url: "/api/files/notes", name: "Launch review notes.pdf", mediaType: "application/pdf" },
+      { url: "/api/files/shot", name: "Screenshot.png", mediaType: "image/png" },
+    ],
     source: { repo: "AkaraChen/chat", number: 128 },
   },
   {
@@ -206,10 +209,15 @@ const turns: Turn[] = [
   },
 ];
 
-test("a thread shows the attachment, trace, answer cards, and composer tools", () => {
+test("a thread shows the files, trace, answer cards, and composer tools", () => {
   render(<ThreadView turns={turns} draft="" onDraft={() => {}} onSend={() => {}} />);
 
-  expect(screen.getByText("Launch review notes")).toBeTruthy();
+  expect(screen.getByText("Launch review notes.pdf").closest("a")?.getAttribute("href")).toBe(
+    "/api/files/notes",
+  );
+  expect(screen.getByRole("img", { name: "Screenshot.png" }).getAttribute("src")).toBe(
+    "/api/files/shot",
+  );
   expect(screen.getByText("Review AkaraChen/chat#128.")).toBeTruthy();
   expect(screen.getByText("Chose a layout")).toBeTruthy();
   expect(screen.getByText("Code review")).toBeTruthy();
@@ -244,9 +252,10 @@ test("a thread shows the attachment, trace, answer cards, and composer tools", (
   expect(screen.queryByRole("button", { name: "Deeper Research" })).toBeNull();
   expect(screen.getByRole("button", { name: "Attach" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "Tools" })).toBeTruthy();
-  expect(screen.getByRole("button", { name: "Microphone" })).toBeTruthy();
-  expect(screen.getByRole("button", { name: "Globe" })).toBeTruthy();
-  expect(screen.getByRole("button", { name: "Voice" })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Microphone" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Voice" })).toBeNull();
+  expect(screen.getByRole("button", { name: "Web search off" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Send" })).toBeTruthy();
   expect(document.querySelector("form")?.className).toContain("bg-paper");
   expect(screen.getByText("Review AkaraChen/chat#128.").parentElement?.className).toContain(
     "bg-recessed",

@@ -15,7 +15,7 @@ import {
 } from "../credentials/store";
 import { memberProcedure, publicProcedure } from "../index";
 import { listConnectionModels } from "../models/proxy";
-import { syncConnectionModels } from "../models/sync";
+import { readsImages, syncConnectionModels } from "../models/sync";
 
 const providerSchema = z.enum(providerSlugs);
 
@@ -134,32 +134,40 @@ export const appRouter = {
   },
 
   models: {
-    // Models the proxy serves, by connection, and the user's choice. The choice
-    // is `available: false` once its connection or model is gone.
+    // Models the proxy serves, by connection, and the user's choices: the chat
+    // model and the image model. A choice is `available: false` once its
+    // connection or model is gone.
     list: memberProcedure.handler(async ({ context }) => {
       const listed = await listModels(context);
-      // A custom connection reads as its models.dev provider's name. A missing
-      // catalog only costs the name.
+      // A custom connection reads as its models.dev provider's name, and a
+      // model that takes images says so. A missing catalog costs only those.
       const catalog = await context.modelsDev.catalog().catch(() => null);
-      const connections = listed.map((c) =>
-        c.type === "custom"
-          ? { ...c, name: catalog?.custom.find((e) => e.id === c.label)?.name ?? c.label }
-          : c,
-      );
-      const row = await context.db.modelChoice.findUnique({
-        where: { userId: context.session.userId },
+      const connections = listed.map((c) => {
+        const models = c.models.map((m) =>
+          readsImages(catalog, c, m.id) ? { ...m, images: true as const } : m,
+        );
+        return c.type === "custom"
+          ? {
+              ...c,
+              models,
+              name: catalog?.custom.find((e) => e.id === (c.provider ?? c.label))?.name ?? c.label,
+            }
+          : { ...c, models };
       });
-      const choice = row
-        ? {
-            connectionId: row.connectionId,
-            modelId: row.modelId,
-            available: connections.some(
-              (c) =>
-                c.connectionId === row.connectionId && c.models.some((m) => m.id === row.modelId),
-            ),
-          }
-        : null;
-      return { connections, choice };
+      const where = { userId: context.session.userId };
+      const [row, vision] = await Promise.all([
+        context.db.modelChoice.findUnique({ where }),
+        context.db.visionChoice.findUnique({ where }),
+      ]);
+      const served = (ref: { connectionId: string; modelId: string }) =>
+        connections.some(
+          (c) => c.connectionId === ref.connectionId && c.models.some((m) => m.id === ref.modelId),
+        );
+      const choiceOf = (ref: { connectionId: string; modelId: string } | null) =>
+        ref
+          ? { connectionId: ref.connectionId, modelId: ref.modelId, available: served(ref) }
+          : null;
+      return { connections, choice: choiceOf(row), vision: choiceOf(vision) };
     }),
 
     select: memberProcedure.input(modelRef).handler(async ({ context, input }) => {
@@ -176,6 +184,31 @@ export const appRouter = {
       });
       return { ...input, available: true };
     }),
+
+    // The model that reads images for a chat model that cannot. Null clears it.
+    selectVision: memberProcedure
+      .input(z.object({ model: modelRef.nullable() }))
+      .handler(async ({ context, input }) => {
+        const where = { userId: context.session.userId };
+        if (!input.model) {
+          await context.db.visionChoice.deleteMany({ where });
+          return null;
+        }
+        const model = input.model;
+        const connections = await listModels(context);
+        const exists = connections.some(
+          (c) =>
+            c.connectionId === model.connectionId && c.models.some((m) => m.id === model.modelId),
+        );
+        if (!exists)
+          throw new ORPCError("BAD_REQUEST", { message: "That model is not available." });
+        await context.db.visionChoice.upsert({
+          where,
+          create: { ...where, ...model },
+          update: model,
+        });
+        return { ...model, available: true };
+      }),
 
     // What the settings panel may pick from, already filtered by models.dev rules.
     catalog: memberProcedure.handler(async ({ context }) => modelsDevCatalog(context)),

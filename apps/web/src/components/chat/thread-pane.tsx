@@ -1,5 +1,6 @@
 import { useChat } from "@ai-sdk/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import type { FileUIPart } from "ai";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -17,6 +18,9 @@ export type { Pending };
 
 // Draw the stream at most this often. Each draw parses the answer's markdown.
 const STREAM_THROTTLE_MS = 50;
+
+// Files go first, then the text. A message that is only files has no text part.
+const message = (text: string, files: FileUIPart[]) => (text ? { text, files } : { files });
 
 // Only the newest message can differ between two reads that agree on the
 // count: an answer cut short here and finished on the server keeps its id.
@@ -76,18 +80,18 @@ function Conversation({
     const first = pending.current;
     if (first && first.threadId === threadId) {
       pending.current = null;
-      void chat.sendMessage({ text: first.text }, { body: { model } });
+      void chat.sendMessage(message(first.text, first.files), { body: { model } });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [threadId]);
 
   const turns = useMemo(() => toTurns(chat.messages), [chat.messages]);
 
-  function send() {
+  function send(files: FileUIPart[]) {
     const text = draft.trim();
-    if (!text) return;
+    if (!text && files.length === 0) return;
     setDraft("");
-    void chat.sendMessage({ text }, { body: { model } });
+    void chat.sendMessage(message(text, files), { body: { model } });
   }
 
   // A follow-up from a view or widget is sent as if the user typed it.

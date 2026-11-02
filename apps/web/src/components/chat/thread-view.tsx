@@ -1,3 +1,4 @@
+import type { FileUIPart } from "ai";
 import { useTranslation } from "react-i18next";
 
 import { Composer } from "./composer";
@@ -20,7 +21,7 @@ export function ThreadView({
   error?: string | null;
   draft: string;
   onDraft: (value: string) => void;
-  onSend: () => void;
+  onSend: (files: FileUIPart[]) => void;
   disabled?: boolean;
   busy?: boolean;
 }) {

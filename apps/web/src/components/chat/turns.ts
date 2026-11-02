@@ -3,9 +3,12 @@ import type { ChatMessage } from "./transport";
 
 export type Source = { repo: string; number: number };
 
+/** A file the user sent, as the transcript shows it. */
+export type TurnFile = { url: string; name: string; mediaType: string };
+
 /** An assistant turn keeps its parts: prose and view come from them when drawn. */
 export type Turn =
-  | { id: string; role: "user"; text: string; source: Source | null; attachment?: string | null }
+  | { id: string; role: "user"; text: string; files: TurnFile[]; source: Source | null }
   | { id: string; role: "assistant"; steps: TraceStep[]; parts: ChatMessage["parts"] };
 
 type Detail = NonNullable<TraceStep["detail"]>;
@@ -35,7 +38,12 @@ export function toTurns(messages: ChatMessage[]): Turn[] {
       turns.push({ id: message.id, role: "assistant", steps, parts: message.parts });
     } else if (message.role === "user") {
       const text = message.parts.map((part) => (part.type === "text" ? part.text : "")).join("");
-      turns.push({ id: message.id, role: "user", text, source: null });
+      const files = message.parts.flatMap((part) =>
+        part.type === "file"
+          ? [{ url: part.url, name: part.filename ?? "", mediaType: part.mediaType }]
+          : [],
+      );
+      turns.push({ id: message.id, role: "user", text, files, source: null });
     }
   }
   // The source capsule shows only when a GitHub tool really ran for that

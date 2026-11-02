@@ -1,13 +1,14 @@
 import type { Spec } from "@json-render/core";
 import { viewsOf } from "@my-better-t-app/api/chat/message";
+import { kindOf } from "@my-better-t-app/api/files/kind";
 import { validateSpec } from "@my-better-t-app/api/views/catalog";
-import { PaperclipIcon } from "@phosphor-icons/react";
 import { memo, useLayoutEffect, useMemo, useRef } from "react";
 
 import { AnswerView, Trace, Widget } from "../answer";
 import { RichText } from "../answer/rich-text";
 import { GitHubMark } from "../github-mark";
 import { Spinner } from "../spinner";
+import { FileMark } from "./file-mark";
 import type { Turn } from "./turns";
 
 type UserTurn = Extract<Turn, { role: "user" }>;
@@ -21,7 +22,8 @@ const UserBubble = memo(
   UserBubbleView,
   (a, b) =>
     a.turn.text === b.turn.text &&
-    a.turn.attachment === b.turn.attachment &&
+    a.turn.files.map((file) => file.url).join("\n") ===
+      b.turn.files.map((file) => file.url).join("\n") &&
     a.turn.source?.repo === b.turn.source?.repo &&
     a.turn.source?.number === b.turn.source?.number,
 );
@@ -31,24 +33,52 @@ const AssistantTurn = memo(
   (a, b) => a.turn.parts === b.turn.parts && a.live === b.live,
 );
 
+// The files sit above the bubble, images first, as they were sent. Each
+// opens on its own.
 function UserBubbleView({ turn }: { turn: UserTurn }) {
+  const images = turn.files.filter((file) => kindOf(file.mediaType) === "image");
+  const documents = turn.files.filter((file) => kindOf(file.mediaType) !== "image");
   return (
-    <div className="flex max-w-[560px] flex-col items-start gap-2 self-end rounded-[14px] bg-recessed px-3.5 py-2.5">
-      <p className="text-[15px] leading-6 whitespace-pre-wrap text-ink">{turn.text}</p>
-      {turn.attachment ? (
-        <span className="flex items-center gap-2 rounded-lg bg-paper px-2.5 py-1 text-[13px] text-ink">
-          <PaperclipIcon size={14} className="text-ink-secondary" />
-          {turn.attachment}
-        </span>
+    <div className="flex max-w-[560px] flex-col items-end gap-2 self-end">
+      {images.length > 0 ? (
+        <div className="flex flex-wrap justify-end gap-2">
+          {images.map((file) => (
+            <a key={file.url} href={file.url} target="_blank" rel="noreferrer">
+              <img
+                src={file.url}
+                alt={file.name}
+                className="max-h-56 max-w-72 rounded-[14px] bg-recessed object-cover"
+              />
+            </a>
+          ))}
+        </div>
       ) : null}
-      {turn.source && (
-        <span className="flex items-center gap-1.5 rounded-lg bg-paper py-1 pr-2.5 pl-2 text-[13px] text-ink">
-          <span className="flex size-4 items-center justify-center rounded-full bg-solid text-on-solid">
-            <GitHubMark size={10} fill="currentColor" />
-          </span>
-          {turn.source.repo} #{turn.source.number}
-        </span>
-      )}
+      {documents.map((file) => (
+        <a
+          key={file.url}
+          href={file.url}
+          target="_blank"
+          rel="noreferrer"
+          className="flex w-64 items-center gap-2.5 rounded-[14px] bg-recessed py-2.5 pr-3.5 pl-2.5"
+        >
+          <FileMark mediaType={file.mediaType} name={file.name} />
+        </a>
+      ))}
+      {turn.text || turn.source ? (
+        <div className="flex flex-col items-start gap-2 rounded-[14px] bg-recessed px-3.5 py-2.5">
+          {turn.text ? (
+            <p className="text-[15px] leading-6 whitespace-pre-wrap text-ink">{turn.text}</p>
+          ) : null}
+          {turn.source && (
+            <span className="flex items-center gap-1.5 rounded-lg bg-paper py-1 pr-2.5 pl-2 text-[13px] text-ink">
+              <span className="flex size-4 items-center justify-center rounded-full bg-solid text-on-solid">
+                <GitHubMark size={10} fill="currentColor" />
+              </span>
+              {turn.source.repo} #{turn.source.number}
+            </span>
+          )}
+        </div>
+      ) : null}
     </div>
   );
 }

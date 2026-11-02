@@ -1,16 +1,42 @@
 import { z } from "zod";
 
 import type { Context } from "../context";
+import { readsImages } from "../models/sync";
+import type { ImageInput } from "./attachments";
 import { InvalidMessageError, streamChat, ThreadNotFoundError } from "./run";
 
 // What `useChat` sends: the thread id and only its newest message. The
 // server already holds the rest of the conversation. `model` is the pick on
-// screen, which can be ahead of the saved one while it is being saved.
+// screen, which can be ahead of the saved one while it is being saved. `web`
+// is false when the composer has web search off.
 const body = z.object({
   id: z.string().min(1),
   message: z.unknown(),
   model: z.object({ connectionId: z.string().min(1), modelId: z.string().min(1) }).optional(),
+  web: z.boolean().optional(),
 });
+
+type Connection = Awaited<ReturnType<Context["credentials"]["list"]>>[number];
+
+// Whether the chat model sees images, and the image model to read them for it
+// when it does not. An image model whose connection is gone is no help.
+async function imagesFor(
+  context: Context,
+  userId: string,
+  connections: Connection[],
+  chat: Connection,
+  modelId: string,
+): Promise<ImageInput> {
+  const [catalog, vision] = await Promise.all([
+    context.modelsDev.catalog().catch(() => null),
+    context.db.visionChoice.findUnique({ where: { userId } }),
+  ]);
+  const helper =
+    vision && connections.some((c) => c.id === vision.connectionId)
+      ? { connectionId: vision.connectionId, modelId: vision.modelId }
+      : null;
+  return { sees: readsImages(catalog, chat, modelId), helper };
+}
 
 // `DefaultChatTransport` shows the body of a failed response as the error.
 const fail = (status: number, message: string) => new Response(message, { status });
@@ -32,7 +58,8 @@ export async function handleChatRequest(context: Context, request: Request): Pro
     (await context.db.modelChoice.findUnique({ where: { userId: session.userId } }));
   if (!choice) return fail(400, "Choose a model first.");
   const connections = await context.credentials.list();
-  if (!connections.some((c) => c.id === choice.connectionId)) {
+  const connection = connections.find((c) => c.id === choice.connectionId);
+  if (!connection) {
     return fail(400, "The chosen model's connection was removed. Choose another model.");
   }
 
@@ -52,6 +79,8 @@ export async function handleChatRequest(context: Context, request: Request): Pro
         message: parsed.data.message,
         connectionId: choice.connectionId,
         modelId: choice.modelId,
+        web: parsed.data.web,
+        images: await imagesFor(context, session.userId, connections, connection, choice.modelId),
       },
     );
   } catch (error) {

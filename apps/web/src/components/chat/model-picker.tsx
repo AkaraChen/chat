@@ -11,13 +11,9 @@ import {
 } from "@my-better-t-app/ui/components/dropdown-menu";
 
 import { ConnectionMark } from "../brand-mark";
-import { findProvider } from "../providers";
+import { connectionName } from "../providers";
 import { Spinner } from "../spinner";
 import { useModelChoice } from "./use-model-choice";
-
-function connectionName(c: { type: string; label: string; name?: string }) {
-  return c.name ?? findProvider(c.type)?.name ?? c.label;
-}
 
 // Past this many models the picker gets a search field. OpenRouter alone
 // brings hundreds.

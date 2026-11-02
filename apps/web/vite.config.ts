@@ -1,3 +1,7 @@
+import { existsSync, readFileSync, realpathSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
 import { resolveBinary } from "@cpajs/cpa/server";
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
@@ -63,6 +67,40 @@ const vendorChunks = GROUPS.map(([name, priority, test]) => ({
 // image builds and runs on the same platform) is copied whole, for its binary.
 const cpajsBinary = resolveBinary().packageName;
 
+// here-docs reads attached documents with native engines that load their
+// platform packages and OCR models by name at run time, which tracing cannot
+// follow. So it is copied whole with everything it depends on, optional
+// dependencies included where they are installed: Bun installs only those
+// that match the machine, and the image builds and runs on the same platform.
+function hereDocsPackages(): string[] {
+  // Where Node would find `name` from `dir`: the nearest node_modules above it.
+  const locate = (dir: string, name: string): string | null => {
+    for (let at = dir; ; at = path.dirname(at)) {
+      const candidate = path.join(at, "node_modules", ...name.split("/"));
+      if (existsSync(path.join(candidate, "package.json"))) return realpathSync(candidate);
+      if (path.dirname(at) === at) return null;
+    }
+  };
+  let root = path.dirname(fileURLToPath(import.meta.resolve("here-docs")));
+  while (!existsSync(path.join(root, "package.json"))) root = path.dirname(root);
+  const found = new Map<string, string>([["here-docs", root]]);
+  for (const [, dir] of found) {
+    const manifest = JSON.parse(readFileSync(path.join(dir, "package.json"), "utf8")) as {
+      dependencies?: Record<string, string>;
+      optionalDependencies?: Record<string, string>;
+    };
+    const names = [
+      ...Object.keys(manifest.dependencies ?? {}),
+      ...Object.keys(manifest.optionalDependencies ?? {}),
+    ];
+    for (const name of names) {
+      const at = found.has(name) ? null : locate(dir, name);
+      if (at) found.set(name, at);
+    }
+  }
+  return [...found.keys()];
+}
+
 export default defineConfig({
   server: {
     port: 3001,
@@ -90,7 +128,13 @@ export default defineConfig({
     // keeps it external everywhere, so the server has one React instance.
     nitro({
       preset: "node-server",
-      traceDeps: ["react", "react-dom", "@cpajs/cpa", `${cpajsBinary}*`],
+      traceDeps: [
+        "react",
+        "react-dom",
+        "@cpajs/cpa",
+        `${cpajsBinary}*`,
+        ...hereDocsPackages().map((name) => `${name}*`),
+      ],
       plugins: ["./src/proxy.plugin.ts"],
     }),
     viteReact(),

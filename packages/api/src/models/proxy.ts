@@ -7,13 +7,18 @@ export type ProxyOptions = {
   fetch?: typeof fetch;
 };
 
-/** `manual` marks a model added by hand; the rest come from models.dev. */
-export type ConnectionModel = { id: string; name: string; manual?: true };
+/**
+ * `manual` marks a model added by hand; the rest come from models.dev.
+ * `images` is set when models.dev says the model takes images.
+ */
+export type ConnectionModel = { id: string; name: string; manual?: true; images?: true };
 
 export type ConnectionModels = {
   connectionId: string;
   type: CredentialSummary["type"];
   label: string;
+  /** The models.dev provider id, for a custom connection. */
+  provider?: string;
   models: ConnectionModel[];
 };
 
@@ -61,7 +66,16 @@ export async function listConnectionModels(options: ProxyOptions): Promise<Conne
 
   const signIns = new Set(summaries.filter((s) => s.method === "oauth").map((s) => s.id));
   const groups = new Map<string, ConnectionModels>(
-    summaries.map((s) => [s.id, { connectionId: s.id, type: s.type, label: s.label, models: [] }]),
+    summaries.map((s) => [
+      s.id,
+      {
+        connectionId: s.id,
+        type: s.type,
+        label: s.label,
+        ...(s.provider ? { provider: s.provider } : {}),
+        models: [],
+      },
+    ]),
   );
   const stored = new Map(
     await Promise.all(
