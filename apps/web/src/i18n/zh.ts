@@ -128,8 +128,6 @@ export const zh: Resource = {
     preferences: "偏好",
     enterToSend: "按 Enter 发送",
     enterToSendDetail: "按 Enter 发送消息，Shift + Enter 换行。",
-    spellCheck: "拼写检查",
-    spellCheckDetail: "输入时为拼错的单词加下划线。",
     imageModel: "图片理解模型",
     imageModelOff: "不使用",
     imageModelDetail: "对话模型看不了图时，由这个模型来看，再把图里的内容转述给它。",

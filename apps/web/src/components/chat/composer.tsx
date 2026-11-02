@@ -110,7 +110,7 @@ export function Composer({
         rows={2}
         autoFocus
         placeholder={placeholder}
-        spellCheck={prefs.spellCheck}
+        spellCheck={false}
         onChange={(event) => onChange(event.target.value)}
         // A screenshot pastes as a file. Copied text that also carries a
         // picture of itself (as office apps do) pastes as text.

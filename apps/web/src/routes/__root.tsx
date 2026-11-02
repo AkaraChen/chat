@@ -11,7 +11,8 @@ import { resolveLocale } from "@/i18n/locale";
 import type { orpc } from "@/utils/orpc";
 
 import appCss from "../index.css?url";
-import { themeScript, useThemeSync } from "../theme";
+import { useServiceWorker } from "../pwa";
+import { themeScript, useThemeSync, windowColor } from "../theme";
 export interface RouterAppContext {
   orpc: typeof orpc;
   queryClient: QueryClient;
@@ -38,6 +39,9 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
         rel: "stylesheet",
         href: appCss,
       },
+      { rel: "manifest", href: "/manifest.webmanifest" },
+      { rel: "icon", href: "/icon.svg", type: "image/svg+xml" },
+      { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
     ],
   }),
 
@@ -46,11 +50,19 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
 
 function RootDocument() {
   useThemeSync();
+  useServiceWorker();
   const { locale } = Route.useRouteContext();
   return (
     <html lang={htmlLang[locale]} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        {/* Here, not in `head`: it keeps one meta per name, and this takes two. */}
+        <meta
+          name="theme-color"
+          content={windowColor.light}
+          media="(prefers-color-scheme: light)"
+        />
+        <meta name="theme-color" content={windowColor.dark} media="(prefers-color-scheme: dark)" />
         <HeadContent />
       </head>
       <body>
