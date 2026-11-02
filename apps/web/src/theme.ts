@@ -13,11 +13,22 @@ export function resolvedTheme(theme: Theme): "light" | "dark" {
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
+/**
+ * The window's title bar in the installed app, the same as the shell's fill
+ * so the two read as one surface. `--fill` in globals.css.
+ */
+export const windowColor = { light: "#f7f7f9", dark: "#24242c" } as const;
+
 export function applyTheme(theme: Theme) {
-  const dark = resolvedTheme(theme) === "dark";
+  const resolved = resolvedTheme(theme);
+  const dark = resolved === "dark";
   // The palette hangs off `.dark`, so it has to sit on the root element.
   document.documentElement.classList.toggle("dark", dark);
   document.documentElement.style.colorScheme = dark ? "dark" : "light";
+  // The server's tags follow the OS; a choice made here overrides them.
+  for (const meta of document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]')) {
+    meta.content = windowColor[resolved];
+  }
 }
 
 /**
