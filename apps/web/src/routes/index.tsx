@@ -3,8 +3,10 @@ import { useState } from "react";
 
 import { authClient } from "../auth-client";
 import { Welcome as WelcomeScreen } from "../components/welcome";
+import { skipWelcome } from "../session";
 
 export const Route = createFileRoute("/")({
+  beforeLoad: ({ context }) => skipWelcome(context.queryClient),
   component: Welcome,
 });
 

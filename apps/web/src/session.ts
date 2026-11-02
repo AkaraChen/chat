@@ -32,6 +32,14 @@ const sessionQuery = {
   staleTime: 5 * 60 * 1000,
 };
 
+// A member who opens the welcome goes straight on to the chat. Without this,
+// the welcome offered sign-in again and every visit to the bare domain minted a
+// new session while the old one was still good.
+export async function skipWelcome(queryClient: QueryClient) {
+  const current = await queryClient.fetchQuery(sessionQuery);
+  if (current && current.role !== "visitor") throw redirect({ to: "/chat" });
+}
+
 // A member is an admin or a user. A visitor, and anyone not signed in, goes to
 // the public welcome.
 export async function requireMember(queryClient: QueryClient) {
