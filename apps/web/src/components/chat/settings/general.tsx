@@ -85,12 +85,6 @@ export function GeneralPanel({ name, email }: { name: string; email: string }) {
             checked={prefs.enterToSend}
             onChange={(enterToSend) => setPrefs({ enterToSend })}
           />
-          <Preference
-            title={t("general.spellCheck")}
-            detail={t("general.spellCheckDetail")}
-            checked={prefs.spellCheck}
-            onChange={(spellCheck) => setPrefs({ spellCheck })}
-          />
         </div>
       </section>
     </div>

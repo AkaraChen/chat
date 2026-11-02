@@ -59,7 +59,7 @@ export function Composer({
         rows={2}
         autoFocus
         placeholder={placeholder}
-        spellCheck={prefs.spellCheck}
+        spellCheck={false}
         onChange={(event) => onChange(event.target.value)}
         onKeyDown={(event) => {
           if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return;

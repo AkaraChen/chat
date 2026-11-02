@@ -119,8 +119,6 @@ export const zh: Resource = {
     preferences: "偏好",
     enterToSend: "按 Enter 发送",
     enterToSendDetail: "按 Enter 发送消息，Shift + Enter 换行。",
-    spellCheck: "拼写检查",
-    spellCheckDetail: "输入时为拼错的单词加下划线。",
   },
   githubPanel: {
     token: "个人访问令牌",
