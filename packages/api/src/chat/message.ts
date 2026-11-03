@@ -7,7 +7,7 @@ import {
 import type { UIMessage } from "ai";
 import { z } from "zod";
 
-import { validateSpec } from "../views/catalog";
+import { validateSpec, type ValidateOptions } from "../views/catalog";
 
 // Shared with the web app, so nothing here touches the database.
 
@@ -75,10 +75,12 @@ export function hasValidSpec(parts: readonly ChatPart[]): boolean {
 }
 
 /** The message without the views that do not pass the catalog. Prose and valid views stay. */
-export function withoutInvalidSpec(message: ChatMessage): ChatMessage {
+export function withoutInvalidSpec(message: ChatMessage, options?: ValidateOptions): ChatMessage {
   const dropped = new Set<number>();
   for (const view of viewsOf(message.parts)) {
-    if (validateSpec(view.spec).length > 0) view.parts.forEach((index) => dropped.add(index));
+    if (validateSpec(view.spec, options).length > 0) {
+      view.parts.forEach((index) => dropped.add(index));
+    }
   }
   if (dropped.size === 0) return message;
   return { ...message, parts: message.parts.filter((_, index) => !dropped.has(index)) };

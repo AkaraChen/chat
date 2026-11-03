@@ -43,6 +43,8 @@ words, and the prompts and components are written from that spec.
 
 - [json-render](https://github.com/vercel-labs/json-render): the catalog,
   JSONL patch streaming, state, expressions and actions used here.
+- [pele](https://github.com/obsidianmd/pele): draws Mermaid diagrams as SVG,
+  themed with CSS variables, with a parser for each type loaded on demand.
 - [morphdom](https://github.com/patrick-steele-idem/morphdom): DOM diffing
   inside the widget frame.
 - [DOMPurify](https://github.com/cure53/DOMPurify): cleans each widget

@@ -1,210 +1,92 @@
-import {
-  flowRanks,
-  type ComponentProps,
-  type StructureBox,
-} from "@my-better-t-app/api/views/catalog";
+import { type ComponentProps, type StructureBox } from "@my-better-t-app/api/views/catalog";
+import { drawable } from "@my-better-t-app/api/views/diagram";
 import { cn } from "@my-better-t-app/ui/lib/utils";
-import { useId, useState } from "react";
+import type { Mounted } from "pele/lazy";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { RichText } from "./rich-text";
 import { TONE_BOX } from "./tone";
 
-const NODE_W = 136;
-const LINE = 17;
-const PAD_Y = 16;
-const GAP_ACROSS = 20;
-const GAP_ALONG = 44;
-const LOOP = 36;
-
-type Flow = ComponentProps["Flow"];
-type FlowNode = Flow["nodes"][number];
-type Placed = FlowNode & { x: number; y: number; w: number; h: number; rank: number };
-
-// Rough line count of a label at 13px in a box NODE_W wide.
-function nodeHeight(node: FlowNode) {
-  const lines = Math.min(2, Math.ceil((node.label.length * 7) / (NODE_W - 24)));
-  return PAD_Y + lines * LINE + (node.detail ? LINE : 0);
-}
-
-/** Places a flow's nodes in ranks, sorted to keep edges short. */
-export function layoutFlow(flow: Flow) {
-  const across: "x" | "y" = flow.direction === "right" ? "y" : "x";
-  const ranks = flowRanks(flow);
-  const byRank: FlowNode[][] = [];
-  for (const node of flow.nodes) (byRank[ranks.get(node.id) ?? 0] ??= []).push(node);
-  const rows = byRank.filter(Boolean);
-
-  // One pass of barycentre ordering: a node sits under the mean slot of the
-  // nodes that lead to it.
-  const slot = new Map<string, number>();
-  rows[0]?.forEach((node, index) => slot.set(node.id, index));
-  for (const row of rows.slice(1)) {
-    const score = (node: FlowNode) => {
-      const from = flow.edges.filter((e) => e.to === node.id && slot.has(e.from));
-      if (from.length === 0) return row.indexOf(node);
-      return from.reduce((sum, e) => sum + slot.get(e.from)!, 0) / from.length;
+/**
+ * Mermaid source, drawn by pele (https://pele.run). pele's drawing code, and
+ * the parser for each type, load the first time a diagram needs them. The
+ * layout follows the column's width, and a diagram shrunk to fit can be zoomed.
+ */
+export function Diagram({ source }: ComponentProps["Diagram"]) {
+  const { t } = useTranslation();
+  const ref = useRef<HTMLDivElement>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    const text = drawable(source);
+    let mounted: Mounted | undefined;
+    let gone = false;
+    setFailed(false);
+    import("pele/lazy")
+      .then(async ({ detectType, load, mount }) => {
+        await load(detectType(text));
+        if (gone) return;
+        mounted = mount(element, text, {
+          fontSize: 14,
+          links: false,
+          images: false,
+          zoom: {
+            labels: {
+              zoomIn: t("answer.zoomIn"),
+              zoomOut: t("answer.zoomOut"),
+              reset: t("answer.zoomReset"),
+            },
+          },
+          onError: () => setFailed(true),
+        });
+      })
+      .catch(() => {
+        if (!gone) setFailed(true);
+      });
+    return () => {
+      gone = true;
+      mounted?.destroy();
+      element.replaceChildren();
     };
-    row.sort((a, b) => score(a) - score(b));
-    row.forEach((node, index) => slot.set(node.id, index));
-  }
-
-  const placed = new Map<string, Placed>();
-  if (across === "x") {
-    const widths = rows.map((row) => row.length * NODE_W + (row.length - 1) * GAP_ACROSS);
-    const width = Math.max(...widths);
-    let y = 0;
-    rows.forEach((row, rank) => {
-      const h = Math.max(...row.map(nodeHeight));
-      let x = (width - widths[rank]!) / 2;
-      for (const node of row) {
-        placed.set(node.id, { ...node, x, y, w: NODE_W, h, rank });
-        x += NODE_W + GAP_ACROSS;
-      }
-      y += h + GAP_ALONG;
-    });
-    return { placed, width, height: y - GAP_ALONG, across };
-  }
-  const heights = rows.map(
-    (row) => row.reduce((sum, node) => sum + nodeHeight(node), 0) + (row.length - 1) * GAP_ACROSS,
-  );
-  const height = Math.max(...heights);
-  rows.forEach((row, rank) => {
-    let y = (height - heights[rank]!) / 2;
-    for (const node of row) {
-      const h = nodeHeight(node);
-      placed.set(node.id, { ...node, x: rank * (NODE_W + GAP_ALONG), y, w: NODE_W, h, rank });
-      y += h + GAP_ACROSS;
-    }
-  });
-  return {
-    placed,
-    width: rows.length * (NODE_W + GAP_ALONG) - GAP_ALONG,
-    height,
-    across,
-  };
-}
-
-function edgePath(a: Placed, b: Placed, across: "x" | "y") {
-  const forward = b.rank > a.rank;
-  if (across === "x") {
-    if (forward) {
-      const [x1, y1, x2, y2] = [a.x + a.w / 2, a.y + a.h, b.x + b.w / 2, b.y];
-      const mid = (y1 + y2) / 2;
-      return {
-        d: `M${x1},${y1} C${x1},${mid} ${x2},${mid} ${x2},${y2}`,
-        lx: (x1 + x2) / 2,
-        ly: mid,
-      };
-    }
-    // Back to an earlier step: around the right-hand side.
-    const [x1, y1, x2, y2] = [a.x + a.w, a.y + a.h / 2, b.x + b.w, b.y + b.h / 2];
-    const out = Math.max(x1, x2) + LOOP;
-    return {
-      d: `M${x1},${y1} C${out},${y1} ${out},${y2} ${x2},${y2}`,
-      lx: out - 8,
-      ly: (y1 + y2) / 2,
-    };
-  }
-  if (forward) {
-    const [x1, y1, x2, y2] = [a.x + a.w, a.y + a.h / 2, b.x, b.y + b.h / 2];
-    const mid = (x1 + x2) / 2;
-    return { d: `M${x1},${y1} C${mid},${y1} ${mid},${y2} ${x2},${y2}`, lx: mid, ly: (y1 + y2) / 2 };
-  }
-  const [x1, y1, x2, y2] = [a.x + a.w / 2, a.y + a.h, b.x + b.w / 2, b.y + b.h];
-  const out = Math.max(y1, y2) + LOOP;
-  return {
-    d: `M${x1},${y1} C${x1},${out} ${x2},${out} ${x2},${y2}`,
-    lx: (x1 + x2) / 2,
-    ly: out - 8,
-  };
-}
-
-/** Boxes and arrows, laid out here so the model never does coordinate maths. */
-export function Flow(flow: Flow) {
-  const marker = useId().replace(/:/g, "");
-  const { placed, width, height, across } = layoutFlow(flow);
-  const edges = flow.edges
-    .map((edge) => {
-      const a = placed.get(edge.from);
-      const b = placed.get(edge.to);
-      return a && b ? { ...edge, ...edgePath(a, b, across) } : null;
-    })
-    .filter((edge) => edge !== null);
-  const loops = flow.edges.some(
-    (e) => (placed.get(e.to)?.rank ?? 0) <= (placed.get(e.from)?.rank ?? 0),
-  );
-  const w = width + (loops && across === "x" ? LOOP + 8 : 0);
-  const h = height + (loops && across === "y" ? LOOP + 8 : 0);
+  }, [source, t]);
+  // The server drops a diagram pele cannot draw, so this only covers one
+  // still streaming in. Like any view that fails, it leaves the prose alone.
   return (
     <figure
       data-answer-card
-      className="overflow-x-auto rounded-[12px] border border-line-quiet p-4"
+      hidden={failed}
+      className="diagram rounded-[12px] border border-line-quiet p-4"
     >
-      <div className="relative mx-auto" style={{ width: w, height: h }}>
-        <svg width={w} height={h} className="absolute inset-0 overflow-visible" aria-hidden="true">
-          <defs>
-            <marker
-              id={marker}
-              viewBox="0 0 8 8"
-              refX="7"
-              refY="4"
-              markerWidth="7"
-              markerHeight="7"
-              orient="auto-start-reverse"
-            >
-              <path d="M1,1 L7,4 L1,7" fill="none" stroke="var(--line-strong)" strokeWidth="1.4" />
-            </marker>
-          </defs>
-          {edges.map((edge, index) => (
-            <path
-              key={index}
-              d={edge.d}
-              fill="none"
-              stroke="var(--line-strong)"
-              strokeWidth={1.4}
-              markerEnd={`url(#${marker})`}
-            />
-          ))}
-        </svg>
-        {[...placed.values()].map((node) => (
-          <div
-            key={node.id}
-            className={cn(
-              "absolute flex flex-col justify-center rounded-[10px] border px-3",
-              TONE_BOX[node.tone ?? "neutral"],
-            )}
-            style={{ left: node.x, top: node.y, width: node.w, height: node.h }}
-          >
-            <span className="line-clamp-2 text-[13px] leading-[17px] font-medium text-ink">
-              {node.label}
-            </span>
-            {node.detail ? (
-              <span className="truncate text-xs leading-[17px] text-ink-secondary">
-                {node.detail}
-              </span>
-            ) : null}
-          </div>
-        ))}
-        {edges.map((edge, index) =>
-          edge.label ? (
-            <span
-              key={index}
-              className="absolute -translate-x-1/2 -translate-y-1/2 rounded bg-paper px-1 text-xs text-ink-secondary"
-              style={{ left: edge.lx, top: edge.ly }}
-            >
-              {edge.label}
-            </span>
-          ) : null,
-        )}
-      </div>
-      <figcaption className="sr-only">
-        {flow.edges
-          .map((e) => `${placed.get(e.from)?.label} → ${placed.get(e.to)?.label}`)
-          .join("; ")}
-      </figcaption>
+      <div ref={ref} />
     </figure>
   );
+}
+
+type Flow = ComponentProps["Flow"];
+
+const quoted = (text: string) => `"${text.replace(/"/g, "#quot;")}"`;
+
+/** An older answer's nodes and edges, as Mermaid for pele to draw. */
+export function flowSource(flow: Flow) {
+  const ids = new Map(flow.nodes.map((node, index) => [node.id, `n${index}`]));
+  const lines = [`flowchart ${flow.direction === "right" ? "LR" : "TD"}`];
+  for (const node of flow.nodes) {
+    const label = node.detail ? `${node.label}<br/>${node.detail}` : node.label;
+    const tone = node.tone && node.tone !== "neutral" ? `:::${node.tone}` : "";
+    lines.push(`  ${ids.get(node.id)}[${quoted(label)}]${tone}`);
+  }
+  for (const edge of flow.edges) {
+    const label = edge.label ? `|${quoted(edge.label)}|` : "";
+    lines.push(`  ${ids.get(edge.from)} -->${label} ${ids.get(edge.to)}`);
+  }
+  return lines.join("\n");
+}
+
+/** Boxes and arrows from an older answer, drawn the same way as a Diagram. */
+export function Flow(flow: Flow) {
+  return <Diagram source={flowSource(flow)} />;
 }
 
 function Box({ box, depth }: { box: StructureBox; depth: number }) {

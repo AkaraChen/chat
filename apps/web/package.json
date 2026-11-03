@@ -41,6 +41,7 @@
     "morphdom": "^2.7.8",
     "next-themes": "catalog:",
     "nitro": "3.0.260903-beta",
+    "pele": "^1.13.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "react-i18next": "^17.1.8",

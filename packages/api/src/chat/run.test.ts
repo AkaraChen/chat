@@ -306,6 +306,28 @@ describe("chat loop", () => {
     });
   });
 
+  test("a diagram pele cannot parse is dropped before it is stored", async () => {
+    const diagram = (source: string) => ({
+      root: "answer",
+      elements: {
+        answer: { type: "Answer", props: {}, children: ["d"] },
+        d: { type: "Diagram", props: { source }, children: [] },
+      },
+    });
+    const model = scriptedModel([
+      say(
+        inline("Drawn.", diagram("flowchart LR\n  a[Ask] --> b[Answer]")) +
+          inline("Not drawn.", diagram("flowchart LR\n  a[Ask --> broken")),
+      ),
+    ]);
+    const { deps } = harness(model);
+    const thread = await newThread();
+    await send(deps, thread.id);
+    const specs = (await saved(thread.id))[1]!.parts.filter((p) => p.type === "data-spec");
+    expect(specs).toHaveLength(3);
+    expect(JSON.stringify(specs)).not.toContain("broken");
+  });
+
   test(`stops after ${MAX_STEPS} steps and the last step may not call a tool`, async () => {
     const model = scriptedModel([callTool("c", "read_me", { modules: ["recap"] })]);
     const { deps } = harness(model);

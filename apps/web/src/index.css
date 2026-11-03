@@ -65,6 +65,53 @@
   }
 }
 
+/*
+ * A diagram pele draws, in the app's colours, so it follows dark mode without
+ * a redraw. A node's tone is its Mermaid class (`A:::accent`) and takes the
+ * same fill and edge as a toned box elsewhere in an answer.
+ */
+.diagram {
+  --pele-bg: var(--paper);
+  --pele-fg: var(--ink);
+  --pele-muted: var(--ink-secondary);
+  --pele-line: var(--line-strong);
+  --pele-surface: var(--recessed);
+  --pele-surface-alt: var(--paper);
+  --pele-border: var(--line);
+  --pele-accent: var(--accent);
+  --pele-critical: var(--remove);
+  --pele-error: var(--remove);
+  --pele-title-weight: 500;
+  --pele-heading-weight: 500;
+  --pele-bold-weight: 500;
+  --pele-radius: 8px;
+
+  & svg.pele {
+    display: block;
+    margin-inline: auto;
+  }
+
+  & .pele-node.accent > :is(rect, polygon, circle, ellipse, path) {
+    fill: var(--accent-soft);
+    stroke: var(--accent-line);
+  }
+
+  & .pele-node.positive > :is(rect, polygon, circle, ellipse, path) {
+    fill: var(--add-soft);
+    stroke: color-mix(in srgb, var(--add) 40%, transparent);
+  }
+
+  & .pele-node.negative > :is(rect, polygon, circle, ellipse, path) {
+    fill: var(--remove-soft);
+    stroke: color-mix(in srgb, var(--remove) 40%, transparent);
+  }
+
+  & .pele-node.warning > :is(rect, polygon, circle, ellipse, path) {
+    fill: color-mix(in srgb, var(--warn) 10%, transparent);
+    stroke: color-mix(in srgb, var(--warn) 40%, transparent);
+  }
+}
+
 /* Reduced motion keeps the fades and drops the movement. */
 @media (prefers-reduced-motion: reduce) {
   .modal-backdrop[data-open="false"] .modal-panel,
