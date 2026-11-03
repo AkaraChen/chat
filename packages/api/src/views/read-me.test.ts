@@ -2,6 +2,8 @@ import { describe, expect, test } from "bun:test";
 
 import { calc, calcVariables, formatNumber } from "./calc";
 import { flowRanks, specPromptFor, validateSpec } from "./catalog";
+import { drawable } from "./diagram";
+import { parseDiagram } from "./diagram-parse";
 import { availableModules, loadedWidget, modules, readMe, toJsonl } from "./read-me";
 
 const specWith = (elements: Record<string, unknown>, state?: Record<string, unknown>) => ({
@@ -19,7 +21,8 @@ describe("read_me", () => {
     expect(detail).toEqual({ modules: "explain" });
     expect(guide).toContain("# Laying out an answer");
     expect(guide).toContain("## Module: explain");
-    expect(guide).toContain("- Flow:");
+    expect(guide).toContain("- Diagram:");
+    expect(guide).not.toContain("- Flow:");
     expect(guide).toContain("- FollowUps:");
     expect(guide).not.toContain("- Slider:");
     expect(guide).not.toContain("- Diff:");
@@ -48,7 +51,7 @@ describe("read_me", () => {
   test("every example validates and only uses its module's components", () => {
     for (const module of Object.values(modules)) {
       if (!module.example) continue;
-      expect([module.id, validateSpec(module.example)]).toEqual([module.id, []]);
+      expect([module.id, validateSpec(module.example, { parseDiagram })]).toEqual([module.id, []]);
       for (const el of Object.values(module.example.elements)) {
         expect([...module.components, "Sources", "FollowUps"]).toContain(el.type as never);
       }
@@ -165,6 +168,34 @@ describe("validateSpec", () => {
     expect(validateSpec(specWith({ options: options([true, false]) }))).toEqual([]);
     expect(validateSpec(specWith({ comparison: comparison([["one"]]) })).length).toBeGreaterThan(0);
     expect(validateSpec(specWith({ comparison: comparison([["one", "two"]]) }))).toEqual([]);
+  });
+
+  test("Diagram takes the Mermaid types it draws, and the server parses them", () => {
+    const diagram = (source: string) => ({ type: "Diagram", props: { source }, children: [] });
+    const check = (source: string) =>
+      validateSpec(specWith({ d: diagram(source) }), { parseDiagram });
+    expect(check("flowchart LR\n  a[Ask] --> b[Answer]")).toEqual([]);
+    expect(check("sequenceDiagram\n  Client->>Server: SYN\n  Server-->>Client: SYN-ACK")).toEqual(
+      [],
+    );
+    expect(check("stateDiagram-v2\n  [*] --> Idle\n  Idle --> Busy: start")).toEqual([]);
+    expect(check('pie\n  "a": 1').join()).toContain("not drawn here");
+    expect(check("a --> b").join()).toContain("start with flowchart");
+    // Only the server parses; the web app shows what the server stored.
+    const broken = specWith({ d: diagram("flowchart TD\n  a[Ask --> b") });
+    expect(validateSpec(broken)).toEqual([]);
+    expect(validateSpec(broken, { parseDiagram }).join()).toContain("Parse error");
+  });
+
+  test("a Diagram is drawn without the statements that fix a colour", () => {
+    const source = [
+      "flowchart TD",
+      "  a[Ask] --> b[Answer]:::accent",
+      "  style a fill:#f00",
+      "  classDef accent fill:#0f0",
+      "  linkStyle 0 stroke:#00f",
+    ].join("\n");
+    expect(drawable(source)).toBe("flowchart TD\n  a[Ask] --> b[Answer]:::accent");
   });
 
   test("Flow needs real ends, five-word labels and at most four nodes a rank", () => {

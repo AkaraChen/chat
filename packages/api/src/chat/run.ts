@@ -16,6 +16,7 @@ import {
 import type { GithubStore } from "../github/store";
 import { githubTools, githubToolsFor } from "../github/tools";
 import { enqueueThreadTitle, type ThreadTitleQueue } from "../jobs/thread-title";
+import { parseDiagram } from "../views/diagram-parse";
 import { createReadMeTool, loadedWidget } from "../views/read-me";
 import { createShowWidgetTool } from "../views/show-widget";
 import type { WebConnect } from "../web/mcp";
@@ -244,7 +245,7 @@ export async function streamChat(deps: ChatDeps, input: ChatInput): Promise<Resp
   });
 
   async function finish(response: ChatMessage) {
-    const answer = withoutInvalidSpec({ ...response, metadata });
+    const answer = withoutInvalidSpec({ ...response, metadata }, { parseDiagram });
     if (!answer.parts.some((part) => part.type !== "step-start")) return;
     await saveMessage(db, threadId, answer);
     await db.thread.update({ where: { id: threadId }, data: { updatedAt: new Date() } });

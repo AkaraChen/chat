@@ -250,6 +250,9 @@ export const zh: Resource = {
     stepOf: "第 {{current}} 步，共 {{total}} 步",
     back: "上一步",
     next: "下一步",
+    zoomIn: "放大",
+    zoomOut: "缩小",
+    zoomReset: "适应宽度",
     widgetStopped: "“{{title}}”试图跳出自己的框架，已被拦下。",
   },
   appearance: {

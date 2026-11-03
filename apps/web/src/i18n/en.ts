@@ -253,6 +253,9 @@ export const en = {
     stepOf: "{{current}} of {{total}}",
     back: "Back",
     next: "Next",
+    zoomIn: "Zoom in",
+    zoomOut: "Zoom out",
+    zoomReset: "Fit to width",
     widgetStopped: "“{{title}}” tried to leave its frame and was stopped.",
   },
   appearance: {

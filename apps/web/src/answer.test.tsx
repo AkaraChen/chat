@@ -3,12 +3,13 @@ import type { Spec } from "@json-render/core";
 import { modules } from "@my-better-t-app/api/views/read-me";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import createDOMPurify from "dompurify";
+import { parse } from "pele";
 
 import "@/i18n";
 
 import { AnswerView } from "./components/answer";
 import { AskContext } from "./components/answer/ask";
-import { layoutFlow } from "./components/answer/diagrams";
+import { flowSource } from "./components/answer/diagrams";
 import { WIDGET_PURIFY_CONFIG } from "./components/answer/widget-sanitize";
 import { WIDGET_CSP, WIDGET_SHELL } from "./components/answer/widget-shell";
 import { ThreadView } from "./components/chat/thread-view";
@@ -100,17 +101,41 @@ test("toggle and choice write to state", () => {
   expect(screen.getByText("Plan b")).toBeTruthy();
 });
 
-test("a flow is laid out in ranks, with at most four nodes across", () => {
-  const flow = modules.explain.example!.elements.flow!.props as Parameters<typeof layoutFlow>[0];
-  const { placed, width } = layoutFlow(flow);
-  expect(placed.get("request")!.y).toBe(0);
-  expect(placed.get("hit")!.y).toBe(placed.get("origin")!.y);
-  expect(placed.get("store")!.y).toBeGreaterThan(placed.get("origin")!.y);
-  expect(width).toBeLessThanOrEqual(640);
-
-  render(<AnswerView spec={modules.explain.example as Spec} />);
-  expect(screen.getByText("In the cache?")).toBeTruthy();
+test("a diagram is drawn by pele, in the app's colours", async () => {
+  const { container } = render(<AnswerView spec={modules.explain.example as Spec} />);
+  expect(await screen.findByText("In the cache?")).toBeTruthy();
   expect(screen.getByText("yes")).toBeTruthy();
+  expect(container.querySelector(".diagram .pele-node.accent")).toBeTruthy();
+});
+
+test("an older answer's flow is drawn as a diagram", async () => {
+  const flow = {
+    direction: "right" as const,
+    nodes: [
+      { id: "draft", label: 'Write "draft"', detail: "Local only" },
+      { id: "check", label: "Checks pass?", tone: "accent" as const },
+      { id: "ship", label: "Ship it" },
+    ],
+    edges: [
+      { from: "draft", to: "check" },
+      { from: "check", to: "ship", label: "yes" },
+      { from: "check", to: "draft", label: "no" },
+    ],
+  };
+  const source = flowSource(flow);
+  expect(source.split("\n")).toEqual([
+    "flowchart LR",
+    '  n0["Write #quot;draft#quot;<br/>Local only"]',
+    '  n1["Checks pass?"]:::accent',
+    '  n2["Ship it"]',
+    "  n0 --> n1",
+    '  n1 -->|"yes"| n2',
+    '  n1 -->|"no"| n0',
+  ]);
+  expect(parse(source).type).toBe("flowchart");
+
+  render(<AnswerView spec={view({ f: { type: "Flow", props: flow, children: [] } })} />);
+  expect(await screen.findByText("Ship it")).toBeTruthy();
 });
 
 test("a stepper shows one step at a time", () => {

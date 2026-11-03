@@ -7,6 +7,7 @@ import {
 import { z } from "zod";
 
 import { CalcError, calcVariables } from "./calc";
+import { diagramHeaders, diagramTypeIssue, MAX_DIAGRAM_CHARS } from "./diagram";
 
 /**
  * Same spec shape as `@json-render/react`'s schema (flat element map), declared
@@ -115,6 +116,7 @@ export const componentNames = [
   "Comparison",
   "Rows",
   "Sources",
+  "Diagram",
   "Flow",
   "Structure",
   "Steps",
@@ -315,6 +317,17 @@ export const sourcesProps = z.object({
     .max(6),
 });
 
+export const diagramProps = z.object({
+  source: z
+    .string()
+    .min(1)
+    .max(MAX_DIAGRAM_CHARS)
+    .describe(
+      `Mermaid source, lines joined with \\n. Starts with ${Object.values(diagramHeaders).join(", ")}.`,
+    ),
+});
+
+// Older answers drew boxes and arrows from this; new ones write a Diagram.
 export const flowProps = z.object({
   direction: z
     .enum(["down", "right"])
@@ -551,11 +564,16 @@ const definitions = {
     description:
       "The sources the answer actually used, each with a title and a domain or 'attachment'. Never invent a source; leave the element out when there are none.",
   },
+  Diagram: {
+    props: diagramProps,
+    slots: [],
+    description:
+      "Mermaid source the app draws in its own theme: a flowchart, sequence, state, class or ER diagram. Mark the node the question is about with :::accent; never set colours.",
+  },
   Flow: {
     props: flowProps,
     slots: [],
-    description:
-      "Boxes and arrows, laid out by the app: steps in order, branches at decisions, data moving between parts. At most four nodes share a rank.",
+    description: "Boxes and arrows from nodes and edges. Kept for older answers; draw a Diagram.",
   },
   Structure: {
     props: structureProps,
@@ -792,11 +810,20 @@ function checkStructure(key: string, box: StructureBox, depth: number, errors: I
   for (const child of box.children ?? []) checkStructure(key, child, depth + 1, errors);
 }
 
+export type ValidateOptions = {
+  /**
+   * Why a Diagram's source cannot be drawn, or null. The server passes
+   * `parseDiagram`; the web app leaves it out, since it shows only what the
+   * server checked and stored.
+   */
+  parseDiagram?: (source: string) => string | null;
+};
+
 /**
  * Validate one finished view. Returns human-readable errors; an empty array
  * means the view is valid.
  */
-export function validateSpec(spec: unknown): string[] {
+export function validateSpec(spec: unknown, options: ValidateOptions = {}): string[] {
   const errors: string[] = [];
   const parsed = catalog.validate(spec);
   if (!parsed.success) {
@@ -870,6 +897,11 @@ export function validateSpec(spec: unknown): string[] {
           );
         }
       });
+    }
+    if (type === "Diagram") {
+      const { source } = result.data as ComponentProps["Diagram"];
+      const issue = diagramTypeIssue(source) ?? options.parseDiagram?.(source);
+      if (issue) errors.push(`element "${key}" (Diagram) props.source: ${issue}`);
     }
     if (type === "Flow") checkFlow(key, result.data as ComponentProps["Flow"], errors);
     if (type === "Structure") {

@@ -18,7 +18,7 @@ import {
   Table,
   Todo,
 } from "./blocks";
-import { Flow, RecordCard, Steps, Structure } from "./diagrams";
+import { Diagram, Flow, RecordCard, Steps, Structure } from "./diagrams";
 import { FollowUps } from "./follow-ups";
 import { Choice, Panel, Plot, Readouts, Slider, Toggle } from "./interactive";
 import { LineChart } from "./line-chart";
@@ -41,6 +41,7 @@ export const { registry } = defineRegistry(catalog, {
     Comparison: ({ props }) => <Comparison {...props} />,
     Rows: ({ props }) => <Rows {...props} />,
     Sources: ({ props }) => <Sources {...props} />,
+    Diagram: ({ props }) => <Diagram {...props} />,
     Flow: ({ props }) => <Flow {...props} />,
     Structure: ({ props }) => <Structure {...props} />,
     Steps: ({ props }) => <Steps {...props} />,

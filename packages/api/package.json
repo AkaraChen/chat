@@ -23,6 +23,7 @@
     "ai": "^7.0.152",
     "bullmq": "^6.4.1",
     "ioredis": "^6.0.0",
+    "pele": "^1.13.0",
     "zod": "catalog:"
   },
   "devDependencies": {

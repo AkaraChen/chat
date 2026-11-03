@@ -33,7 +33,7 @@ may use, and a short routing table from phrasing to component.
 
 | Module        | The user wants to…                       | Components                                   |
 | ------------- | ---------------------------------------- | -------------------------------------------- |
-| `explain`     | understand how something works           | Flow, Structure, Steps, Notes                |
+| `explain`     | understand how something works           | Diagram, Structure, Steps, Notes             |
 | `interactive` | try values and see the effect            | Panel, Slider, Toggle, Choice, Readout, Plot |
 | `compare`     | choose between options                   | Options, Comparison, Rows                    |
 | `assess`      | know whether something can or will work  | Rows, Notes, Sources                         |
@@ -97,6 +97,33 @@ for the numbers.
   when another view in the same message failed.
 - Earlier answers reach the model as one line per view naming the
   components it showed, not as the spec.
+
+## Diagrams
+
+A `Diagram` is Mermaid source, drawn by
+[pele](https://github.com/obsidianmd/pele). The app does the layout, so the
+model never works out coordinates.
+
+- **Types.** Flowchart, sequence, state, class and ER diagrams. Charts of
+  numbers belong to the `data` module's components, so a pie or an xychart
+  fails the catalog.
+- **Checking.** Everywhere, the catalog checks the source's type and length
+  (at most 2,000 characters). When a message ends, the server also parses
+  each diagram with pele, and one that does not parse is dropped like any
+  other failing view. The web app does not parse again: it loads one type's
+  parser at a time (`pele/lazy`), and only when it draws that type.
+- **Colour.** `style`, `classDef` and `linkStyle` statements are removed
+  before drawing, since a fixed colour ignores dark mode and the one accent.
+  A node keeps its class, so `A:::accent` (or `positive`, `negative`,
+  `warning`) takes that tone's fill and edge. pele's `--pele-*` variables
+  are set from the app's tokens, so a theme change needs no redraw.
+- **Drawing.** pele's `mount` sets the layout from the column's width, may
+  turn a wide flowchart vertical on a narrow screen, and lets a diagram that
+  had to shrink be zoomed. Links and images in the source are off: a
+  diagram makes no requests and cannot navigate.
+- **Older answers.** `Flow` (nodes and edges as JSON) is no longer offered
+  to the model. A stored `Flow` is turned into a flowchart and drawn the
+  same way.
 
 ## Widgets
 
