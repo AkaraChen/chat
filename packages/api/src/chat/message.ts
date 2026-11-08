@@ -50,7 +50,8 @@ export type View = { spec: Spec; parts: number[] };
 
 /**
  * The views the message's `data-spec` parts add up to, in order. Each view
- * starts by setting `/root`; a second `/root` starts the next view.
+ * starts by setting `/root`; a second `/root` starts the next view. Elements
+ * come with their children filled in, as `withChildren` does.
  */
 export function viewsOf(parts: readonly ChatPart[]): View[] {
   const views: View[] = [];
@@ -66,7 +67,22 @@ export function viewsOf(parts: readonly ChatPart[]): View[] {
     applySpecPatch(current.spec, patch as Parameters<typeof applySpecPatch>[1]);
     current.parts.push(index);
   }
-  return views;
+  return views.map((view) => ({ ...view, spec: withChildren(view.spec) }));
+}
+
+/**
+ * The spec with `children: []` on every element that has none. Models leave
+ * it off leaf elements, or write it outside the patch's value, and the
+ * catalog wants an array. Patch values sit in the spec as they are, so the
+ * elements are copied rather than changed.
+ */
+export function withChildren(spec: Spec): Spec {
+  const elements: Spec["elements"] = {};
+  for (const [key, element] of Object.entries(spec.elements ?? {})) {
+    const lacks = typeof element === "object" && element !== null && !("children" in element);
+    elements[key] = lacks ? { ...element, children: [] } : element;
+  }
+  return { ...spec, elements };
 }
 
 /** False when the message has a view that does not pass the catalog. */
