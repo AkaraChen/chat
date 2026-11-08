@@ -26,6 +26,7 @@ import { readingFor, withAttachments, type ImageInput } from "./attachments";
 import { coalesceTextDeltas } from "./coalesce";
 import { forModel } from "./history";
 import { paceText } from "./pace";
+import { repairSpecLines } from "./spec-lines";
 import { timePrompt, timeTool } from "./time";
 import {
   dataSchemas,
@@ -266,7 +267,9 @@ export async function streamChat(deps: ChatDeps, input: ChatInput): Promise<Resp
         messageMetadata: ({ part }) => (part.type === "start" ? metadata : undefined),
         onError: messageOf,
       }) as ReadableStream<InferUIMessageChunk<ChatMessage>>;
-      writer.merge(pipeJsonRender(chunks).pipeThrough(coalesceTextDeltas()));
+      writer.merge(
+        pipeJsonRender(chunks.pipeThrough(repairSpecLines())).pipeThrough(coalesceTextDeltas()),
+      );
     },
     async onEnd({ responseMessage }) {
       void web?.close();
